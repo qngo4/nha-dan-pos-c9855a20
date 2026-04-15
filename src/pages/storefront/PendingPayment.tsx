@@ -11,7 +11,7 @@ export default function PendingPaymentPage() {
     total: 174000,
     createdAt: '2025-04-15T10:30:00+07:00',
     expiresAt: '2025-04-15T22:30:00+07:00',
-    status: 'pending' as const,
+    status: 'pending' as 'pending' | 'confirmed' | 'cancelled' | 'expired',
     items: [
       { name: 'Mì Hảo Hảo - Tôm chua cay', qty: 10, price: 5000 },
       { name: 'Coca-Cola - Lon 330ml', qty: 6, price: 10000 },
