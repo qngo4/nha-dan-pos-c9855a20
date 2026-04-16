@@ -14,11 +14,28 @@ import CheckoutPage from "@/pages/storefront/Checkout";
 import PendingPaymentPage from "@/pages/storefront/PendingPayment";
 import LoginPage from "@/pages/storefront/Login";
 import SignupPage from "@/pages/storefront/Signup";
+import AccountPage from "@/pages/storefront/Account";
 
 import AdminDashboard from "@/pages/admin/Dashboard";
+import AdminCategories from "@/pages/admin/Categories";
 import AdminProducts from "@/pages/admin/Products";
+import AdminProductDetail from "@/pages/admin/ProductDetail";
+import AdminCombos from "@/pages/admin/Combos";
 import AdminPOS from "@/pages/admin/POS";
+import AdminInvoices from "@/pages/admin/Invoices";
 import AdminPendingOrders from "@/pages/admin/PendingOrders";
+import AdminPromotions from "@/pages/admin/Promotions";
+import AdminCustomers from "@/pages/admin/Customers";
+import AdminSuppliers from "@/pages/admin/Suppliers";
+import AdminGoodsReceipts from "@/pages/admin/GoodsReceipts";
+import AdminGoodsReceiptCreate from "@/pages/admin/GoodsReceiptCreate";
+import AdminStockAdjustments from "@/pages/admin/StockAdjustments";
+import AdminStockAdjustmentCreate from "@/pages/admin/StockAdjustmentCreate";
+import AdminInventoryReport from "@/pages/admin/InventoryReport";
+import AdminRevenueReport from "@/pages/admin/RevenueReport";
+import AdminProfitReport from "@/pages/admin/ProfitReport";
+import AdminUsers from "@/pages/admin/UsersManagement";
+import AdminSecurity from "@/pages/admin/Security";
 
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import NotFound from "@/pages/NotFound";
@@ -41,7 +58,7 @@ const App = () => (
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/pending-payment" element={<PendingPaymentPage />} />
-            <Route path="/account" element={<PlaceholderPage title="Tài khoản" description="Thông tin tài khoản và lịch sử đơn hàng" />} />
+            <Route path="/account" element={<AccountPage />} />
           </Route>
 
           {/* Auth (no layout) */}
@@ -51,24 +68,26 @@ const App = () => (
           {/* Admin */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
-            <Route path="categories" element={<PlaceholderPage title="Danh mục" description="Quản lý danh mục sản phẩm" />} />
+            <Route path="categories" element={<AdminCategories />} />
             <Route path="products" element={<AdminProducts />} />
-            <Route path="products/:id" element={<PlaceholderPage title="Chi tiết sản phẩm" />} />
-            <Route path="combos" element={<PlaceholderPage title="Combo" description="Quản lý combo sản phẩm" />} />
+            <Route path="products/new" element={<AdminProductDetail />} />
+            <Route path="products/:id" element={<AdminProductDetail />} />
+            <Route path="combos" element={<AdminCombos />} />
             <Route path="pos" element={<AdminPOS />} />
-            <Route path="invoices" element={<PlaceholderPage title="Hóa đơn" description="Danh sách hóa đơn bán hàng" />} />
+            <Route path="invoices" element={<AdminInvoices />} />
             <Route path="pending-orders" element={<AdminPendingOrders />} />
-            <Route path="promotions" element={<PlaceholderPage title="Khuyến mãi" description="Quản lý chương trình khuyến mãi" />} />
-            <Route path="goods-receipts" element={<PlaceholderPage title="Phiếu nhập" description="Danh sách phiếu nhập hàng" />} />
-            <Route path="goods-receipts/create" element={<PlaceholderPage title="Tạo phiếu nhập" />} />
-            <Route path="stock-adjustments" element={<PlaceholderPage title="Kiểm kho / Điều chỉnh" description="Quản lý phiếu điều chỉnh tồn kho" />} />
-            <Route path="inventory-report" element={<PlaceholderPage title="Báo cáo tồn kho" />} />
-            <Route path="revenue" element={<PlaceholderPage title="Doanh thu" description="Báo cáo doanh thu" />} />
-            <Route path="profit" element={<PlaceholderPage title="Lợi nhuận" description="Báo cáo lợi nhuận" />} />
-            <Route path="customers" element={<PlaceholderPage title="Khách hàng" description="Quản lý khách hàng" />} />
-            <Route path="suppliers" element={<PlaceholderPage title="Nhà cung cấp" description="Quản lý nhà cung cấp" />} />
-            <Route path="users" element={<PlaceholderPage title="Người dùng" description="Quản lý tài khoản người dùng" />} />
-            <Route path="security" element={<PlaceholderPage title="Bảo mật" description="Cài đặt bảo mật hệ thống" />} />
+            <Route path="promotions" element={<AdminPromotions />} />
+            <Route path="goods-receipts" element={<AdminGoodsReceipts />} />
+            <Route path="goods-receipts/create" element={<AdminGoodsReceiptCreate />} />
+            <Route path="stock-adjustments" element={<AdminStockAdjustments />} />
+            <Route path="stock-adjustments/create" element={<AdminStockAdjustmentCreate />} />
+            <Route path="inventory-report" element={<AdminInventoryReport />} />
+            <Route path="revenue" element={<AdminRevenueReport />} />
+            <Route path="profit" element={<AdminProfitReport />} />
+            <Route path="customers" element={<AdminCustomers />} />
+            <Route path="suppliers" element={<AdminSuppliers />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="security" element={<AdminSecurity />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

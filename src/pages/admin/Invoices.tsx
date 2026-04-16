@@ -1,0 +1,118 @@
+import { useState } from "react";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolbar";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { invoices } from "@/lib/mock-data";
+import { formatVND, formatDateTime } from "@/lib/format";
+import { Receipt, Printer, XCircle, Trash2, Eye, ShieldAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const today = '2025-04-15';
+
+export default function AdminInvoices() {
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  const filtered = invoices.filter(inv => {
+    if (search && !inv.number.toLowerCase().includes(search.toLowerCase()) && !inv.customerName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterStatus && inv.status !== filterStatus) return false;
+    return true;
+  });
+
+  const canDeleteInvoice = (inv: typeof invoices[0]) => inv.date.startsWith(today);
+
+  return (
+    <div className="space-y-4 admin-dense">
+      <PageHeader title="Hóa đơn" description={`${invoices.length} hóa đơn`} />
+
+      <DataTableToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Tìm số hóa đơn, khách hàng..."
+        filters={<>
+          <FilterChip label="Tất cả" active={!filterStatus} onClick={() => setFilterStatus(null)} />
+          <FilterChip label="Hoạt động" active={filterStatus === 'active'} onClick={() => setFilterStatus('active')} />
+          <FilterChip label="Đã hủy" active={filterStatus === 'cancelled'} onClick={() => setFilterStatus('cancelled')} />
+        </>}
+      />
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={Receipt} title="Không tìm thấy hóa đơn" />
+      ) : (
+        <>
+          <div className="hidden md:block bg-card rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Số hóa đơn</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Thời gian</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Khách hàng</th>
+                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Thanh toán</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tổng</th>
+                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden lg:table-cell">Người tạo</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(inv => (
+                  <tr key={inv.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", inv.status === 'cancelled' && "opacity-60")}>
+                    <td className="px-3 py-2.5 font-mono text-xs font-medium">{inv.number}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground text-xs">{formatDateTime(inv.date)}</td>
+                    <td className="px-3 py-2.5">{inv.customerName}</td>
+                    <td className="px-3 py-2.5 text-center"><StatusBadge status={inv.paymentType} /></td>
+                    <td className="px-3 py-2.5 text-right font-medium">{formatVND(inv.total)}</td>
+                    <td className="px-3 py-2.5 text-center"><StatusBadge status={inv.status === 'cancelled' ? 'cancelled' : 'active'} /></td>
+                    <td className="px-3 py-2.5 text-muted-foreground text-xs hidden lg:table-cell">{inv.createdBy}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem"><Eye className="h-3.5 w-3.5" /></button>
+                        <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="In"><Printer className="h-3.5 w-3.5" /></button>
+                        {inv.status === 'active' && (
+                          <button onClick={() => setCancelTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Hủy"><XCircle className="h-3.5 w-3.5" /></button>
+                        )}
+                        {canDeleteInvoice(inv) ? (
+                          <button onClick={() => setDeleteTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Xóa"><Trash2 className="h-3.5 w-3.5" /></button>
+                        ) : (
+                          <button className="p-1 text-muted-foreground/40 cursor-not-allowed" title="Chỉ xóa được hóa đơn trong ngày"><ShieldAlert className="h-3.5 w-3.5" /></button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden space-y-2">
+            {filtered.map(inv => (
+              <div key={inv.id} className={cn("bg-card rounded-lg border p-3", inv.status === 'cancelled' && "opacity-60")}>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div>
+                    <p className="font-mono text-xs font-medium">{inv.number}</p>
+                    <p className="text-xs text-muted-foreground">{inv.customerName} · {formatDateTime(inv.date)}</p>
+                  </div>
+                  <StatusBadge status={inv.status === 'cancelled' ? 'cancelled' : 'active'} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <StatusBadge status={inv.paymentType} />
+                  <span className="font-bold text-sm">{formatVND(inv.total)}</span>
+                </div>
+                {!canDeleteInvoice(inv) && inv.status === 'active' && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1"><ShieldAlert className="h-3 w-3" /> Chỉ xóa được trong ngày tạo</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <ConfirmDialog open={!!cancelTarget} onClose={() => setCancelTarget(null)} onConfirm={() => setCancelTarget(null)} title="Hủy hóa đơn?" description="Hóa đơn đã hủy vẫn được lưu trong lịch sử. Thao tác này không thể hoàn tác." confirmLabel="Hủy hóa đơn" variant="danger" />
+      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => setDeleteTarget(null)} title="Xóa hóa đơn?" description="Hóa đơn sẽ bị xóa vĩnh viễn. Chỉ hóa đơn trong ngày mới được xóa." confirmLabel="Xóa" variant="danger" />
+    </div>
+  );
+}
