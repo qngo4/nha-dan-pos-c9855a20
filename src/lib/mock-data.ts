@@ -61,9 +61,12 @@ export interface Customer {
   code: string;
   name: string;
   phone: string;
+  email?: string;
   group: 'retail' | 'wholesale' | 'vip';
   active: boolean;
   totalPurchases: number;
+  lastPurchaseDate?: string;
+  orderCount: number;
 }
 
 export interface Supplier {
@@ -74,6 +77,7 @@ export interface Supplier {
   address: string;
   taxCode: string;
   email: string;
+  note?: string;
   active: boolean;
 }
 
@@ -101,6 +105,7 @@ export interface PendingOrder {
   expiresAt: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'expired';
   itemCount: number;
+  items?: { name: string; qty: number; price: number }[];
 }
 
 export interface GoodsReceipt {
@@ -113,6 +118,21 @@ export interface GoodsReceipt {
   totalCost: number;
   shippingFee: number;
   vat: number;
+  note?: string;
+  canDelete: boolean;
+}
+
+export interface GoodsReceiptLine {
+  id: string;
+  productName: string;
+  variantName: string;
+  variantCode: string;
+  quantity: number;
+  unitCost: number;
+  discount: number;
+  importUnit: string;
+  piecesPerUnit: number;
+  expiryDate?: string;
 }
 
 export interface StockAdjustment {
@@ -123,6 +143,73 @@ export interface StockAdjustment {
   note: string;
   itemCount: number;
   status: 'draft' | 'confirmed';
+  createdBy?: string;
+}
+
+export interface StockAdjustmentLine {
+  id: string;
+  variantCode: string;
+  productName: string;
+  variantName: string;
+  systemQty: number;
+  actualQty: number;
+  difference: number;
+  note: string;
+}
+
+export interface Promotion {
+  id: string;
+  name: string;
+  description: string;
+  type: 'percent' | 'fixed' | 'buy-x-get-y' | 'gift' | 'free-shipping';
+  active: boolean;
+  startDate: string;
+  endDate: string;
+  minOrderValue: number;
+  maxDiscount: number;
+  discountValue: number;
+  scope: 'all' | 'categories' | 'products';
+  scopeIds: string[];
+}
+
+export interface UserAccount {
+  id: string;
+  username: string;
+  fullName: string;
+  role: 'admin' | 'staff';
+  active: boolean;
+  totpEnabled: boolean;
+  lastLogin?: string;
+  createdAt: string;
+}
+
+export interface InventoryReportRow {
+  variantCode: string;
+  productName: string;
+  variantName: string;
+  unit: string;
+  openingStock: number;
+  received: number;
+  sold: number;
+  adjusted: number;
+  closingStock: number;
+  closingValue: number;
+}
+
+export interface RevenueRow {
+  period: string;
+  revenue: number;
+  invoiceCount: number;
+  itemsSold: number;
+}
+
+export interface ProfitRow {
+  period: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  invoiceCount: number;
 }
 
 // === MOCK DATA ===
@@ -227,44 +314,124 @@ export const combos: Combo[] = [
 ];
 
 export const customers: Customer[] = [
-  { id: '1', code: 'KH001', name: 'Nguyễn Văn An', phone: '0901234567', group: 'vip', active: true, totalPurchases: 45200000 },
-  { id: '2', code: 'KH002', name: 'Trần Thị Bình', phone: '0912345678', group: 'retail', active: true, totalPurchases: 8500000 },
-  { id: '3', code: 'KH003', name: 'Lê Hoàng Cường', phone: '0923456789', group: 'wholesale', active: true, totalPurchases: 125000000 },
-  { id: '4', code: 'KH004', name: 'Phạm Minh Đức', phone: '0934567890', group: 'retail', active: false, totalPurchases: 2100000 },
-  { id: '5', code: 'KH005', name: 'Võ Thị Em', phone: '0945678901', group: 'retail', active: true, totalPurchases: 15300000 },
+  { id: '1', code: 'KH001', name: 'Nguyễn Văn An', phone: '0901234567', email: 'an.nguyen@gmail.com', group: 'vip', active: true, totalPurchases: 45200000, lastPurchaseDate: '2025-04-15', orderCount: 87 },
+  { id: '2', code: 'KH002', name: 'Trần Thị Bình', phone: '0912345678', email: 'binh.tran@gmail.com', group: 'retail', active: true, totalPurchases: 8500000, lastPurchaseDate: '2025-04-15', orderCount: 23 },
+  { id: '3', code: 'KH003', name: 'Lê Hoàng Cường', phone: '0923456789', email: 'cuong.le@company.vn', group: 'wholesale', active: true, totalPurchases: 125000000, lastPurchaseDate: '2025-04-14', orderCount: 156 },
+  { id: '4', code: 'KH004', name: 'Phạm Minh Đức', phone: '0934567890', group: 'retail', active: false, totalPurchases: 2100000, lastPurchaseDate: '2025-02-10', orderCount: 5 },
+  { id: '5', code: 'KH005', name: 'Võ Thị Em', phone: '0945678901', email: 'em.vo@gmail.com', group: 'retail', active: true, totalPurchases: 15300000, lastPurchaseDate: '2025-04-13', orderCount: 42 },
+  { id: '6', code: 'KH006', name: 'Huỳnh Văn Phú', phone: '0956789012', group: 'wholesale', active: true, totalPurchases: 78000000, lastPurchaseDate: '2025-04-12', orderCount: 98 },
+  { id: '7', code: 'KH007', name: 'Đặng Thị Quỳnh', phone: '0967890123', group: 'retail', active: true, totalPurchases: 4200000, lastPurchaseDate: '2025-04-10', orderCount: 12 },
 ];
 
 export const suppliers: Supplier[] = [
   { id: '1', code: 'NCC001', name: 'Công ty TNHH Thực Phẩm Á Châu', phone: '02812345678', address: '123 Nguyễn Văn Linh, Q7, TP.HCM', taxCode: '0301234567', email: 'contact@acfood.vn', active: true },
   { id: '2', code: 'NCC002', name: 'Đại lý Phát Đạt', phone: '02887654321', address: '456 Lê Văn Việt, Q9, TP.HCM', taxCode: '0307654321', email: 'phatdat@gmail.com', active: true },
   { id: '3', code: 'NCC003', name: 'Công ty CP Vinamilk', phone: '02838155555', address: '10 Tân Trào, Q7, TP.HCM', taxCode: '0300588569', email: 'vinamilk@vinamilk.com.vn', active: true },
+  { id: '4', code: 'NCC004', name: 'Công ty TNHH Unilever VN', phone: '02839325511', address: '156 Nguyễn Lương Bằng, Q7, TP.HCM', taxCode: '0300589777', email: 'unilever@unilever.vn', note: 'Liên hệ anh Minh - 0901222333', active: true },
+  { id: '5', code: 'NCC005', name: 'Đại lý Hoàng Long', phone: '02866778899', address: '789 Quốc lộ 1A, Q12, TP.HCM', taxCode: '0312345678', email: 'hoanglong@gmail.com', active: false },
 ];
 
 export const invoices: Invoice[] = [
   { id: '1', number: 'HD-20250415-001', date: '2025-04-15T08:30:00+07:00', customerId: '1', customerName: 'Nguyễn Văn An', total: 285000, paymentType: 'cash', status: 'active', createdBy: 'admin', itemCount: 5 },
   { id: '2', number: 'HD-20250415-002', date: '2025-04-15T09:15:00+07:00', customerId: '2', customerName: 'Trần Thị Bình', total: 152000, paymentType: 'transfer', status: 'active', createdBy: 'admin', itemCount: 3 },
-  { id: '3', number: 'HD-20250414-001', date: '2025-04-14T14:20:00+07:00', customerId: '', customerName: 'Khách lẻ', total: 45000, paymentType: 'cash', status: 'active', createdBy: 'nhanvien1', itemCount: 2 },
-  { id: '4', number: 'HD-20250414-002', date: '2025-04-14T16:45:00+07:00', customerId: '3', customerName: 'Lê Hoàng Cường', total: 1250000, paymentType: 'transfer', status: 'cancelled', createdBy: 'admin', itemCount: 8 },
-  { id: '5', number: 'HD-20250413-001', date: '2025-04-13T10:00:00+07:00', customerId: '5', customerName: 'Võ Thị Em', total: 98000, paymentType: 'momo', status: 'active', createdBy: 'admin', itemCount: 4 },
+  { id: '3', number: 'HD-20250415-003', date: '2025-04-15T11:45:00+07:00', customerId: '', customerName: 'Khách lẻ', total: 73000, paymentType: 'cash', status: 'active', createdBy: 'nhanvien1', itemCount: 4 },
+  { id: '4', number: 'HD-20250414-001', date: '2025-04-14T14:20:00+07:00', customerId: '', customerName: 'Khách lẻ', total: 45000, paymentType: 'cash', status: 'active', createdBy: 'nhanvien1', itemCount: 2 },
+  { id: '5', number: 'HD-20250414-002', date: '2025-04-14T16:45:00+07:00', customerId: '3', customerName: 'Lê Hoàng Cường', total: 1250000, paymentType: 'transfer', status: 'cancelled', createdBy: 'admin', itemCount: 8 },
+  { id: '6', number: 'HD-20250413-001', date: '2025-04-13T10:00:00+07:00', customerId: '5', customerName: 'Võ Thị Em', total: 98000, paymentType: 'momo', status: 'active', createdBy: 'admin', itemCount: 4 },
+  { id: '7', number: 'HD-20250413-002', date: '2025-04-13T15:30:00+07:00', customerId: '6', customerName: 'Huỳnh Văn Phú', total: 2450000, paymentType: 'cash', status: 'active', createdBy: 'admin', itemCount: 12 },
+  { id: '8', number: 'HD-20250412-001', date: '2025-04-12T09:00:00+07:00', customerId: '1', customerName: 'Nguyễn Văn An', total: 567000, paymentType: 'zalopay', status: 'active', createdBy: 'nhanvien1', itemCount: 6 },
 ];
 
 export const pendingOrders: PendingOrder[] = [
-  { id: '1', orderNumber: 'DH-20250415-001', customerId: '2', customerName: 'Trần Thị Bình', paymentMethod: 'transfer', total: 320000, createdAt: '2025-04-15T10:30:00+07:00', expiresAt: '2025-04-15T22:30:00+07:00', status: 'pending', itemCount: 4 },
-  { id: '2', orderNumber: 'DH-20250415-002', customerId: '5', customerName: 'Võ Thị Em', paymentMethod: 'momo', total: 185000, createdAt: '2025-04-15T11:00:00+07:00', expiresAt: '2025-04-15T23:00:00+07:00', status: 'pending', itemCount: 2 },
+  { id: '1', orderNumber: 'DH-20250415-001', customerId: '2', customerName: 'Trần Thị Bình', paymentMethod: 'transfer', total: 320000, createdAt: '2025-04-15T10:30:00+07:00', expiresAt: '2025-04-15T22:30:00+07:00', status: 'pending', itemCount: 4, items: [{ name: 'Mì Hảo Hảo - Tôm chua cay', qty: 10, price: 5000 }, { name: 'Coca-Cola - Lon 330ml', qty: 6, price: 10000 }, { name: 'Sữa Vinamilk - Hộp 180ml', qty: 10, price: 8000 }] },
+  { id: '2', orderNumber: 'DH-20250415-002', customerId: '5', customerName: 'Võ Thị Em', paymentMethod: 'momo', total: 185000, createdAt: '2025-04-15T11:00:00+07:00', expiresAt: '2025-04-15T23:00:00+07:00', status: 'pending', itemCount: 2, items: [{ name: 'Bánh Oreo - Gói 133g', qty: 3, price: 22000 }, { name: 'Trà Lipton - Hộp 25 gói', qty: 2, price: 45000 }] },
   { id: '3', orderNumber: 'DH-20250414-001', customerId: '1', customerName: 'Nguyễn Văn An', paymentMethod: 'zalopay', total: 450000, createdAt: '2025-04-14T09:00:00+07:00', expiresAt: '2025-04-14T21:00:00+07:00', status: 'confirmed', itemCount: 6 },
   { id: '4', orderNumber: 'DH-20250413-001', customerId: '3', customerName: 'Lê Hoàng Cường', paymentMethod: 'transfer', total: 890000, createdAt: '2025-04-13T15:00:00+07:00', expiresAt: '2025-04-14T03:00:00+07:00', status: 'expired', itemCount: 5 },
+  { id: '5', orderNumber: 'DH-20250412-001', customerId: '7', customerName: 'Đặng Thị Quỳnh', paymentMethod: 'transfer', total: 156000, createdAt: '2025-04-12T14:00:00+07:00', expiresAt: '2025-04-13T02:00:00+07:00', status: 'cancelled', itemCount: 3 },
 ];
 
 export const goodsReceipts: GoodsReceipt[] = [
-  { id: '1', number: 'PN-20250415-001', date: '2025-04-15', supplierId: '1', supplierName: 'Công ty TNHH Thực Phẩm Á Châu', itemCount: 5, totalCost: 3500000, shippingFee: 50000, vat: 350000 },
-  { id: '2', number: 'PN-20250412-001', date: '2025-04-12', supplierId: '3', supplierName: 'Công ty CP Vinamilk', itemCount: 3, totalCost: 8200000, shippingFee: 0, vat: 820000 },
-  { id: '3', number: 'PN-20250410-001', date: '2025-04-10', supplierId: '2', supplierName: 'Đại lý Phát Đạt', itemCount: 8, totalCost: 12500000, shippingFee: 100000, vat: 1250000 },
+  { id: '1', number: 'PN-20250415-001', date: '2025-04-15', supplierId: '1', supplierName: 'Công ty TNHH Thực Phẩm Á Châu', itemCount: 5, totalCost: 3500000, shippingFee: 50000, vat: 350000, note: 'Nhập hàng tuần', canDelete: true },
+  { id: '2', number: 'PN-20250412-001', date: '2025-04-12', supplierId: '3', supplierName: 'Công ty CP Vinamilk', itemCount: 3, totalCost: 8200000, shippingFee: 0, vat: 820000, canDelete: false },
+  { id: '3', number: 'PN-20250410-001', date: '2025-04-10', supplierId: '2', supplierName: 'Đại lý Phát Đạt', itemCount: 8, totalCost: 12500000, shippingFee: 100000, vat: 1250000, canDelete: false },
+  { id: '4', number: 'PN-20250408-001', date: '2025-04-08', supplierId: '4', supplierName: 'Công ty TNHH Unilever VN', itemCount: 4, totalCost: 5600000, shippingFee: 0, vat: 560000, canDelete: false },
+  { id: '5', number: 'PN-20250405-001', date: '2025-04-05', supplierId: '1', supplierName: 'Công ty TNHH Thực Phẩm Á Châu', itemCount: 6, totalCost: 4200000, shippingFee: 50000, vat: 420000, canDelete: false },
+];
+
+export const mockReceiptLines: GoodsReceiptLine[] = [
+  { id: 'rl1', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', variantCode: 'SP001-01', quantity: 10, unitCost: 105000, discount: 0, importUnit: 'Thùng', piecesPerUnit: 30, expiryDate: '2025-10-15' },
+  { id: 'rl2', productName: 'Mì Hảo Hảo', variantName: 'Lẩu Thái', variantCode: 'SP001-02', quantity: 5, unitCost: 114000, discount: 2, importUnit: 'Thùng', piecesPerUnit: 30, expiryDate: '2025-10-15' },
+  { id: 'rl3', productName: 'Coca-Cola', variantName: 'Lon 330ml', variantCode: 'SP002-01', quantity: 8, unitCost: 172800, discount: 0, importUnit: 'Thùng', piecesPerUnit: 24, expiryDate: '2026-04-15' },
 ];
 
 export const stockAdjustments: StockAdjustment[] = [
-  { id: '1', code: 'DC-20250415-001', createdDate: '2025-04-15', reason: 'Kiểm kho định kỳ', note: 'Kiểm kho tháng 4/2025', itemCount: 12, status: 'draft' },
-  { id: '2', code: 'DC-20250410-001', createdDate: '2025-04-10', reason: 'Hàng hỏng', note: 'Phát hiện hàng hỏng kho 2', itemCount: 3, status: 'confirmed' },
-  { id: '3', code: 'DC-20250405-001', createdDate: '2025-04-05', reason: 'Kiểm kho định kỳ', note: 'Kiểm kho đầu tháng 4', itemCount: 25, status: 'confirmed' },
+  { id: '1', code: 'DC-20250415-001', createdDate: '2025-04-15', reason: 'Kiểm kho định kỳ', note: 'Kiểm kho tháng 4/2025', itemCount: 12, status: 'draft', createdBy: 'admin' },
+  { id: '2', code: 'DC-20250410-001', createdDate: '2025-04-10', reason: 'Hàng hỏng', note: 'Phát hiện hàng hỏng kho 2', itemCount: 3, status: 'confirmed', createdBy: 'admin' },
+  { id: '3', code: 'DC-20250405-001', createdDate: '2025-04-05', reason: 'Kiểm kho định kỳ', note: 'Kiểm kho đầu tháng 4', itemCount: 25, status: 'confirmed', createdBy: 'nhanvien1' },
+];
+
+export const mockAdjustmentLines: StockAdjustmentLine[] = [
+  { id: 'al1', variantCode: 'SP001-01', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', systemQty: 250, actualQty: 245, difference: -5, note: 'Hàng hỏng bao bì' },
+  { id: 'al2', variantCode: 'SP002-01', productName: 'Coca-Cola', variantName: 'Lon 330ml', systemQty: 178, actualQty: 180, difference: 2, note: 'Đếm thiếu lần trước' },
+  { id: 'al3', variantCode: 'SP003-02', productName: 'Sữa Vinamilk', variantName: 'Hộp 1L', systemQty: 10, actualQty: 8, difference: -2, note: 'Hàng hết hạn loại bỏ' },
+  { id: 'al4', variantCode: 'SP006-01', productName: 'Giấy vệ sinh Pulppy', variantName: 'Gói 6 cuộn', systemQty: 5, actualQty: 3, difference: -2, note: 'Hư hỏng do nước' },
+];
+
+export const promotions: Promotion[] = [
+  { id: '1', name: 'Giảm 10% toàn bộ', description: 'Khuyến mãi cuối tuần', type: 'percent', active: true, startDate: '2025-04-14', endDate: '2025-04-20', minOrderValue: 100000, maxDiscount: 50000, discountValue: 10, scope: 'all', scopeIds: [] },
+  { id: '2', name: 'Mua 5 tặng 1 Mì Hảo Hảo', description: 'Áp dụng cho mì gói', type: 'buy-x-get-y', active: true, startDate: '2025-04-01', endDate: '2025-04-30', minOrderValue: 0, maxDiscount: 0, discountValue: 0, scope: 'products', scopeIds: ['1'] },
+  { id: '3', name: 'Giảm 20.000đ cho đơn từ 200K', description: 'Áp dụng mọi sản phẩm', type: 'fixed', active: false, startDate: '2025-03-01', endDate: '2025-03-31', minOrderValue: 200000, maxDiscount: 20000, discountValue: 20000, scope: 'all', scopeIds: [] },
+  { id: '4', name: 'Miễn phí vận chuyển', description: 'Đơn từ 300K', type: 'free-shipping', active: true, startDate: '2025-04-01', endDate: '2025-06-30', minOrderValue: 300000, maxDiscount: 0, discountValue: 0, scope: 'all', scopeIds: [] },
+];
+
+export const userAccounts: UserAccount[] = [
+  { id: '1', username: 'admin', fullName: 'Nguyễn Nhà Đan', role: 'admin', active: true, totpEnabled: true, lastLogin: '2025-04-15T08:00:00+07:00', createdAt: '2024-01-01' },
+  { id: '2', username: 'nhanvien1', fullName: 'Trần Thị Lan', role: 'staff', active: true, totpEnabled: true, lastLogin: '2025-04-15T07:30:00+07:00', createdAt: '2024-06-15' },
+  { id: '3', username: 'nhanvien2', fullName: 'Phạm Văn Hùng', role: 'staff', active: true, totpEnabled: false, lastLogin: '2025-04-14T16:00:00+07:00', createdAt: '2024-09-01' },
+  { id: '4', username: 'nhanvien3', fullName: 'Lê Thị Mai', role: 'staff', active: false, totpEnabled: false, lastLogin: '2025-03-20T10:00:00+07:00', createdAt: '2024-11-01' },
+];
+
+export const inventoryReport: InventoryReportRow[] = [
+  { variantCode: 'SP001-01', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', unit: 'Gói', openingStock: 200, received: 300, sold: 255, adjusted: 0, closingStock: 245, closingValue: 857500 },
+  { variantCode: 'SP001-02', productName: 'Mì Hảo Hảo', variantName: 'Lẩu Thái', unit: 'Gói', openingStock: 80, received: 150, sold: 218, adjusted: 0, closingStock: 12, closingValue: 45600 },
+  { variantCode: 'SP001-03', productName: 'Mì Hảo Hảo', variantName: 'Sa tế', unit: 'Gói', openingStock: 50, received: 0, sold: 50, adjusted: 0, closingStock: 0, closingValue: 0 },
+  { variantCode: 'SP002-01', productName: 'Coca-Cola', variantName: 'Lon 330ml', unit: 'Lon', openingStock: 150, received: 192, sold: 162, adjusted: 0, closingStock: 180, closingValue: 1296000 },
+  { variantCode: 'SP002-02', productName: 'Coca-Cola', variantName: 'Chai 1.5L', unit: 'Chai', openingStock: 30, received: 48, sold: 33, adjusted: 0, closingStock: 45, closingValue: 607500 },
+  { variantCode: 'SP003-01', productName: 'Sữa Vinamilk', variantName: 'Hộp 180ml', unit: 'Hộp', openingStock: 80, received: 120, sold: 104, adjusted: 0, closingStock: 96, closingValue: 576000 },
+  { variantCode: 'SP003-02', productName: 'Sữa Vinamilk', variantName: 'Hộp 1L', unit: 'Hộp', openingStock: 15, received: 24, sold: 29, adjusted: -2, closingStock: 8, closingValue: 200000 },
+  { variantCode: 'SP004-01', productName: 'Bánh Oreo', variantName: 'Gói 133g', unit: 'Gói', openingStock: 50, received: 72, sold: 55, adjusted: 0, closingStock: 67, closingValue: 1072000 },
+  { variantCode: 'SP006-01', productName: 'Giấy vệ sinh Pulppy', variantName: 'Gói 6 cuộn', unit: 'Gói', openingStock: 15, received: 0, sold: 10, adjusted: -2, closingStock: 3, closingValue: 120000 },
+];
+
+export const revenueData: RevenueRow[] = [
+  { period: '15/04/2025', revenue: 2850000, invoiceCount: 8, itemsSold: 45 },
+  { period: '14/04/2025', revenue: 3150000, invoiceCount: 12, itemsSold: 67 },
+  { period: '13/04/2025', revenue: 2548000, invoiceCount: 9, itemsSold: 38 },
+  { period: '12/04/2025', revenue: 4200000, invoiceCount: 15, itemsSold: 89 },
+  { period: '11/04/2025', revenue: 1900000, invoiceCount: 7, itemsSold: 28 },
+  { period: '10/04/2025', revenue: 3650000, invoiceCount: 11, itemsSold: 52 },
+  { period: '09/04/2025', revenue: 2100000, invoiceCount: 8, itemsSold: 35 },
+];
+
+export const profitData: ProfitRow[] = [
+  { period: 'Tuần 15 (07-13/04)', revenue: 14398000, cost: 10439000, profit: 3959000, margin: 0.275, invoiceCount: 47 },
+  { period: 'Tuần 16 (14-15/04)', revenue: 6000000, cost: 4350000, profit: 1650000, margin: 0.275, invoiceCount: 20 },
+];
+
+export const revenueByProduct = [
+  { name: 'Mì Hảo Hảo - Tôm chua cay', revenue: 4500000, qty: 900 },
+  { name: 'Coca-Cola - Lon 330ml', revenue: 3200000, qty: 320 },
+  { name: 'Sữa Vinamilk - Hộp 180ml', revenue: 2400000, qty: 300 },
+  { name: 'Giấy vệ sinh Pulppy', revenue: 1650000, qty: 30 },
+  { name: 'Bánh Oreo - Gói 133g', revenue: 1540000, qty: 70 },
+];
+
+export const revenueByCategory = [
+  { name: 'Thực phẩm khô', revenue: 6200000 },
+  { name: 'Đồ uống', revenue: 4800000 },
+  { name: 'Sữa & Chế phẩm', revenue: 3100000 },
+  { name: 'Đồ dùng gia đình', revenue: 2450000 },
+  { name: 'Bánh kẹo', revenue: 1950000 },
 ];
 
 // Dashboard stats
@@ -283,7 +450,9 @@ export const dashboardStats = {
   nearExpiryLots: [
     { productName: 'Sữa Vinamilk', variantName: 'Hộp 1L', expiryDate: '2025-04-20', stock: 8 },
   ],
-  expiredLots: [],
+  expiredLots: [
+    { productName: 'Sữa chua Vinamilk', variantName: 'Lốc 4 hộp', expiryDate: '2025-04-10', stock: 5 },
+  ],
   outOfStockVariants: [
     { productName: 'Mì Hảo Hảo', variantName: 'Sa tế', stock: 0 },
     { productName: 'Trà Lipton', variantName: 'Chai 455ml', stock: 0 },
