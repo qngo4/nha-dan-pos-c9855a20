@@ -13,6 +13,8 @@ import {
 import { products, combos, categories } from "@/lib/mock-data";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ComboCard } from "@/components/storefront/ComboCard";
+import { HotProductsCarousel } from "@/components/storefront/HotProductsCarousel";
+import { Reveal } from "@/components/storefront/Reveal";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -148,6 +150,7 @@ export default function StorefrontHome() {
 
       <div className="max-w-7xl mx-auto px-4 py-10 space-y-12">
         {/* === Categories === */}
+        <Reveal as-section>
         <section>
           <div className="flex items-end justify-between mb-4">
             <div>
