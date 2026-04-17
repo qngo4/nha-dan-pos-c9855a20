@@ -48,21 +48,25 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
     };
   }, []);
 
-  const notifications = [
+  const baseNotifications = useMemo(() => [
     ...dashboardStats.lowStockVariants.slice(0, 2).map(v => ({
       id: `low-${v.variantName}`,
       type: "warning" as const,
       title: "Sắp hết hàng",
       desc: `${v.productName} - ${v.variantName} còn ${v.stock}`,
+      href: "/admin/inventory",
     })),
     ...dashboardStats.nearExpiryLots.slice(0, 1).map(v => ({
       id: `exp-${v.variantName}`,
       type: "warning" as const,
       title: "Sắp hết hạn",
       desc: `${v.productName} - HSD ${v.expiryDate}`,
+      href: "/admin/inventory",
     })),
-    { id: "po", type: "info" as const, title: "Đơn chờ thanh toán", desc: `${dashboardStats.pendingOrdersCount} đơn đang chờ` },
-  ];
+    { id: "po", type: "info" as const, title: "Đơn chờ thanh toán", desc: `${dashboardStats.pendingOrdersCount} đơn đang chờ`, href: "/admin/pending-orders" },
+  ], []);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const notifications = baseNotifications.filter(n => !readIds.has(n.id));
 
   const handleLogout = () => {
     toast.success("Đã đăng xuất");
@@ -127,10 +131,10 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
       e.preventDefault();
       if (hits[activeIdx]) goToHit(hits[activeIdx]);
       else if (searchQ.trim()) {
-        // Default: go to products list with search context
+        // Fallback: navigate to products list with the query
         setSearchOpen(false);
-        navigate(`/admin/products`);
-        toast.info(`Đang tìm "${searchQ}" trong sản phẩm`);
+        navigate(`/admin/products?q=${encodeURIComponent(searchQ.trim())}`);
+        setSearchQ("");
       }
     } else if (e.key === "Escape") setSearchOpen(false);
   };
@@ -228,7 +232,14 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
             <div className="absolute right-0 top-full mt-1 w-80 bg-popover border rounded-md shadow-lg z-50 animate-fade-in">
               <div className="flex items-center justify-between px-3 py-2 border-b">
                 <h3 className="font-semibold text-sm">Thông báo</h3>
-                <button onClick={() => { toast.success("Đã đánh dấu đã đọc"); setNotifOpen(false); }} className="text-[11px] text-primary hover:underline flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    setReadIds(new Set(baseNotifications.map(n => n.id)));
+                    toast.success("Đã đánh dấu tất cả là đã đọc");
+                  }}
+                  disabled={notifications.length === 0}
+                  className="text-[11px] text-primary hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed flex items-center gap-1"
+                >
                   <Check className="h-3 w-3" /> Đã đọc tất cả
                 </button>
               </div>
@@ -238,7 +249,11 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
                 ) : notifications.map(n => (
                   <button
                     key={n.id}
-                    onClick={() => { setNotifOpen(false); navigate("/admin"); }}
+                    onClick={() => {
+                      setReadIds(prev => new Set([...prev, n.id]));
+                      setNotifOpen(false);
+                      navigate(n.href);
+                    }}
                     className="w-full text-left px-3 py-2.5 border-b last:border-0 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-start gap-2">
