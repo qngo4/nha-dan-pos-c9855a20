@@ -1,21 +1,60 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { mockAdjustmentLines } from "@/lib/mock-data";
 import {
-  ArrowLeft, Save, Check, Trash2, Search, Plus, AlertTriangle
+  ArrowLeft, Save, Check, Trash2, Search, Plus, AlertTriangle, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function AdminStockAdjustmentCreate() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<'draft' | 'confirmed'>('draft');
   const [lines, setLines] = useState(mockAdjustmentLines);
   const [reason, setReason] = useState('Kiểm kho định kỳ');
   const [note, setNote] = useState('Kiểm kho tháng 4/2025');
+  const [search, setSearch] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  const handleSaveDraft = () => {
+    if (lines.length === 0) {
+      toast.error("Chưa có mặt hàng nào để lưu nháp");
+      return;
+    }
+    setSavedAt(new Date().toISOString());
+    toast.success("Đã lưu nháp phiếu điều chỉnh");
+  };
+
+  const handleConfirm = () => {
+    setStatus('confirmed');
+    toast.success("Đã xác nhận phiếu — tồn kho đã được cập nhật");
+  };
+
+  const handleDelete = () => {
+    toast.success("Đã xóa phiếu nháp");
+    navigate('/admin/stock-adjustments');
+  };
+
+  const addLine = () => {
+    if (!search.trim()) return;
+    setLines(prev => [...prev, {
+      id: `m-${Date.now()}`,
+      variantCode: search.toUpperCase(),
+      productName: search,
+      variantName: 'Mặc định',
+      systemQty: 0,
+      actualQty: 0,
+      difference: 0,
+      note: '',
+    }]);
+    setSearch('');
+    toast.success(`Đã thêm "${search}" vào phiếu`);
+  };
 
   const totalPositive = lines.filter(l => l.difference > 0).reduce((s, l) => s + l.difference, 0);
   const totalNegative = lines.filter(l => l.difference < 0).reduce((s, l) => s + l.difference, 0);
@@ -37,8 +76,8 @@ export default function AdminStockAdjustmentCreate() {
                 <button onClick={() => setShowDelete(true)} className="px-3 py-1.5 text-xs font-medium border border-danger text-danger rounded-md hover:bg-danger-soft">
                   <Trash2 className="h-3.5 w-3.5 inline mr-1" /> Xóa nháp
                 </button>
-                <button className="px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted">
-                  <Save className="h-3.5 w-3.5 inline mr-1" /> Lưu nháp
+                <button onClick={handleSaveDraft} className="px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted">
+                  <FileText className="h-3.5 w-3.5 inline mr-1" /> Lưu nháp
                 </button>
                 <button onClick={() => setShowConfirm(true)} className="px-3 py-1.5 text-xs font-medium bg-success text-success-foreground rounded-md hover:bg-success/90">
                   <Check className="h-3.5 w-3.5 inline mr-1" /> Xác nhận
