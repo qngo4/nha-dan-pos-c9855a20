@@ -1,24 +1,37 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { userAccounts } from "@/lib/mock-data";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { UserFormDrawer } from "@/components/shared/UserFormDrawer";
+import { useStore, userActions } from "@/lib/store";
 import { formatDateTime } from "@/lib/format";
-import { Plus, UserCog, Pencil, Shield, MoreHorizontal } from "lucide-react";
+import { Plus, UserCog, Pencil, Shield, MoreHorizontal, Trash2, KeyRound } from "lucide-react";
+import { toast } from "sonner";
+import { UserAccount } from "@/lib/mock-data";
 
 export default function AdminUsers() {
+  const { users } = useStore();
   const [search, setSearch] = useState('');
-  const filtered = userAccounts.filter(u =>
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<UserAccount | null>(null);
+  const [deleting, setDeleting] = useState<UserAccount | null>(null);
+
+  const filtered = useMemo(() => users.filter(u =>
     !search || u.username.toLowerCase().includes(search.toLowerCase()) || u.fullName.toLowerCase().includes(search.toLowerCase())
-  );
+  ), [users, search]);
+
+  const openAdd = () => { setEditing(null); setDrawerOpen(true); };
+  const openEdit = (u: UserAccount) => { setEditing(u); setDrawerOpen(true); setOpenMenu(null); };
 
   return (
     <div className="space-y-4 admin-dense">
       <PageHeader
         title="Người dùng"
-        description={`${userAccounts.length} tài khoản`}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover"><Plus className="h-3.5 w-3.5" /> Thêm người dùng</button>}
+        description={`${users.length} tài khoản`}
+        actions={<button onClick={openAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover"><Plus className="h-3.5 w-3.5" /> Thêm người dùng</button>}
       />
 
       <DataTableToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tìm username, họ tên..." />
@@ -59,7 +72,22 @@ export default function AdminUsers() {
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={u.totpEnabled ? 'totp-enabled' : 'totp-disabled'} /></td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={u.active ? 'active' : 'inactive'} /></td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground hidden lg:table-cell">{u.lastLogin ? formatDateTime(u.lastLogin) : '—'}</td>
-                    <td className="px-3 py-2.5"><button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button></td>
+                    <td className="px-3 py-2.5 relative">
+                      <button onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button>
+                      {openMenu === u.id && (
+                        <div className="absolute right-2 top-full mt-1 w-44 bg-popover border rounded-md shadow-lg z-20">
+                          <button onClick={() => openEdit(u)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><Pencil className="h-3 w-3" /> Sửa</button>
+                          <button onClick={() => { userActions.update(u.id, { active: !u.active }); setOpenMenu(null); toast.success(u.active ? "Đã khóa tài khoản" : "Đã mở khóa"); }} className="w-full px-3 py-1.5 text-xs hover:bg-muted text-left">{u.active ? "Khóa tài khoản" : "Mở khóa"}</button>
+                          <button onClick={() => { toast.success(`Đã gửi link đặt lại mật khẩu cho ${u.username}`); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><KeyRound className="h-3 w-3" /> Đặt lại mật khẩu</button>
+                          <button
+                            onClick={() => { if (u.username === 'admin') { toast.error("Không thể xóa tài khoản admin chính"); setOpenMenu(null); return; } setDeleting(u); setOpenMenu(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-danger-soft text-danger text-left"
+                          >
+                            <Trash2 className="h-3 w-3" /> Xóa
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -68,7 +96,7 @@ export default function AdminUsers() {
 
           <div className="md:hidden space-y-2">
             {filtered.map(u => (
-              <div key={u.id} className="bg-card rounded-lg border p-3">
+              <div key={u.id} className="bg-card rounded-lg border p-3" onClick={() => openEdit(u)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="h-9 w-9 bg-primary-soft rounded-full flex items-center justify-center text-xs font-bold text-primary shrink-0">{u.fullName.charAt(0)}</div>
@@ -90,6 +118,17 @@ export default function AdminUsers() {
           </div>
         </>
       )}
+
+      <UserFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} user={editing} />
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => { if (deleting) { userActions.remove(deleting.id); toast.success("Đã xóa người dùng"); } }}
+        title="Xóa người dùng?"
+        description={`Tài khoản "${deleting?.username}" sẽ bị xóa vĩnh viễn. Lịch sử thao tác vẫn được giữ lại.`}
+        variant="danger"
+        confirmLabel="Xóa"
+      />
     </div>
   );
 }
