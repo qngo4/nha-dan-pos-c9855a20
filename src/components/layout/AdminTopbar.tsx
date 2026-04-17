@@ -96,7 +96,7 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         id: i.id,
         title: i.number,
         sub: `${i.customerName} · ${new Date(i.date).toLocaleDateString("vi-VN")}`,
-        href: `/admin/invoices`,
+        href: `/admin/invoices?q=${encodeURIComponent(i.number)}`,
       }));
     const customerHits: SearchHit[] = customers
       .filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.code.toLowerCase().includes(q))
@@ -106,7 +106,7 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         id: c.id,
         title: c.name,
         sub: `${c.code} · ${c.phone}`,
-        href: `/admin/customers`,
+        href: `/admin/customers?q=${encodeURIComponent(c.name)}`,
       }));
     return [...productHits, ...invoiceHits, ...customerHits];
   }, [searchQ]);
