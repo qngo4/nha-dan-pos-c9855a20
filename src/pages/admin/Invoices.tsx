@@ -4,30 +4,55 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolbar";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { invoices } from "@/lib/mock-data";
+import { InvoiceDetailDrawer } from "@/components/shared/InvoiceDetailDrawer";
+import { invoices as initialInvoices, type Invoice } from "@/lib/mock-data";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { Receipt, Printer, XCircle, Trash2, Eye, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const today = '2025-04-15';
 
 export default function AdminInvoices() {
+  const [invoiceList, setInvoiceList] = useState<Invoice[]>(initialInvoices);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
 
-  const filtered = invoices.filter(inv => {
+  const filtered = invoiceList.filter(inv => {
     if (search && !inv.number.toLowerCase().includes(search.toLowerCase()) && !inv.customerName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus && inv.status !== filterStatus) return false;
     return true;
   });
 
-  const canDeleteInvoice = (inv: typeof invoices[0]) => inv.date.startsWith(today);
+  const canDeleteInvoice = (inv: Invoice) => inv.date.startsWith(today);
+
+  const handleCancel = () => {
+    if (!cancelTarget) return;
+    const inv = invoiceList.find(i => i.id === cancelTarget);
+    setInvoiceList(prev => prev.map(i => i.id === cancelTarget ? { ...i, status: 'cancelled' } : i));
+    toast.success(`Đã hủy hóa đơn ${inv?.number ?? ''}`);
+    setCancelTarget(null);
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    const inv = invoiceList.find(i => i.id === deleteTarget);
+    setInvoiceList(prev => prev.filter(i => i.id !== deleteTarget));
+    toast.success(`Đã xóa hóa đơn ${inv?.number ?? ''}`);
+    setDeleteTarget(null);
+  };
+
+  const handlePrint = (inv: Invoice) => {
+    toast.success(`Đang in hóa đơn ${inv.number}...`);
+    setTimeout(() => window.print(), 200);
+  };
 
   return (
     <div className="space-y-4 admin-dense">
-      <PageHeader title="Hóa đơn" description={`${invoices.length} hóa đơn`} />
+      <PageHeader title="Hóa đơn" description={`${invoiceList.length} hóa đơn`} />
 
       <DataTableToolbar
         search={search}
@@ -61,7 +86,9 @@ export default function AdminInvoices() {
               <tbody>
                 {filtered.map(inv => (
                   <tr key={inv.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", inv.status === 'cancelled' && "opacity-60")}>
-                    <td className="px-3 py-2.5 font-mono text-xs font-medium">{inv.number}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs font-medium">
+                      <button onClick={() => setDetailInvoice(inv)} className="hover:text-primary hover:underline">{inv.number}</button>
+                    </td>
                     <td className="px-3 py-2.5 text-muted-foreground text-xs">{formatDateTime(inv.date)}</td>
                     <td className="px-3 py-2.5">{inv.customerName}</td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={inv.paymentType} /></td>
@@ -70,15 +97,19 @@ export default function AdminInvoices() {
                     <td className="px-3 py-2.5 text-muted-foreground text-xs hidden lg:table-cell">{inv.createdBy}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem"><Eye className="h-3.5 w-3.5" /></button>
-                        <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="In"><Printer className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setDetailInvoice(inv)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handlePrint(inv)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="In hóa đơn"><Printer className="h-3.5 w-3.5" /></button>
                         {inv.status === 'active' && (
                           <button onClick={() => setCancelTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Hủy"><XCircle className="h-3.5 w-3.5" /></button>
                         )}
                         {canDeleteInvoice(inv) ? (
                           <button onClick={() => setDeleteTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Xóa"><Trash2 className="h-3.5 w-3.5" /></button>
                         ) : (
-                          <button className="p-1 text-muted-foreground/40 cursor-not-allowed" title="Chỉ xóa được hóa đơn trong ngày"><ShieldAlert className="h-3.5 w-3.5" /></button>
+                          <button
+                            disabled
+                            title="Chỉ được xóa hóa đơn trong ngày tạo"
+                            className="p-1 text-muted-foreground/40 cursor-not-allowed"
+                          ><ShieldAlert className="h-3.5 w-3.5" /></button>
                         )}
                       </div>
                     </td>
@@ -91,16 +122,25 @@ export default function AdminInvoices() {
           <div className="md:hidden space-y-2">
             {filtered.map(inv => (
               <div key={inv.id} className={cn("bg-card rounded-lg border p-3", inv.status === 'cancelled' && "opacity-60")}>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <p className="font-mono text-xs font-medium">{inv.number}</p>
-                    <p className="text-xs text-muted-foreground">{inv.customerName} · {formatDateTime(inv.date)}</p>
+                <button onClick={() => setDetailInvoice(inv)} className="w-full text-left">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <p className="font-mono text-xs font-medium">{inv.number}</p>
+                      <p className="text-xs text-muted-foreground">{inv.customerName} · {formatDateTime(inv.date)}</p>
+                    </div>
+                    <StatusBadge status={inv.status === 'cancelled' ? 'cancelled' : 'active'} />
                   </div>
-                  <StatusBadge status={inv.status === 'cancelled' ? 'cancelled' : 'active'} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <StatusBadge status={inv.paymentType} />
-                  <span className="font-bold text-sm">{formatVND(inv.total)}</span>
+                  <div className="flex items-center justify-between">
+                    <StatusBadge status={inv.paymentType} />
+                    <span className="font-bold text-sm">{formatVND(inv.total)}</span>
+                  </div>
+                </button>
+                <div className="flex gap-1 mt-2 pt-2 border-t">
+                  <button onClick={() => setDetailInvoice(inv)} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs border rounded"><Eye className="h-3 w-3" /> Chi tiết</button>
+                  <button onClick={() => handlePrint(inv)} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs border rounded"><Printer className="h-3 w-3" /> In</button>
+                  {inv.status === 'active' && (
+                    <button onClick={() => setCancelTarget(inv.id)} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs border border-danger/30 text-danger rounded"><XCircle className="h-3 w-3" /> Hủy</button>
+                  )}
                 </div>
                 {!canDeleteInvoice(inv) && inv.status === 'active' && (
                   <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1"><ShieldAlert className="h-3 w-3" /> Chỉ xóa được trong ngày tạo</p>
@@ -111,8 +151,9 @@ export default function AdminInvoices() {
         </>
       )}
 
-      <ConfirmDialog open={!!cancelTarget} onClose={() => setCancelTarget(null)} onConfirm={() => setCancelTarget(null)} title="Hủy hóa đơn?" description="Hóa đơn đã hủy vẫn được lưu trong lịch sử. Thao tác này không thể hoàn tác." confirmLabel="Hủy hóa đơn" variant="danger" />
-      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => setDeleteTarget(null)} title="Xóa hóa đơn?" description="Hóa đơn sẽ bị xóa vĩnh viễn. Chỉ hóa đơn trong ngày mới được xóa." confirmLabel="Xóa" variant="danger" />
+      <ConfirmDialog open={!!cancelTarget} onClose={() => setCancelTarget(null)} onConfirm={handleCancel} title="Hủy hóa đơn?" description="Hóa đơn đã hủy vẫn được lưu trong lịch sử. Thao tác này không thể hoàn tác." confirmLabel="Hủy hóa đơn" variant="danger" />
+      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} title="Xóa hóa đơn?" description="Hóa đơn sẽ bị xóa vĩnh viễn. Chỉ hóa đơn trong ngày mới được xóa." confirmLabel="Xóa" variant="danger" />
+      <InvoiceDetailDrawer invoice={detailInvoice} onClose={() => setDetailInvoice(null)} />
     </div>
   );
 }
