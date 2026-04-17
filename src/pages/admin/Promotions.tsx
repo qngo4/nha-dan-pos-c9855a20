@@ -5,6 +5,7 @@ import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolb
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { promotions as initialPromotions, type Promotion } from "@/lib/mock-data";
+import { DateInput } from "@/components/shared/DateInput";
 import { formatVND, formatDate } from "@/lib/format";
 import { Plus, Tags, Calendar, Pencil, X, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
@@ -203,10 +204,10 @@ function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: 
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Bắt đầu">
-              <input type="date" value={form.startDate} onChange={e => update('startDate', e.target.value)} className="w-full h-9 px-3 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-primary" />
+              <DateInput value={form.startDate} onChange={(v) => update('startDate', v)} className="w-full h-9" />
             </Field>
-            <Field label="Kết thúc">
-              <input type="date" value={form.endDate} onChange={e => update('endDate', e.target.value)} className="w-full h-9 px-3 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-primary" />
+            <Field label="Kết thúc" hint="Cho phép chọn ngày tương lai">
+              <DateInput allowFuture value={form.endDate} onChange={(v) => update('endDate', v)} className="w-full h-9" />
             </Field>
           </div>
 
@@ -255,11 +256,12 @@ function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
       <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
       {children}
+      {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }

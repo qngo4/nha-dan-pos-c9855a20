@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
+import { DateInput } from "@/components/shared/DateInput";
 import { inventoryReport } from "@/lib/mock-data";
 import { formatVND, formatNumber } from "@/lib/format";
 import { BarChart3, Download, Package, AlertTriangle } from "lucide-react";
@@ -38,9 +39,9 @@ export default function AdminInventoryReport() {
         searchPlaceholder="Tìm sản phẩm, mã phân loại..."
         actions={
           <div className="flex gap-2">
-            <input type="date" defaultValue="2025-04-01" className="h-8 px-2 text-xs border rounded-md bg-card" />
+            <DateInput defaultValue="2025-04-01" />
             <span className="text-xs text-muted-foreground self-center">—</span>
-            <input type="date" defaultValue="2025-04-15" className="h-8 px-2 text-xs border rounded-md bg-card" />
+            <DateInput defaultValue="2025-04-15" />
           </div>
         }
       />

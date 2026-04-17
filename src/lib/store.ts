@@ -7,23 +7,35 @@ import {
   categories as initialCategories,
   products as initialProducts,
   combos as initialCombos,
+  customers as initialCustomers,
+  suppliers as initialSuppliers,
+  userAccounts as initialUsers,
   type Category,
   type Product,
   type ProductVariant,
   type Combo,
   type ComboItem,
+  type Customer,
+  type Supplier,
+  type UserAccount,
 } from "./mock-data";
 
 interface State {
   categories: Category[];
   products: Product[];
   combos: Combo[];
+  customers: Customer[];
+  suppliers: Supplier[];
+  users: UserAccount[];
 }
 
 let state: State = {
   categories: [...initialCategories],
   products: JSON.parse(JSON.stringify(initialProducts)),
   combos: JSON.parse(JSON.stringify(initialCombos)),
+  customers: [...initialCustomers],
+  suppliers: [...initialSuppliers],
+  users: [...initialUsers],
 };
 
 const listeners = new Set<() => void>();
@@ -163,3 +175,51 @@ export const comboActions = {
 };
 
 export { computeDerivedStock };
+
+// ===== Customers =====
+export const customerActions = {
+  create(input: Omit<Customer, "id" | "code" | "totalPurchases" | "orderCount">) {
+    const code = `KH${String(state.customers.length + 1).padStart(3, "0")}`;
+    const c: Customer = { ...input, id: uid("kh"), code, totalPurchases: 0, orderCount: 0 };
+    setState((s) => ({ ...s, customers: [c, ...s.customers] }));
+    return c;
+  },
+  update(id: string, patch: Partial<Customer>) {
+    setState((s) => ({ ...s, customers: s.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+  },
+  remove(id: string) {
+    setState((s) => ({ ...s, customers: s.customers.filter((c) => c.id !== id) }));
+  },
+};
+
+// ===== Suppliers =====
+export const supplierActions = {
+  create(input: Omit<Supplier, "id" | "code">) {
+    const code = `NCC${String(state.suppliers.length + 1).padStart(3, "0")}`;
+    const s: Supplier = { ...input, id: uid("ncc"), code };
+    setState((st) => ({ ...st, suppliers: [s, ...st.suppliers] }));
+    return s;
+  },
+  update(id: string, patch: Partial<Supplier>) {
+    setState((s) => ({ ...s, suppliers: s.suppliers.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+  },
+  remove(id: string) {
+    setState((s) => ({ ...s, suppliers: s.suppliers.filter((x) => x.id !== id) }));
+  },
+};
+
+// ===== Users =====
+export const userActions = {
+  create(input: Omit<UserAccount, "id" | "createdAt">) {
+    const u: UserAccount = { ...input, id: uid("u"), createdAt: new Date().toISOString().slice(0, 10) };
+    setState((s) => ({ ...s, users: [u, ...s.users] }));
+    return u;
+  },
+  update(id: string, patch: Partial<UserAccount>) {
+    setState((s) => ({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, ...patch } : u)) }));
+  },
+  remove(id: string) {
+    setState((s) => ({ ...s, users: s.users.filter((u) => u.id !== id) }));
+  },
+};
+

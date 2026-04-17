@@ -1,35 +1,44 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { customers } from "@/lib/mock-data";
-import { formatVND, formatDate } from "@/lib/format";
-import { Plus, Users, Phone, Mail, MoreHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { CustomerFormDrawer } from "@/components/shared/CustomerFormDrawer";
+import { useStore, customerActions } from "@/lib/store";
+import { formatVND } from "@/lib/format";
+import { Plus, Users, Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { toast } from "sonner";
+import { Customer } from "@/lib/mock-data";
 
 export default function AdminCustomers() {
+  const { customers } = useStore();
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState<Customer | null>(null);
 
-  const filtered = customers.filter(c => {
+  const filtered = useMemo(() => customers.filter(c => {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.phone.includes(search) && !c.code.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterGroup && c.group !== filterGroup) return false;
     return true;
-  });
+  }), [customers, search, filterGroup]);
+
+  const openAdd = () => { setEditing(null); setDrawerOpen(true); };
+  const openEdit = (c: Customer) => { setEditing(c); setDrawerOpen(true); setOpenMenu(null); };
 
   return (
     <div className="space-y-4 admin-dense">
       <PageHeader
         title="Khách hàng"
         description={`${customers.length} khách hàng`}
-        actions={<button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover"><Plus className="h-3.5 w-3.5" /> Thêm khách hàng</button>}
+        actions={<button onClick={openAdd} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover"><Plus className="h-3.5 w-3.5" /> Thêm khách hàng</button>}
       />
 
       <DataTableToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Tìm tên, SĐT, mã KH..."
+        search={search} onSearchChange={setSearch} searchPlaceholder="Tìm tên, SĐT, mã KH..."
         filters={<>
           <FilterChip label="Tất cả" active={!filterGroup} onClick={() => setFilterGroup(null)} />
           <FilterChip label="VIP" active={filterGroup === 'vip'} onClick={() => setFilterGroup('vip')} />
@@ -39,7 +48,7 @@ export default function AdminCustomers() {
       />
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Users} title="Không tìm thấy khách hàng" description="Thử thay đổi bộ lọc hoặc từ khóa" />
+        <EmptyState icon={Users} title="Không tìm thấy khách hàng" description="Thử thay đổi bộ lọc hoặc thêm mới" />
       ) : (
         <>
           <div className="hidden md:block bg-card rounded-lg border overflow-hidden">
@@ -51,7 +60,7 @@ export default function AdminCustomers() {
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground">SĐT</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Nhóm</th>
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tổng mua</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Đơn hàng</th>
+                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Đơn</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
                   <th className="w-10" />
                 </tr>
@@ -61,9 +70,7 @@ export default function AdminCustomers() {
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 bg-primary-soft rounded-full flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                          {c.name.charAt(0)}
-                        </div>
+                        <div className="h-8 w-8 bg-primary-soft rounded-full flex items-center justify-center text-xs font-bold text-primary shrink-0">{c.name.charAt(0)}</div>
                         <div>
                           <p className="font-medium">{c.name}</p>
                           {c.email && <p className="text-[11px] text-muted-foreground">{c.email}</p>}
@@ -76,7 +83,16 @@ export default function AdminCustomers() {
                     <td className="px-3 py-2.5 text-right font-medium">{formatVND(c.totalPurchases)}</td>
                     <td className="px-3 py-2.5 text-center">{c.orderCount}</td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={c.active ? 'active' : 'inactive'} /></td>
-                    <td className="px-3 py-2.5"><button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button></td>
+                    <td className="px-3 py-2.5 relative">
+                      <button onClick={() => setOpenMenu(openMenu === c.id ? null : c.id)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button>
+                      {openMenu === c.id && (
+                        <div className="absolute right-2 top-full mt-1 w-40 bg-popover border rounded-md shadow-lg z-20">
+                          <button onClick={() => openEdit(c)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><Pencil className="h-3 w-3" /> Sửa</button>
+                          <button onClick={() => { customerActions.update(c.id, { active: !c.active }); setOpenMenu(null); toast.success(c.active ? "Đã ngưng hoạt động" : "Đã kích hoạt lại"); }} className="w-full px-3 py-1.5 text-xs hover:bg-muted text-left">{c.active ? "Ngưng hoạt động" : "Kích hoạt"}</button>
+                          <button onClick={() => { setDeleting(c); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-danger-soft text-danger text-left"><Trash2 className="h-3 w-3" /> Xóa</button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -85,7 +101,7 @@ export default function AdminCustomers() {
 
           <div className="md:hidden space-y-2">
             {filtered.map(c => (
-              <div key={c.id} className="bg-card rounded-lg border p-3">
+              <div key={c.id} className="bg-card rounded-lg border p-3" onClick={() => openEdit(c)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="h-9 w-9 bg-primary-soft rounded-full flex items-center justify-center text-xs font-bold text-primary shrink-0">{c.name.charAt(0)}</div>
@@ -97,7 +113,7 @@ export default function AdminCustomers() {
                   <StatusBadge status={c.group} />
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-2 border-t text-sm">
-                  <span className="text-xs text-muted-foreground">{c.orderCount} đơn hàng</span>
+                  <span className="text-xs text-muted-foreground">{c.orderCount} đơn</span>
                   <span className="font-bold text-primary">{formatVND(c.totalPurchases)}</span>
                 </div>
               </div>
@@ -105,6 +121,17 @@ export default function AdminCustomers() {
           </div>
         </>
       )}
+
+      <CustomerFormDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} customer={editing} />
+      <ConfirmDialog
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => { if (deleting) { customerActions.remove(deleting.id); toast.success("Đã xóa khách hàng"); } }}
+        title="Xóa khách hàng?"
+        description={`Bạn chắc chắn muốn xóa "${deleting?.name}"? Lịch sử đơn hàng sẽ vẫn được giữ lại.`}
+        variant="danger"
+        confirmLabel="Xóa"
+      />
     </div>
   );
 }
