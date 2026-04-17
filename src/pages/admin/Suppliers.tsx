@@ -5,15 +5,15 @@ import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { SupplierFormDrawer } from "@/components/shared/SupplierFormDrawer";
+import { RowActions } from "@/components/shared/RowActions";
 import { useStore, supplierActions } from "@/lib/store";
-import { Plus, Truck, Pencil, MoreHorizontal, Trash2 } from "lucide-react";
+import { Plus, Truck, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { Supplier } from "@/lib/mock-data";
 
 export default function AdminSuppliers() {
   const { suppliers } = useStore();
   const [search, setSearch] = useState('');
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [deleting, setDeleting] = useState<Supplier | null>(null);
@@ -23,7 +23,7 @@ export default function AdminSuppliers() {
   ), [suppliers, search]);
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
-  const openEdit = (s: Supplier) => { setEditing(s); setDrawerOpen(true); setOpenMenu(null); };
+  const openEdit = (s: Supplier) => { setEditing(s); setDrawerOpen(true); };
 
   return (
     <div className="space-y-4 admin-dense">
@@ -49,7 +49,7 @@ export default function AdminSuppliers() {
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden lg:table-cell">Mã số thuế</th>
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden xl:table-cell">Địa chỉ</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
-                  <th className="w-10" />
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[60px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -66,15 +66,23 @@ export default function AdminSuppliers() {
                     <td className="px-3 py-2.5 text-muted-foreground hidden lg:table-cell">{s.taxCode}</td>
                     <td className="px-3 py-2.5 text-muted-foreground text-xs hidden xl:table-cell max-w-[200px] truncate">{s.address}</td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={s.active ? 'active' : 'inactive'} /></td>
-                    <td className="px-3 py-2.5 relative">
-                      <button onClick={() => setOpenMenu(openMenu === s.id ? null : s.id)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button>
-                      {openMenu === s.id && (
-                        <div className="absolute right-2 top-full mt-1 w-40 bg-popover border rounded-md shadow-lg z-20">
-                          <button onClick={() => openEdit(s)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><Pencil className="h-3 w-3" /> Sửa</button>
-                          <button onClick={() => { supplierActions.update(s.id, { active: !s.active }); setOpenMenu(null); toast.success(s.active ? "Đã ngưng hoạt động" : "Đã kích hoạt lại"); }} className="w-full px-3 py-1.5 text-xs hover:bg-muted text-left">{s.active ? "Ngưng hoạt động" : "Kích hoạt"}</button>
-                          <button onClick={() => { setDeleting(s); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-danger-soft text-danger text-left"><Trash2 className="h-3 w-3" /> Xóa</button>
-                        </div>
-                      )}
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="inline-flex items-center justify-end">
+                        <RowActions
+                          actions={[
+                            { label: "Sửa", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(s) },
+                            {
+                              label: s.active ? "Ngừng hoạt động" : "Kích hoạt lại",
+                              icon: s.active ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />,
+                              onClick: () => {
+                                supplierActions.update(s.id, { active: !s.active });
+                                toast.success(s.active ? "Đã ngừng hoạt động" : "Đã kích hoạt lại");
+                              },
+                            },
+                            { separatorBefore: true, label: "Xóa", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onClick: () => setDeleting(s) },
+                          ]}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
