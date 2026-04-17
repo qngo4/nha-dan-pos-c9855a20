@@ -58,7 +58,7 @@ export default function AdminStockAdjustments() {
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden lg:table-cell">Ghi chú</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Mặt hàng</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
-                  <th className="w-20" />
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[90px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -75,12 +75,13 @@ export default function AdminStockAdjustments() {
                       <StatusBadge status={a.status === 'draft' ? 'draft' : 'confirmed'} />
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setDetail(a)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
-                        {a.status === 'draft' && (
-                          <Link to={`/admin/stock-adjustments/create`} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Sửa nháp"><Pencil className="h-3.5 w-3.5" /></Link>
+                      <div className="inline-flex items-center justify-end gap-0.5 w-full">
+                        <button onClick={() => setDetail(a)} className="p-1.5 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
+                        {a.status === 'draft' ? (
+                          <Link to={`/admin/stock-adjustments/create`} className="p-1.5 text-muted-foreground hover:text-foreground rounded hover:bg-muted inline-flex" title="Sửa nháp"><Pencil className="h-3.5 w-3.5" /></Link>
+                        ) : (
+                          <span className="p-1.5 inline-flex text-muted-foreground/50" title="Đã xác nhận — không thể sửa"><Lock className="h-3.5 w-3.5" /></span>
                         )}
-                        {a.status === 'confirmed' && <Lock className="h-3 w-3 text-muted-foreground/50" />}
                       </div>
                     </td>
                   </tr>
