@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
+import { triggerPrint } from "@/lib/print";
+import type { Invoice } from "@/lib/mock-data";
 
 interface POSLine {
   id: string;
@@ -116,16 +119,35 @@ export default function AdminPOS() {
       toast.error('Chưa có hóa đơn để in');
       return;
     }
-    toast.success(`Đang gửi lệnh in ${lastInvoice?.number ?? 'hóa đơn nháp'}...`);
-    setTimeout(() => window.print(), 200);
+    triggerPrint(lastInvoice?.number ?? 'hóa đơn nháp');
   };
+
+  // Build a synthetic Invoice object for the printable layout (current cart or last invoice)
+  const printableInvoice: Invoice = {
+    id: 'pos-current',
+    number: lastInvoice?.number ?? 'HD-NHAP',
+    date: new Date().toISOString(),
+    customerId: selectedCustomer || '',
+    customerName: customers.find(c => c.id === selectedCustomer)?.name || 'Khách lẻ',
+    total: lastInvoice?.total ?? subtotal,
+    paymentType: 'cash',
+    status: 'active',
+    createdBy: 'admin',
+    itemCount: totalItems,
+  };
+  const printableLines = lines.map(l => ({
+    name: `${l.productName} - ${l.variantName}`,
+    code: l.variantCode,
+    qty: l.quantity,
+    price: l.price,
+  }));
 
   const filteredProducts = products.filter(p =>
     p.active && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
-    <div className="admin-dense -m-4 lg:-m-6 h-[calc(100vh-3.5rem)] flex flex-col lg:flex-row overflow-hidden">
+    <div className="admin-dense -m-4 lg:-m-6 h-[calc(100vh-3.5rem)] flex flex-col lg:flex-row overflow-hidden no-print">
       {/* Left panel — product picker */}
       <div className="lg:w-80 xl:w-96 border-b lg:border-b-0 lg:border-r bg-card flex flex-col shrink-0 max-h-[40vh] lg:max-h-none">
         <div className="p-3 border-b space-y-2">
@@ -378,6 +400,10 @@ export default function AdminPOS() {
           )}
         </div>
       </div>
+      {/* Print-only layout */}
+      {(lines.length > 0 || lastInvoice) && (
+        <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: 'Hóa đơn trống', code: '-', qty: 0, price: 0 }]} />
+      )}
     </div>
   );
 }
