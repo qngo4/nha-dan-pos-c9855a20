@@ -1,5 +1,6 @@
 import { products, categories } from "@/lib/mock-data";
 import { ProductCard } from "@/components/storefront/ProductCard";
+import { Reveal } from "@/components/storefront/Reveal";
 import { Package, Search, SlidersHorizontal, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -102,8 +103,10 @@ export default function StorefrontProducts() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} />
+            {filtered.map((p, i) => (
+              <Reveal key={p.id} delay={Math.min(i, 8) * 0.04} y={16}>
+                <ProductCard product={p} />
+              </Reveal>
             ))}
           </div>
         )}
