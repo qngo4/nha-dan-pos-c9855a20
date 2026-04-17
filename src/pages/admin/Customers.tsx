@@ -5,9 +5,10 @@ import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolb
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CustomerFormDrawer } from "@/components/shared/CustomerFormDrawer";
+import { RowActions } from "@/components/shared/RowActions";
 import { useStore, customerActions } from "@/lib/store";
 import { formatVND } from "@/lib/format";
-import { Plus, Users, Pencil, Trash2, MoreHorizontal } from "lucide-react";
+import { Plus, Users, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { Customer } from "@/lib/mock-data";
 
@@ -15,7 +16,6 @@ export default function AdminCustomers() {
   const { customers } = useStore();
   const [search, setSearch] = useState('');
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState<Customer | null>(null);
@@ -27,7 +27,7 @@ export default function AdminCustomers() {
   }), [customers, search, filterGroup]);
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
-  const openEdit = (c: Customer) => { setEditing(c); setDrawerOpen(true); setOpenMenu(null); };
+  const openEdit = (c: Customer) => { setEditing(c); setDrawerOpen(true); };
 
   return (
     <div className="space-y-4 admin-dense">
@@ -83,15 +83,23 @@ export default function AdminCustomers() {
                     <td className="px-3 py-2.5 text-right font-medium">{formatVND(c.totalPurchases)}</td>
                     <td className="px-3 py-2.5 text-center">{c.orderCount}</td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={c.active ? 'active' : 'inactive'} /></td>
-                    <td className="px-3 py-2.5 relative">
-                      <button onClick={() => setOpenMenu(openMenu === c.id ? null : c.id)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button>
-                      {openMenu === c.id && (
-                        <div className="absolute right-2 top-full mt-1 w-40 bg-popover border rounded-md shadow-lg z-20">
-                          <button onClick={() => openEdit(c)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><Pencil className="h-3 w-3" /> Sửa</button>
-                          <button onClick={() => { customerActions.update(c.id, { active: !c.active }); setOpenMenu(null); toast.success(c.active ? "Đã ngưng hoạt động" : "Đã kích hoạt lại"); }} className="w-full px-3 py-1.5 text-xs hover:bg-muted text-left">{c.active ? "Ngưng hoạt động" : "Kích hoạt"}</button>
-                          <button onClick={() => { setDeleting(c); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-danger-soft text-danger text-left"><Trash2 className="h-3 w-3" /> Xóa</button>
-                        </div>
-                      )}
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="inline-flex items-center justify-end">
+                        <RowActions
+                          actions={[
+                            { label: "Sửa", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(c) },
+                            {
+                              label: c.active ? "Ngừng hoạt động" : "Kích hoạt lại",
+                              icon: c.active ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />,
+                              onClick: () => {
+                                customerActions.update(c.id, { active: !c.active });
+                                toast.success(c.active ? "Đã ngừng hoạt động" : "Đã kích hoạt lại");
+                              },
+                            },
+                            { separatorBefore: true, label: "Xóa", icon: <Trash2 className="h-3.5 w-3.5" />, danger: true, onClick: () => setDeleting(c) },
+                          ]}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
