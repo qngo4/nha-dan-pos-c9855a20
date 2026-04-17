@@ -126,9 +126,22 @@ export default function AdminStockAdjustmentCreate() {
         <div className="flex items-center gap-2 mt-3">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input placeholder="Tìm phân loại để thêm..." className="w-full h-8 pl-9 pr-3 text-sm bg-card border rounded-md focus:outline-none focus:ring-1 focus:ring-ring" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addLine()}
+              placeholder="Tìm phân loại / mã vạch để thêm... (Enter)"
+              className="w-full h-8 pl-9 pr-3 text-sm bg-card border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            />
           </div>
+          <button onClick={addLine} disabled={!search.trim()} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted disabled:opacity-50">
+            <Plus className="h-3.5 w-3.5" /> Thêm
+          </button>
         </div>
+      )}
+
+      {savedAt && status === 'draft' && (
+        <div className="mt-2 text-xs text-muted-foreground">Đã lưu nháp lúc {new Date(savedAt).toLocaleTimeString('vi-VN')}</div>
       )}
 
       {/* Summary strip */}
