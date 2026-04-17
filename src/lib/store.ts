@@ -7,23 +7,35 @@ import {
   categories as initialCategories,
   products as initialProducts,
   combos as initialCombos,
+  customers as initialCustomers,
+  suppliers as initialSuppliers,
+  userAccounts as initialUsers,
   type Category,
   type Product,
   type ProductVariant,
   type Combo,
   type ComboItem,
+  type Customer,
+  type Supplier,
+  type UserAccount,
 } from "./mock-data";
 
 interface State {
   categories: Category[];
   products: Product[];
   combos: Combo[];
+  customers: Customer[];
+  suppliers: Supplier[];
+  users: UserAccount[];
 }
 
 let state: State = {
   categories: [...initialCategories],
   products: JSON.parse(JSON.stringify(initialProducts)),
   combos: JSON.parse(JSON.stringify(initialCombos)),
+  customers: [...initialCustomers],
+  suppliers: [...initialSuppliers],
+  users: [...initialUsers],
 };
 
 const listeners = new Set<() => void>();
