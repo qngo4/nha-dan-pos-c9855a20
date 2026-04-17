@@ -22,7 +22,7 @@ interface ReceiptLine {
   unitCost: number;
   discount: number;
   importUnit: string;
-  sellUnit: string;
+  sellUnit?: string;
   piecesPerUnit: number;
   expiryDate: string;
   expiryDays?: number;
