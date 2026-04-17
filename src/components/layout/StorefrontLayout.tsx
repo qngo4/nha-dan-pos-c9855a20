@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { Store, Phone, Mail, MapPin, Facebook, Instagram } from "lucide-react";
+import { Store, Phone, Mail, MapPin } from "lucide-react";
 import { StorefrontNav } from "./StorefrontNav";
 
 export function StorefrontLayout() {
@@ -29,9 +29,9 @@ function StorefrontFooter() {
           <p className="text-xs text-muted-foreground leading-relaxed">
             Tạp hóa hiện đại — hàng thiết yếu chính hãng, giá tốt mỗi ngày, giao nhanh nội thành.
           </p>
-          <div className="flex items-center gap-2">
-            <a href="#" aria-label="Facebook" className="h-8 w-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary"><Facebook className="h-4 w-4" /></a>
-            <a href="#" aria-label="Instagram" className="h-8 w-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary"><Instagram className="h-4 w-4" /></a>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="px-2 py-1 rounded-full border">FB · Nhã Đan Shop</span>
+            <span className="px-2 py-1 rounded-full border">IG · @nhadanshop</span>
           </div>
         </div>
         <div>
