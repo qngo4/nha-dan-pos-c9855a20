@@ -147,6 +147,7 @@ export default function AdminPOS() {
   );
 
   return (
+    <>
     <div className="admin-dense -m-4 lg:-m-6 h-[calc(100vh-3.5rem)] flex flex-col lg:flex-row overflow-hidden no-print">
       {/* Left panel — product picker */}
       <div className="lg:w-80 xl:w-96 border-b lg:border-b-0 lg:border-r bg-card flex flex-col shrink-0 max-h-[40vh] lg:max-h-none">
@@ -400,10 +401,11 @@ export default function AdminPOS() {
           )}
         </div>
       </div>
-      {/* Print-only layout */}
-      {(lines.length > 0 || lastInvoice) && (
-        <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: 'Hóa đơn trống', code: '-', qty: 0, price: 0 }]} />
-      )}
     </div>
+    {/* Print-only layout (sibling so it's not nested inside .no-print) */}
+    {(lines.length > 0 || lastInvoice) && (
+      <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: 'Hóa đơn trống', code: '-', qty: 0, price: 0 }]} />
+    )}
+    </>
   );
 }
