@@ -97,7 +97,17 @@ export default function AdminGoodsReceiptCreate() {
   const today = new Date().toISOString().slice(0, 10);
   const futureDateError = receiptDate > today;
   const missingExpiryCount = lines.filter(l => !l.expiryDate).length;
-  const canSave = lines.length > 0 && supplier && !futureDateError;
+
+  const lineIssues = useMemo(() => {
+    const map = new Map<string, LineIssue>();
+    lines.forEach(l => map.set(l.id, validateLine(l)));
+    return map;
+  }, [lines]);
+  const totalLineErrors = Array.from(lineIssues.values()).reduce((n, i) => n + i.errors.length, 0);
+  const totalLineWarnings = Array.from(lineIssues.values()).reduce((n, i) => n + i.warnings.length, 0);
+  const importedWithIssues = lines.filter(l => l.fromImport && (lineIssues.get(l.id)?.errors.length ?? 0) > 0).length;
+
+  const canSave = lines.length > 0 && !!supplier && !futureDateError && totalLineErrors === 0;
 
   const removeLine = (id: string) => setLines(prev => prev.filter(l => l.id !== id));
 
