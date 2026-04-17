@@ -297,33 +297,66 @@ export default function AdminGoodsReceiptCreate() {
               <tbody>
                 {lines.map((l, i) => {
                   const lineTotal = l.unitCost * l.quantity * (1 - l.discount / 100);
-                  const missingExpiry = !l.expiryDate;
+                  const issues = lineIssues.get(l.id) ?? { errors: [], warnings: [] };
+                  const hasError = issues.errors.length > 0;
+                  const hasWarn = issues.warnings.length > 0;
                   return (
-                    <tr key={l.id} className={cn("border-b last:border-0 hover:bg-muted/30", missingExpiry && "bg-warning-soft/30")}>
-                      <td className="px-3 py-2 text-muted-foreground text-xs">{i + 1}</td>
-                      <td className="px-3 py-2">
+                    <>
+                    <tr
+                      key={l.id}
+                      className={cn(
+                        "border-b last:border-0 hover:bg-muted/30",
+                        hasError ? "bg-danger-soft/40" : hasWarn ? "bg-warning-soft/30" : "",
+                        l.fromImport && "border-l-2 border-l-info/60"
+                      )}
+                    >
+                      <td className="px-3 py-2 text-muted-foreground text-xs align-top">
+                        {i + 1}
+                        {l.fromImport && <div className="text-[9px] text-info font-semibold mt-0.5">XLS</div>}
+                      </td>
+                      <td className="px-3 py-2 align-top">
                         <p className="font-medium text-xs">{l.productName}</p>
                         <p className="text-[11px] text-muted-foreground">{l.variantName} · {l.variantCode}</p>
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <input type="number" value={l.quantity} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, quantity: +e.target.value } : x))} className="w-16 h-7 text-center text-xs border rounded bg-background" />
+                      <td className="px-3 py-2 text-center align-top">
+                        <input type="number" value={l.quantity} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, quantity: +e.target.value } : x))} className={cn("w-16 h-7 text-center text-xs border rounded bg-background", (!l.quantity || l.quantity <= 0) && "border-danger")} />
                       </td>
-                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{l.importUnit} ({l.piecesPerUnit})</td>
-                      <td className="px-3 py-2 text-right">
-                        <input type="number" value={l.unitCost} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, unitCost: +e.target.value } : x))} className="w-24 h-7 text-right text-xs border rounded bg-background" />
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground align-top">{l.importUnit} ({l.piecesPerUnit})</td>
+                      <td className="px-3 py-2 text-right align-top">
+                        <input type="number" value={l.unitCost} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, unitCost: +e.target.value } : x))} className={cn("w-24 h-7 text-right text-xs border rounded bg-background", (!l.unitCost || l.unitCost <= 0) && "border-danger")} />
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2 text-center align-top">
                         <input type="number" value={l.discount} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, discount: +e.target.value } : x))} className="w-14 h-7 text-center text-xs border rounded bg-background" />
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2 text-center align-top">
                         <DateInput allowFuture value={l.expiryDate} onChange={(v) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDate: v } : x))} className="h-7" />
-                        {missingExpiry && <AlertTriangle className="h-3 w-3 text-warning inline ml-1" />}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium text-xs">{formatVND(lineTotal)}</td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2 text-right font-medium text-xs align-top">{formatVND(lineTotal)}</td>
+                      <td className="px-3 py-2 text-center align-top">
                         <button onClick={() => removeLine(l.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted inline-flex" title="Xóa dòng"><Trash2 className="h-3.5 w-3.5" /></button>
                       </td>
                     </tr>
+                    {(hasError || hasWarn) && (
+                      <tr key={`${l.id}-issues`} className={cn("border-b last:border-0", hasError ? "bg-danger-soft/30" : "bg-warning-soft/20")}>
+                        <td colSpan={9} className="px-3 py-2">
+                          <ul className="space-y-1 text-[11px]">
+                            {issues.errors.map((msg, k) => (
+                              <li key={`e-${k}`} className="flex items-start gap-1.5 text-danger">
+                                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                                <span><strong>Lỗi:</strong> {msg}</span>
+                              </li>
+                            ))}
+                            {issues.warnings.map((msg, k) => (
+                              <li key={`w-${k}`} className="flex items-start gap-1.5 text-warning">
+                                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                                <span><strong>Cảnh báo:</strong> {msg}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   );
                 })}
               </tbody>
