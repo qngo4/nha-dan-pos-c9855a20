@@ -104,6 +104,8 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
           productName: l.productName,
           variantName: l.variantName,
           code: l.variantCode,
+          price: l.unitCost,
+          lot: receipt.number,
           defaultQty: l.quantity,
         }))}
       />
