@@ -3,6 +3,7 @@ import { useStore } from "@/lib/store";
 import { formatVND } from "@/lib/format";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Reveal } from "@/components/storefront/Reveal";
 import { Gift, Package, ShoppingCart, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,7 +52,7 @@ export default function StorefrontCombos() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-          {active.map((combo) => {
+          {active.map((combo, i) => {
             const stockStatus =
               combo.derivedStock === 0
                 ? "out-of-stock"
@@ -59,9 +60,9 @@ export default function StorefrontCombos() {
                 ? "low-stock"
                 : "in-stock";
             return (
+              <Reveal key={combo.id} delay={Math.min(i, 6) * 0.05} y={18}>
               <div
-                key={combo.id}
-                className="group bg-storefront-surface rounded-2xl border overflow-hidden sf-shadow hover:sf-shadow-hover hover:-translate-y-0.5 transition-all duration-300 flex flex-col"
+                className="group bg-storefront-surface rounded-2xl border overflow-hidden sf-shadow hover:sf-shadow-hover hover:-translate-y-0.5 transition-all duration-300 flex flex-col h-full"
               >
                 <div className="aspect-[5/3] sf-combo-bg relative overflow-hidden">
                   <div className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
@@ -127,6 +128,7 @@ export default function StorefrontCombos() {
                   </div>
                 </div>
               </div>
+              </Reveal>
             );
           })}
         </div>
