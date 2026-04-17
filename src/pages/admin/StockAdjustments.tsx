@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { stockAdjustments } from "@/lib/mock-data";
+import { stockAdjustments, type StockAdjustment } from "@/lib/mock-data";
+import { StockAdjustmentDetailDrawer } from "@/components/shared/StockAdjustmentDetailDrawer";
 import { formatDate } from "@/lib/format";
 import { Plus, ClipboardCheck, Eye, Pencil, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 export default function AdminStockAdjustments() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [detail, setDetail] = useState<StockAdjustment | null>(null);
 
   const filtered = stockAdjustments.filter(a => {
     if (search && !a.code.toLowerCase().includes(search.toLowerCase()) && !a.reason.toLowerCase().includes(search.toLowerCase())) return false;
@@ -62,7 +64,9 @@ export default function AdminStockAdjustments() {
               <tbody>
                 {filtered.map(a => (
                   <tr key={a.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", a.status === 'draft' && "bg-info-soft/30")}>
-                    <td className="px-3 py-2.5 font-mono text-xs font-medium">{a.code}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs font-medium">
+                      <button onClick={() => setDetail(a)} className="hover:text-primary hover:underline">{a.code}</button>
+                    </td>
                     <td className="px-3 py-2.5 text-muted-foreground">{formatDate(a.createdDate)}</td>
                     <td className="px-3 py-2.5">{a.reason}</td>
                     <td className="px-3 py-2.5 text-muted-foreground text-xs max-w-[200px] truncate hidden lg:table-cell">{a.note}</td>
@@ -72,10 +76,9 @@ export default function AdminStockAdjustments() {
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        {a.status === 'draft' ? (
-                          <Link to={`/admin/stock-adjustments/create`} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></Link>
-                        ) : (
-                          <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><Eye className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setDetail(a)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
+                        {a.status === 'draft' && (
+                          <Link to={`/admin/stock-adjustments/create`} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Sửa nháp"><Pencil className="h-3.5 w-3.5" /></Link>
                         )}
                         {a.status === 'confirmed' && <Lock className="h-3 w-3 text-muted-foreground/50" />}
                       </div>
@@ -88,7 +91,7 @@ export default function AdminStockAdjustments() {
 
           <div className="md:hidden space-y-2">
             {filtered.map(a => (
-              <div key={a.id} className={cn("bg-card rounded-lg border p-3", a.status === 'draft' && "border-info/30")}>
+              <div key={a.id} onClick={() => setDetail(a)} className={cn("bg-card rounded-lg border p-3 cursor-pointer", a.status === 'draft' && "border-info/30")}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-mono text-xs font-medium">{a.code}</p>
@@ -105,6 +108,8 @@ export default function AdminStockAdjustments() {
           </div>
         </>
       )}
+
+      <StockAdjustmentDetailDrawer adjustment={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }

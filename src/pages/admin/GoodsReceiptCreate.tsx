@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { suppliers, products } from "@/lib/mock-data";
-import { formatVND, formatDate } from "@/lib/format";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
+import { suppliers } from "@/lib/mock-data";
+import { formatVND } from "@/lib/format";
 import {
-  ArrowLeft, Save, Plus, Trash2, Upload, Printer, Search,
-  AlertTriangle, Package
+  ArrowLeft, Save, Trash2, Upload, Printer, Search,
+  AlertTriangle, Package, FileText, Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ReceiptLine {
   id: string;
@@ -28,24 +31,106 @@ const initialLines: ReceiptLine[] = [
 ];
 
 export default function AdminGoodsReceiptCreate() {
+  const navigate = useNavigate();
   const [lines, setLines] = useState<ReceiptLine[]>(initialLines);
   const [supplier, setSupplier] = useState('');
   const [shippingFee, setShippingFee] = useState(50000);
   const [vat, setVat] = useState(10);
   const [note, setNote] = useState('');
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
+  const [search, setSearch] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [savedNumber, setSavedNumber] = useState<string | null>(null);
+  const [confirmPrint, setConfirmPrint] = useState(false);
 
   const subtotal = lines.reduce((s, l) => s + l.unitCost * l.quantity * (1 - l.discount / 100), 0);
   const vatAmount = subtotal * vat / 100;
   const total = subtotal + shippingFee + vatAmount;
 
+  const today = new Date().toISOString().slice(0, 10);
+  const futureDateError = receiptDate > today;
+  const missingExpiryCount = lines.filter(l => !l.expiryDate).length;
+  const canSave = lines.length > 0 && supplier && !futureDateError;
+
   const removeLine = (id: string) => setLines(prev => prev.filter(l => l.id !== id));
+
+  const addManualLine = () => {
+    if (!search.trim()) return;
+    const newLine: ReceiptLine = {
+      id: `m-${Date.now()}`,
+      productName: search,
+      variantName: 'Mặc định',
+      variantCode: search.toUpperCase().replace(/\s+/g, '-'),
+      quantity: 1,
+      unitCost: 0,
+      discount: 0,
+      importUnit: 'Cái',
+      piecesPerUnit: 1,
+      expiryDate: '',
+    };
+    setLines(prev => [...prev, newLine]);
+    setSearch('');
+    toast.success(`Đã thêm "${newLine.productName}" vào phiếu`);
+  };
+
+  const handleSaveDraft = () => {
+    if (lines.length === 0) {
+      toast.error("Chưa có mặt hàng nào");
+      return;
+    }
+    toast.success("Đã lưu nháp phiếu nhập");
+  };
+
+  const handleSave = () => {
+    if (!canSave) {
+      if (futureDateError) toast.error("Ngày nhập không thể ở tương lai");
+      else if (!supplier) toast.error("Vui lòng chọn nhà cung cấp");
+      else toast.error("Chưa có mặt hàng nào");
+      return;
+    }
+    const number = `PN-${receiptDate.replace(/-/g, '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
+    setSavedNumber(number);
+    toast.success(`Đã lưu phiếu nhập ${number}`);
+  };
+
+  const handlePrintBarcodes = () => {
+    if (!savedNumber) {
+      toast.error("Vui lòng lưu phiếu trước khi in mã vạch");
+      return;
+    }
+    toast.success(`Đang in ${lines.reduce((s, l) => s + l.quantity * l.piecesPerUnit, 0)} tem mã vạch...`);
+    setTimeout(() => window.print(), 200);
+    setConfirmPrint(false);
+  };
 
   return (
     <div className="admin-dense">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
         <Link to="/admin/goods-receipts" className="flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Phiếu nhập</Link>
         <span>/</span><span className="text-foreground font-medium">Tạo phiếu nhập</span>
+        {savedNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-success-soft text-success text-xs font-mono">{savedNumber}</span>}
       </div>
+
+      {savedNumber && (
+        <div className="flex items-center gap-2 p-3 mb-3 bg-success-soft rounded-lg border border-success/20 text-sm text-success">
+          <Check className="h-4 w-4 shrink-0" />
+          <span>Đã lưu phiếu nhập <strong>{savedNumber}</strong>. Bạn có thể in mã vạch ngay.</span>
+        </div>
+      )}
+
+      {futureDateError && (
+        <div className="flex items-center gap-2 p-3 mb-3 bg-danger-soft rounded-lg border border-danger/20 text-sm text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Ngày nhập không thể là ngày tương lai.</span>
+        </div>
+      )}
+
+      {missingExpiryCount > 0 && (
+        <div className="flex items-center gap-2 p-3 mb-3 bg-warning-soft rounded-lg border border-warning/20 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{missingExpiryCount} mặt hàng chưa có hạn sử dụng. Hàng cần HSD nên được điền đầy đủ.</span>
+        </div>
+      )}
 
       <div className="lg:grid lg:grid-cols-3 lg:gap-4">
         {/* Left — Lines */}
@@ -55,7 +140,15 @@ export default function AdminGoodsReceiptCreate() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Ngày nhập *</label>
-                <input type="date" defaultValue="2025-04-15" className="mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+                <input
+                  type="date"
+                  value={receiptDate}
+                  onChange={e => setReceiptDate(e.target.value)}
+                  className={cn(
+                    "mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring",
+                    futureDateError && "border-danger"
+                  )}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Nhà cung cấp *</label>
@@ -83,9 +176,16 @@ export default function AdminGoodsReceiptCreate() {
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input placeholder="Tìm sản phẩm / mã vạch để thêm..." className="w-full h-8 pl-9 pr-3 text-sm bg-card border rounded-md focus:outline-none focus:ring-1 focus:ring-ring" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addManualLine()}
+                placeholder="Tìm sản phẩm / mã vạch để thêm... (Enter)"
+                className="w-full h-8 pl-9 pr-3 text-sm bg-card border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              />
             </div>
-            <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted"><Upload className="h-3.5 w-3.5" /> Nhập Excel</button>
+            <button onClick={addManualLine} disabled={!search.trim()} className="px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted disabled:opacity-50">Thêm</button>
+            <button onClick={() => setImportOpen(true)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted"><Upload className="h-3.5 w-3.5" /> Nhập Excel</button>
           </div>
 
           {/* Lines table */}
@@ -160,16 +260,58 @@ export default function AdminGoodsReceiptCreate() {
             </div>
 
             <div className="space-y-2 pt-2">
-              <button disabled={lines.length === 0} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed">
-                <Save className="h-4 w-4" /> Lưu phiếu nhập
-              </button>
-              <button className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
-                <Printer className="h-4 w-4" /> In mã vạch
-              </button>
+              {!savedNumber ? (
+                <>
+                  <button onClick={handleSave} disabled={!canSave} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Save className="h-4 w-4" /> Lưu phiếu nhập
+                  </button>
+                  <button onClick={handleSaveDraft} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
+                    <FileText className="h-4 w-4" /> Lưu nháp
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setConfirmPrint(true)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover">
+                    <Printer className="h-4 w-4" /> In mã vạch
+                  </button>
+                  <button onClick={() => navigate('/admin/goods-receipts')} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
+                    Về danh sách
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      <ImportPreviewDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onConfirm={(rows) => {
+          const newLines: ReceiptLine[] = rows.map((r, i) => ({
+            id: `imp-${Date.now()}-${i}`,
+            productName: r.name,
+            variantName: r.variantName,
+            variantCode: r.code,
+            quantity: r.stock,
+            unitCost: r.costPrice,
+            discount: 0,
+            importUnit: 'Thùng',
+            piecesPerUnit: 1,
+            expiryDate: '',
+          }));
+          setLines(prev => [...prev, ...newLines]);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmPrint}
+        onClose={() => setConfirmPrint(false)}
+        onConfirm={handlePrintBarcodes}
+        title="In mã vạch tem nhãn?"
+        description={`Sẽ in tem cho ${lines.reduce((s, l) => s + l.quantity * l.piecesPerUnit, 0)} sản phẩm. Đảm bảo máy in tem đã sẵn sàng.`}
+        confirmLabel="In ngay"
+      />
     </div>
   );
 }

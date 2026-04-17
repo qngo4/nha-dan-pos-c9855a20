@@ -5,27 +5,50 @@ import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { BlockedActionBanner } from "@/components/shared/BlockedActionBanner";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { goodsReceipts } from "@/lib/mock-data";
+import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
+import { GoodsReceiptDetailDrawer } from "@/components/shared/GoodsReceiptDetailDrawer";
+import { goodsReceipts as initialReceipts, type GoodsReceipt } from "@/lib/mock-data";
 import { formatVND, formatDate } from "@/lib/format";
-import { Plus, FileInput, Eye, Trash2, Printer, ShieldAlert } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, FileInput, Eye, Trash2, Printer, ShieldAlert, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminGoodsReceipts() {
+  const [receipts, setReceipts] = useState<GoodsReceipt[]>(initialReceipts);
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const filtered = goodsReceipts.filter(r =>
+  const [detail, setDetail] = useState<GoodsReceipt | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const filtered = receipts.filter(r =>
     !search || r.number.toLowerCase().includes(search.toLowerCase()) || r.supplierName.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    setReceipts(prev => prev.filter(r => r.id !== deleteTarget));
+    toast.success("Đã xóa phiếu nhập");
+    setDeleteTarget(null);
+  };
+
+  const handlePrint = (r: GoodsReceipt) => {
+    toast.success(`Đang in phiếu nhập ${r.number}...`);
+    setTimeout(() => window.print(), 200);
+  };
 
   return (
     <div className="space-y-4 admin-dense">
       <PageHeader
         title="Phiếu nhập"
-        description={`${goodsReceipts.length} phiếu nhập`}
+        description={`${receipts.length} phiếu nhập`}
         actions={
-          <Link to="/admin/goods-receipts/create" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
-            <Plus className="h-3.5 w-3.5" /> Tạo phiếu nhập
-          </Link>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted">
+              <Upload className="h-3.5 w-3.5" /> Nhập Excel
+            </button>
+            <Link to="/admin/goods-receipts/create" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
+              <Plus className="h-3.5 w-3.5" /> Tạo phiếu nhập
+            </Link>
+          </div>
         }
       />
 
@@ -50,19 +73,25 @@ export default function AdminGoodsReceipts() {
               <tbody>
                 {filtered.map(r => (
                   <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-3 py-2.5 font-mono text-xs font-medium">{r.number}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs font-medium">
+                      <button onClick={() => setDetail(r)} className="hover:text-primary hover:underline">{r.number}</button>
+                    </td>
                     <td className="px-3 py-2.5 text-muted-foreground">{formatDate(r.date)}</td>
                     <td className="px-3 py-2.5">{r.supplierName}</td>
                     <td className="px-3 py-2.5 text-center">{r.itemCount}</td>
                     <td className="px-3 py-2.5 text-right font-medium">{formatVND(r.totalCost + r.shippingFee + r.vat)}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
-                        <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
-                        <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="In mã vạch"><Printer className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setDetail(r)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => handlePrint(r)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="In phiếu"><Printer className="h-3.5 w-3.5" /></button>
                         {r.canDelete ? (
                           <button onClick={() => setDeleteTarget(r.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Xóa"><Trash2 className="h-3.5 w-3.5" /></button>
                         ) : (
-                          <button className="p-1 text-muted-foreground/40 cursor-not-allowed" title="Không thể xóa — hàng đã bán">
+                          <button
+                            onClick={() => toast.error("Không thể xóa — hàng từ phiếu này đã được bán")}
+                            className="p-1 text-muted-foreground/50 cursor-help"
+                            title="Không thể xóa — hàng đã bán"
+                          >
                             <ShieldAlert className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -76,7 +105,7 @@ export default function AdminGoodsReceipts() {
 
           <div className="md:hidden space-y-2">
             {filtered.map(r => (
-              <div key={r.id} className="bg-card rounded-lg border p-3">
+              <div key={r.id} className="bg-card rounded-lg border p-3" onClick={() => setDetail(r)}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <p className="font-mono text-xs font-medium">{r.number}</p>
@@ -100,11 +129,34 @@ export default function AdminGoodsReceipts() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
         title="Xóa phiếu nhập?"
         description="Thao tác này không thể hoàn tác. Tồn kho sẽ được điều chỉnh lại."
         confirmLabel="Xóa phiếu nhập"
         variant="danger"
+      />
+
+      <GoodsReceiptDetailDrawer receipt={detail} onClose={() => setDetail(null)} />
+
+      <ImportPreviewDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onConfirm={(rows) => {
+          const newReceipt: GoodsReceipt = {
+            id: `imp-${Date.now()}`,
+            number: `PN-IMPORT-${String(receipts.length + 1).padStart(3, '0')}`,
+            date: new Date().toISOString().slice(0, 10),
+            supplierId: '1',
+            supplierName: 'Nhập từ Excel',
+            itemCount: rows.length,
+            totalCost: rows.reduce((s, r) => s + r.costPrice * r.stock, 0),
+            shippingFee: 0,
+            vat: 0,
+            note: 'Phiếu được tạo từ file Excel',
+            canDelete: true,
+          };
+          setReceipts(prev => [newReceipt, ...prev]);
+        }}
       />
     </div>
   );
