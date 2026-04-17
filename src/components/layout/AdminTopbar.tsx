@@ -1,27 +1,51 @@
-import { Bell, Menu, Search, LogOut, User, Shield, UserCircle, Store, Check } from "lucide-react";
+import { Bell, Menu, Search, LogOut, User, Shield, UserCircle, Store, Check, Package, Receipt as ReceiptIcon, Users as UsersIcon, CornerDownLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { dashboardStats } from "@/lib/mock-data";
+import { dashboardStats, products, invoices, customers } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 
 interface AdminTopbarProps {
   onMenuClick: () => void;
 }
 
+type SearchHit =
+  | { kind: "product"; id: string; title: string; sub: string; href: string }
+  | { kind: "invoice"; id: string; title: string; sub: string; href: string }
+  | { kind: "customer"; id: string; title: string; sub: string; href: string };
+
 export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   const [userOpen, setUserOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
   const userRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
     };
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    // Cmd/Ctrl+K to focus search
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const notifications = [
@@ -46,21 +70,139 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
     navigate("/login");
   };
 
+  // Build search results — grouped, lightweight
+  const hits: SearchHit[] = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    if (!q) return [];
+    const productHits: SearchHit[] = products
+      .filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.code.toLowerCase().includes(q) ||
+        p.variants.some(v => v.code.toLowerCase().includes(q) || v.name.toLowerCase().includes(q))
+      )
+      .slice(0, 5)
+      .map(p => ({
+        kind: "product",
+        id: p.id,
+        title: p.name,
+        sub: `${p.code} · ${p.categoryName} · ${p.variants.length} phân loại`,
+        href: `/admin/products/${p.id}`,
+      }));
+    const invoiceHits: SearchHit[] = invoices
+      .filter(i => i.number.toLowerCase().includes(q) || i.customerName.toLowerCase().includes(q))
+      .slice(0, 5)
+      .map(i => ({
+        kind: "invoice",
+        id: i.id,
+        title: i.number,
+        sub: `${i.customerName} · ${new Date(i.date).toLocaleDateString("vi-VN")}`,
+        href: `/admin/invoices`,
+      }));
+    const customerHits: SearchHit[] = customers
+      .filter(c => c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.code.toLowerCase().includes(q))
+      .slice(0, 5)
+      .map(c => ({
+        kind: "customer",
+        id: c.id,
+        title: c.name,
+        sub: `${c.code} · ${c.phone}`,
+        href: `/admin/customers`,
+      }));
+    return [...productHits, ...invoiceHits, ...customerHits];
+  }, [searchQ]);
+
+  useEffect(() => { setActiveIdx(0); }, [searchQ]);
+
+  const goToHit = (h: SearchHit) => {
+    setSearchOpen(false);
+    setSearchQ("");
+    navigate(h.href);
+  };
+
+  const handleSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!searchOpen) setSearchOpen(true);
+    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, hits.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx(i => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (hits[activeIdx]) goToHit(hits[activeIdx]);
+      else if (searchQ.trim()) {
+        // Default: go to products list with search context
+        setSearchOpen(false);
+        navigate(`/admin/products`);
+        toast.info(`Đang tìm "${searchQ}" trong sản phẩm`);
+      }
+    } else if (e.key === "Escape") setSearchOpen(false);
+  };
+
+  const grouped = {
+    products: hits.filter(h => h.kind === "product"),
+    invoices: hits.filter(h => h.kind === "invoice"),
+    customers: hits.filter(h => h.kind === "customer"),
+  };
+
   return (
     <header className="flex items-center h-14 px-4 border-b bg-card shrink-0 gap-3">
       <button onClick={onMenuClick} className="lg:hidden text-muted-foreground hover:text-foreground">
         <Menu className="h-5 w-5" />
       </button>
 
-      <div className="flex-1 max-w-md">
+      <div className="flex-1 max-w-md relative" ref={searchRef}>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Tìm kiếm sản phẩm, hóa đơn, khách hàng..."
-            className="w-full h-8 pl-9 pr-3 text-sm bg-muted rounded-md border-0 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+            value={searchQ}
+            onChange={e => { setSearchQ(e.target.value); setSearchOpen(true); }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={handleSearchKey}
+            placeholder="Tìm sản phẩm, hóa đơn, khách hàng... (Ctrl+K)"
+            className="w-full h-8 pl-9 pr-12 text-sm bg-muted rounded-md border-0 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
           />
+          <kbd className="hidden sm:inline absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground bg-background border rounded px-1 py-0.5">⌘K</kbd>
         </div>
+
+        {searchOpen && searchQ.trim() && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-popover border rounded-md shadow-lg z-50 max-h-[60vh] overflow-y-auto animate-fade-in">
+            {hits.length === 0 ? (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                Không tìm thấy kết quả cho "{searchQ}"
+              </div>
+            ) : (
+              <>
+                {grouped.products.length > 0 && (
+                  <SearchGroup label="Sản phẩm" icon={Package}>
+                    {grouped.products.map((h, idx) => {
+                      const i = hits.indexOf(h);
+                      return <SearchItem key={h.id} hit={h} active={i === activeIdx} onClick={() => goToHit(h)} />;
+                    })}
+                  </SearchGroup>
+                )}
+                {grouped.invoices.length > 0 && (
+                  <SearchGroup label="Hóa đơn" icon={ReceiptIcon}>
+                    {grouped.invoices.map(h => {
+                      const i = hits.indexOf(h);
+                      return <SearchItem key={h.id} hit={h} active={i === activeIdx} onClick={() => goToHit(h)} />;
+                    })}
+                  </SearchGroup>
+                )}
+                {grouped.customers.length > 0 && (
+                  <SearchGroup label="Khách hàng" icon={UsersIcon}>
+                    {grouped.customers.map(h => {
+                      const i = hits.indexOf(h);
+                      return <SearchItem key={h.id} hit={h} active={i === activeIdx} onClick={() => goToHit(h)} />;
+                    })}
+                  </SearchGroup>
+                )}
+                <div className="px-3 py-1.5 border-t bg-muted/30 flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>{hits.length} kết quả</span>
+                  <span className="flex items-center gap-1">↑↓ chọn · <CornerDownLeft className="h-3 w-3" /> mở</span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -134,7 +276,7 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
           {userOpen && (
             <div className="absolute right-0 top-full mt-1 w-56 bg-popover border rounded-md shadow-lg z-50 animate-fade-in">
               <div className="px-3 py-2 border-b">
-                <p className="text-sm font-medium">Nguyễn Nhà Đan</p>
+                <p className="text-sm font-medium">Nguyễn Nhã Đan</p>
                 <p className="text-[11px] text-muted-foreground">admin · Quản trị viên</p>
               </div>
               <div className="py-1">
@@ -158,5 +300,34 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         </div>
       </div>
     </header>
+  );
+}
+
+function SearchGroup({ label, icon: Icon, children }: { label: string; icon: typeof Package; children: React.ReactNode }) {
+  return (
+    <div className="py-1">
+      <div className="px-3 py-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3 w-3" /> {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SearchItem({ hit, active, onClick }: { hit: SearchHit; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      className={cn(
+        "w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-center justify-between gap-2",
+        active && "bg-muted"
+      )}
+    >
+      <div className="min-w-0">
+        <p className="text-xs font-medium truncate">{hit.title}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{hit.sub}</p>
+      </div>
+      {active && <CornerDownLeft className="h-3 w-3 text-muted-foreground shrink-0" />}
+    </button>
   );
 }
