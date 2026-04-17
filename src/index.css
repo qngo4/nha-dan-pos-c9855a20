@@ -72,10 +72,26 @@
     --sidebar-ring: 215 80% 55%;
     --sidebar-muted: 220 15% 40%;
 
-    /* Storefront specific */
-    --storefront-bg: 220 20% 98%;
+    /* Storefront — premium retail */
+    --storefront-bg: 30 30% 98%;
+    --storefront-surface: 0 0% 100%;
     --storefront-hero: 215 80% 48%;
     --storefront-hero-foreground: 0 0% 100%;
+    --storefront-ink: 220 30% 12%;
+    --storefront-muted: 220 12% 48%;
+    --storefront-soft: 30 40% 96%;
+    --storefront-accent: 14 88% 55%;          /* warm coral accent for CTAs/badges */
+    --storefront-accent-soft: 14 90% 96%;
+    --storefront-gold: 38 85% 52%;
+
+    /* Premium gradients & shadows */
+    --gradient-hero: linear-gradient(135deg, hsl(215 85% 22%) 0%, hsl(215 80% 38%) 55%, hsl(200 85% 48%) 100%);
+    --gradient-hero-overlay: radial-gradient(circle at 80% 20%, hsl(32 95% 60% / 0.35), transparent 55%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 25% 99%) 100%);
+    --gradient-combo: linear-gradient(135deg, hsl(14 88% 96%) 0%, hsl(38 95% 95%) 100%);
+    --shadow-card: 0 1px 2px hsl(220 30% 12% / 0.04), 0 4px 12px hsl(220 30% 12% / 0.04);
+    --shadow-card-hover: 0 6px 16px hsl(215 60% 25% / 0.10), 0 12px 32px hsl(215 60% 25% / 0.08);
+    --shadow-cta: 0 6px 18px hsl(215 80% 48% / 0.28);
 
     /* Chart colors */
     --chart-1: 215 80% 48%;
@@ -167,6 +183,27 @@
   /* Storefront breathing */
   .storefront-relaxed {
     @apply text-base leading-relaxed;
+  }
+
+  /* Premium storefront utilities */
+  .sf-hero-bg { background-image: var(--gradient-hero); }
+  .sf-hero-overlay { background-image: var(--gradient-hero-overlay); }
+  .sf-card-bg { background-image: var(--gradient-card); }
+  .sf-combo-bg { background-image: var(--gradient-combo); }
+  .sf-shadow { box-shadow: var(--shadow-card); }
+  .sf-shadow-hover { box-shadow: var(--shadow-card-hover); }
+  .sf-shadow-cta { box-shadow: var(--shadow-cta); }
+  .sf-chip {
+    @apply shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-full border bg-card text-foreground/70 hover:text-foreground hover:border-primary/40 transition-all;
+  }
+  .sf-chip-active {
+    @apply bg-foreground text-background border-foreground hover:text-background;
+  }
+  .sf-section-title {
+    @apply text-xl md:text-2xl font-bold tracking-tight;
+  }
+  .sf-eyebrow {
+    @apply text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground;
   }
 }
 

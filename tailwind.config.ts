@@ -87,8 +87,15 @@ export default {
         },
         storefront: {
           bg: "hsl(var(--storefront-bg))",
+          surface: "hsl(var(--storefront-surface))",
           hero: "hsl(var(--storefront-hero))",
           "hero-foreground": "hsl(var(--storefront-hero-foreground))",
+          ink: "hsl(var(--storefront-ink))",
+          muted: "hsl(var(--storefront-muted))",
+          soft: "hsl(var(--storefront-soft))",
+          accent: "hsl(var(--storefront-accent))",
+          "accent-soft": "hsl(var(--storefront-accent-soft))",
+          gold: "hsl(var(--storefront-gold))",
         },
       },
       borderRadius: {
