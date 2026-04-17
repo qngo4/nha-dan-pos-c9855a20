@@ -15,7 +15,7 @@ export function PrintableInvoice({ invoice, lines }: Props) {
     <div className="print-area" id="print-area-invoice">
       <div style={{ padding: "16px", fontFamily: "Arial, sans-serif", color: "#000", fontSize: "12pt" }}>
         <div style={{ textAlign: "center", marginBottom: 12 }}>
-          <h1 style={{ fontSize: "18pt", margin: 0 }}>NhàDan Shop</h1>
+          <h1 style={{ fontSize: "18pt", margin: 0 }}>Nhã Đan Shop</h1>
           <p style={{ margin: "2px 0", fontSize: "10pt" }}>123 Nguyễn Văn Linh, Q7, TP.HCM · 0901 234 567</p>
           <h2 style={{ fontSize: "14pt", margin: "12px 0 4px" }}>HÓA ĐƠN BÁN HÀNG</h2>
           <p style={{ margin: 0, fontFamily: "monospace" }}>{invoice.number}</p>

@@ -83,7 +83,7 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
       {/* Logo */}
       <div className={cn("flex items-center gap-2 px-4 h-14 border-b border-sidebar-border shrink-0", collapsed && "justify-center px-2")}>
         <Store className="h-6 w-6 text-sidebar-primary shrink-0" />
-        {!collapsed && <span className="font-bold text-sidebar-foreground text-sm tracking-tight">NhaDanShop</span>}
+        {!collapsed && <span className="font-bold text-sidebar-foreground text-sm tracking-tight">Nhã Đan Shop</span>}
       </div>
 
       {/* Navigation */}

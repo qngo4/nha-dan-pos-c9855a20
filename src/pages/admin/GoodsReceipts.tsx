@@ -5,7 +5,7 @@ import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { BlockedActionBanner } from "@/components/shared/BlockedActionBanner";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
+import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
 import { GoodsReceiptDetailDrawer } from "@/components/shared/GoodsReceiptDetailDrawer";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { goodsReceipts as initialReceipts, type GoodsReceipt } from "@/lib/mock-data";
@@ -189,24 +189,26 @@ export default function AdminGoodsReceipts() {
 
       <GoodsReceiptDetailDrawer receipt={detail} onClose={() => setDetail(null)} />
 
-      <ImportPreviewDialog
+      <ReceiptImportPreviewDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onConfirm={(rows) => {
+        onConfirm={(rows, meta) => {
+          const totalCost = rows.reduce((s, r) => s + r.unitCost * r.quantity, 0);
           const newReceipt: GoodsReceipt = {
             id: `imp-${Date.now()}`,
-            number: `PN-IMPORT-${String(receipts.length + 1).padStart(3, '0')}`,
+            number: `PN-IMPORT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(receipts.length + 1).padStart(3, '0')}`,
             date: new Date().toISOString().slice(0, 10),
-            supplierId: '1',
-            supplierName: 'Nhập từ Excel',
+            supplierId: '',
+            supplierName: meta.supplierName,
             itemCount: rows.length,
-            totalCost: rows.reduce((s, r) => s + r.costPrice * r.stock, 0),
+            totalCost,
             shippingFee: 0,
             vat: 0,
-            note: 'Phiếu được tạo từ file Excel',
+            note: `Tạo từ file ${meta.filename}`,
             canDelete: true,
           };
           setReceipts(prev => [newReceipt, ...prev]);
+          toast.success(`Đã tạo phiếu nhập ${newReceipt.number}`);
         }}
       />
     </div>

@@ -8,6 +8,7 @@ export interface BarcodeItem {
   variantName?: string;
   code: string;
   price?: number;
+  lot?: string;
   defaultQty?: number;
 }
 
@@ -141,6 +142,7 @@ function LabelPreview({ item, forPrint }: { item: BarcodeItem; forPrint?: boolea
         lineHeight: 1.2,
       }}
     >
+      <div style={{ fontWeight: "bold", fontSize: forPrint ? "7pt" : "9px" }}>Nhã Đan Shop</div>
       <div style={{ fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.productName}</div>
       {item.variantName && (
         <div style={{ color: "#444" }}>{item.variantName}</div>
@@ -151,6 +153,9 @@ function LabelPreview({ item, forPrint }: { item: BarcodeItem; forPrint?: boolea
       <div style={{ fontFamily: "monospace" }}>{item.code}</div>
       {item.price != null && (
         <div style={{ fontWeight: "bold", marginTop: 2 }}>{formatVND(item.price)}</div>
+      )}
+      {item.lot && (
+        <div style={{ color: "#555", marginTop: 2, fontSize: forPrint ? "7pt" : "9px" }}>Lô: {item.lot}</div>
       )}
     </div>
   );
