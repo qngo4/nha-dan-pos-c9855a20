@@ -1,109 +1,113 @@
-import { Link } from "react-router-dom";
 import { products, categories } from "@/lib/mock-data";
-import { formatVND } from "@/lib/format";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { Package, ShoppingCart, SlidersHorizontal, Search } from "lucide-react";
-import { useState } from "react";
+import { ProductCard } from "@/components/storefront/ProductCard";
+import { Package, Search, SlidersHorizontal, X } from "lucide-react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
-function getStockStatus(stock: number, minStock: number) {
-  if (stock === 0) return 'out-of-stock' as const;
-  if (stock <= minStock) return 'low-stock' as const;
-  return 'in-stock' as const;
-}
+type SortKey = "newest" | "price-asc" | "price-desc" | "name";
 
 export default function StorefrontProducts() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const activeCategories = categories.filter(c => c.active);
-  const activeProducts = products.filter(p => p.active).filter(p => {
-    if (selectedCategory && p.categoryId !== selectedCategory) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortKey>("newest");
+  const activeCategories = categories.filter((c) => c.active);
+
+  const filtered = useMemo(() => {
+    let list = products.filter((p) => p.active);
+    if (selectedCategory) list = list.filter((p) => p.categoryId === selectedCategory);
+    if (search) list = list.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+    list = [...list].sort((a, b) => {
+      const ap = Math.min(...a.variants.map((v) => v.sellPrice));
+      const bp = Math.min(...b.variants.map((v) => v.sellPrice));
+      if (sort === "price-asc") return ap - bp;
+      if (sort === "price-desc") return bp - ap;
+      if (sort === "name") return a.name.localeCompare(b.name);
+      return 0;
+    });
+    return list;
+  }, [selectedCategory, search, sort]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">Sản phẩm</h1>
-          <p className="text-sm text-muted-foreground">{activeProducts.length} sản phẩm</p>
-        </div>
-        <div className="relative max-w-xs w-full">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Tìm theo tên..."
-            className="w-full h-9 pl-9 pr-3 text-sm bg-card rounded-md border focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+    <div className="bg-storefront-bg min-h-screen">
+      {/* Page header */}
+      <div className="bg-storefront-surface border-b">
+        <div className="max-w-7xl mx-auto px-4 py-6 md:py-8">
+          <p className="sf-eyebrow">Cửa hàng</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">
+            Tất cả sản phẩm
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {filtered.length} sản phẩm sẵn sàng giao
+          </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
-        <button
-          onClick={() => setSelectedCategory(null)}
-          className={cn(
-            "shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
-            !selectedCategory ? "bg-primary text-primary-foreground" : "bg-card border text-muted-foreground hover:border-primary hover:text-primary"
-          )}
-        >
-          Tất cả
-        </button>
-        {activeCategories.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={cn(
-              "shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
-              selectedCategory === cat.id ? "bg-primary text-primary-foreground" : "bg-card border text-muted-foreground hover:border-primary hover:text-primary"
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-5">
+          <div className="relative flex-1 max-w-lg">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm sản phẩm theo tên..."
+              className="w-full h-11 pl-10 pr-10 text-sm bg-storefront-surface rounded-full border focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
             )}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="h-11 px-3 text-sm bg-storefront-surface rounded-full border focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+            >
+              <option value="newest">Mới nhất</option>
+              <option value="price-asc">Giá thấp → cao</option>
+              <option value="price-desc">Giá cao → thấp</option>
+              <option value="name">Tên A → Z</option>
+            </select>
+          </div>
+        </div>
 
-      {/* Grid */}
-      {activeProducts.length === 0 ? (
-        <div className="text-center py-16">
-          <Package className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="font-medium">Không tìm thấy sản phẩm</p>
-          <p className="text-sm text-muted-foreground mt-1">Thử thay đổi bộ lọc hoặc từ khóa</p>
+        {/* Category chips */}
+        <div className="flex gap-2.5 overflow-x-auto pb-3 mb-5 scrollbar-thin">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={cn("sf-chip", !selectedCategory && "sf-chip-active")}
+          >
+            Tất cả
+          </button>
+          {activeCategories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={cn("sf-chip", selectedCategory === cat.id && "sf-chip-active")}
+            >
+              {cat.name}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-          {activeProducts.map(product => {
-            const dv = product.variants.find(v => v.isDefault) || product.variants[0];
-            const stockStatus = getStockStatus(dv.stock, dv.minStock);
-            const minPrice = Math.min(...product.variants.map(v => v.sellPrice));
-            return (
-              <Link key={product.id} to={`/products/${product.id}`} className="group bg-card rounded-lg border overflow-hidden hover:shadow-lg transition-all">
-                <div className="aspect-square bg-muted relative">
-                  <div className="flex items-center justify-center h-full">
-                    <Package className="h-10 w-10 text-muted-foreground/40" />
-                  </div>
-                  {stockStatus !== 'in-stock' && (
-                    <div className="absolute top-2 left-2"><StatusBadge status={stockStatus} /></div>
-                  )}
-                  <button className="absolute bottom-2 right-2 h-8 w-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={e => e.preventDefault()}>
-                    <ShoppingCart className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="p-3">
-                  <p className="text-xs text-muted-foreground">{product.categoryName}</p>
-                  <h3 className="font-medium text-sm mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">{product.name}</h3>
-                  <p className="font-bold text-primary text-sm mt-1.5">
-                    {product.variants.length > 1 ? `Từ ${formatVND(minPrice)}` : formatVND(dv.sellPrice)}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+
+        {/* Grid */}
+        {filtered.length === 0 ? (
+          <div className="text-center py-20 bg-storefront-surface rounded-2xl border">
+            <Package className="h-14 w-14 text-muted-foreground/30 mx-auto mb-3" strokeWidth={1.25} />
+            <p className="font-semibold">Không tìm thấy sản phẩm</p>
+            <p className="text-sm text-muted-foreground mt-1">Thử thay đổi bộ lọc hoặc từ khóa khác</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+            {filtered.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
