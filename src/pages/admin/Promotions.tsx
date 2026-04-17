@@ -255,7 +255,7 @@ function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
       <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
