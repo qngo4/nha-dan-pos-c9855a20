@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
+import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
 import { DateInput } from "@/components/shared/DateInput";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
-import { suppliers } from "@/lib/mock-data";
+import { suppliers, products } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
 import { draftActions } from "@/lib/drafts";
 import {
   ArrowLeft, Save, Trash2, Upload, Printer, Search,
-  AlertTriangle, Package, FileText, Check
+  AlertTriangle, AlertCircle, Package, FileText, Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -24,6 +24,29 @@ interface ReceiptLine {
   importUnit: string;
   piecesPerUnit: number;
   expiryDate: string;
+  fromImport?: boolean;
+}
+
+interface LineIssue {
+  errors: string[];
+  warnings: string[];
+}
+
+function validateLine(l: ReceiptLine): LineIssue {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  if (!l.quantity || l.quantity <= 0) errors.push("Số lượng phải lớn hơn 0 — chỉnh trực tiếp ở cột SL.");
+  if (!l.unitCost || l.unitCost <= 0) errors.push("Đơn giá nhập phải lớn hơn 0 — nhập lại ở cột Đơn giá.");
+  if (!l.variantCode) errors.push("Thiếu mã sản phẩm — không thể lưu.");
+  // Warnings (non-blocking)
+  if (!l.expiryDate) warnings.push("Chưa có hạn sử dụng — bổ sung ngày HSD nếu sản phẩm cần.");
+  if (l.unitCost > 0 && l.quantity > 0) {
+    const known = products.flatMap(p => p.variants).find(v => v.code === l.variantCode);
+    if (known && known.costPrice > 0 && l.unitCost > known.costPrice * 2) {
+      warnings.push(`Đơn giá cao bất thường (gấp >2 lần giá nhập gần nhất ${formatVND(known.costPrice)}).`);
+    }
+  }
+  return { errors, warnings };
 }
 
 const initialLines: ReceiptLine[] = [
