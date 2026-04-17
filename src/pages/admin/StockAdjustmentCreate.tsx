@@ -214,13 +214,13 @@ export default function AdminStockAdjustmentCreate() {
       {/* Mobile sticky actions */}
       {status === 'draft' && (
         <div className="fixed bottom-0 left-0 right-0 p-3 bg-card border-t lg:hidden z-30 flex gap-2">
-          <button className="flex-1 py-2 text-sm font-medium border rounded-md hover:bg-muted">Lưu nháp</button>
+          <button onClick={handleSaveDraft} className="flex-1 py-2 text-sm font-medium border rounded-md hover:bg-muted">Lưu nháp</button>
           <button onClick={() => setShowConfirm(true)} className="flex-1 py-2 text-sm font-semibold bg-success text-success-foreground rounded-md">Xác nhận</button>
         </div>
       )}
 
-      <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={() => setStatus('confirmed')} title="Xác nhận phiếu điều chỉnh?" description="Sau khi xác nhận, tồn kho sẽ được cập nhật và không thể hoàn tác. Hãy kiểm tra lại trước khi xác nhận." confirmLabel="Xác nhận điều chỉnh" variant="warning" />
-      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={() => setShowDelete(false)} title="Xóa phiếu nháp?" description="Phiếu nháp này sẽ bị xóa vĩnh viễn." confirmLabel="Xóa" variant="danger" />
+      <ConfirmDialog open={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={handleConfirm} title="Xác nhận phiếu điều chỉnh?" description="Sau khi xác nhận, tồn kho sẽ được cập nhật và không thể hoàn tác. Hãy kiểm tra lại trước khi xác nhận." confirmLabel="Xác nhận điều chỉnh" variant="warning" />
+      <ConfirmDialog open={showDelete} onClose={() => setShowDelete(false)} onConfirm={handleDelete} title="Xóa phiếu nháp?" description="Phiếu nháp này sẽ bị xóa vĩnh viễn." confirmLabel="Xóa" variant="danger" />
     </div>
   );
 }
