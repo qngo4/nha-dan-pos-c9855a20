@@ -5,16 +5,16 @@ import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { UserFormDrawer } from "@/components/shared/UserFormDrawer";
+import { RowActions } from "@/components/shared/RowActions";
 import { useStore, userActions } from "@/lib/store";
 import { formatDateTime } from "@/lib/format";
-import { Plus, UserCog, Pencil, Shield, MoreHorizontal, Trash2, KeyRound } from "lucide-react";
+import { Plus, UserCog, Pencil, Shield, Trash2, KeyRound, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { UserAccount } from "@/lib/mock-data";
 
 export default function AdminUsers() {
   const { users } = useStore();
   const [search, setSearch] = useState('');
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<UserAccount | null>(null);
   const [deleting, setDeleting] = useState<UserAccount | null>(null);
@@ -24,7 +24,7 @@ export default function AdminUsers() {
   ), [users, search]);
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
-  const openEdit = (u: UserAccount) => { setEditing(u); setDrawerOpen(true); setOpenMenu(null); };
+  const openEdit = (u: UserAccount) => { setEditing(u); setDrawerOpen(true); };
 
   return (
     <div className="space-y-4 admin-dense">
@@ -50,7 +50,7 @@ export default function AdminUsers() {
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">TOTP</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden lg:table-cell">Đăng nhập cuối</th>
-                  <th className="w-10" />
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[60px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -72,21 +72,36 @@ export default function AdminUsers() {
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={u.totpEnabled ? 'totp-enabled' : 'totp-disabled'} /></td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={u.active ? 'active' : 'inactive'} /></td>
                     <td className="px-3 py-2.5 text-xs text-muted-foreground hidden lg:table-cell">{u.lastLogin ? formatDateTime(u.lastLogin) : '—'}</td>
-                    <td className="px-3 py-2.5 relative">
-                      <button onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"><MoreHorizontal className="h-4 w-4" /></button>
-                      {openMenu === u.id && (
-                        <div className="absolute right-2 top-full mt-1 w-44 bg-popover border rounded-md shadow-lg z-20">
-                          <button onClick={() => openEdit(u)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><Pencil className="h-3 w-3" /> Sửa</button>
-                          <button onClick={() => { userActions.update(u.id, { active: !u.active }); setOpenMenu(null); toast.success(u.active ? "Đã khóa tài khoản" : "Đã mở khóa"); }} className="w-full px-3 py-1.5 text-xs hover:bg-muted text-left">{u.active ? "Khóa tài khoản" : "Mở khóa"}</button>
-                          <button onClick={() => { toast.success(`Đã gửi link đặt lại mật khẩu cho ${u.username}`); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"><KeyRound className="h-3 w-3" /> Đặt lại mật khẩu</button>
-                          <button
-                            onClick={() => { if (u.username === 'admin') { toast.error("Không thể xóa tài khoản admin chính"); setOpenMenu(null); return; } setDeleting(u); setOpenMenu(null); }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-danger-soft text-danger text-left"
-                          >
-                            <Trash2 className="h-3 w-3" /> Xóa
-                          </button>
-                        </div>
-                      )}
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="inline-flex items-center justify-end">
+                        <RowActions
+                          actions={[
+                            { label: "Sửa", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(u) },
+                            {
+                              label: u.active ? "Khóa tài khoản" : "Mở khóa",
+                              icon: u.active ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />,
+                              onClick: () => {
+                                userActions.update(u.id, { active: !u.active });
+                                toast.success(u.active ? "Đã khóa tài khoản" : "Đã mở khóa");
+                              },
+                            },
+                            {
+                              label: "Đặt lại mật khẩu",
+                              icon: <KeyRound className="h-3.5 w-3.5" />,
+                              onClick: () => toast.success(`Đã gửi link đặt lại mật khẩu cho ${u.username}`),
+                            },
+                            {
+                              separatorBefore: true,
+                              label: "Xóa",
+                              icon: <Trash2 className="h-3.5 w-3.5" />,
+                              danger: true,
+                              disabled: u.username === 'admin',
+                              disabledReason: "Không thể xóa tài khoản admin chính",
+                              onClick: () => setDeleting(u),
+                            },
+                          ]}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
