@@ -1,28 +1,90 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { products, categories } from "@/lib/mock-data";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ImportPreviewDialog, type ImportRow } from "@/components/shared/ImportPreviewDialog";
+import { useStore, productActions } from "@/lib/store";
+import type { Product } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
-import { useState } from "react";
-import { Search, Plus, Filter, Package, MoreHorizontal, Download, Upload } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, Plus, Package, MoreHorizontal, Upload, Pencil, Trash2, Power, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
-function getStockSignal(product: typeof products[0]) {
+function getStockSignal(product: Product) {
   const hasOutOfStock = product.variants.some(v => v.stock === 0);
   const hasLowStock = product.variants.some(v => v.stock > 0 && v.stock <= v.minStock);
-  if (hasOutOfStock) return 'out-of-stock' as const;
-  if (hasLowStock) return 'low-stock' as const;
-  return 'in-stock' as const;
+  if (hasOutOfStock) return "out-of-stock" as const;
+  if (hasLowStock) return "low-stock" as const;
+  return "in-stock" as const;
 }
 
 export default function AdminProducts() {
-  const [search, setSearch] = useState('');
+  const { products, categories } = useStore();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenu(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const filtered = products.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.code.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory && p.categoryId !== filterCategory) return false;
     return true;
   });
+
+  const handleToggleActive = (p: Product) => {
+    productActions.update(p.id, { active: !p.active });
+    toast.success(p.active ? `Đã ngưng "${p.name}"` : `Đã kích hoạt "${p.name}"`);
+    setOpenMenu(null);
+  };
+
+  const handleDelete = () => {
+    if (!confirmDelete) return;
+    productActions.remove(confirmDelete.id);
+    toast.success(`Đã xóa "${confirmDelete.name}"`);
+  };
+
+  const handleImport = (rows: ImportRow[]) => {
+    const newProducts: Product[] = rows.map((r, i) => {
+      const cat = categories.find(c => c.name === r.category) ?? categories[0];
+      return {
+        id: `imp-${Date.now()}-${i}`,
+        code: r.code,
+        name: r.name,
+        categoryId: cat?.id ?? "1",
+        categoryName: cat?.name ?? r.category,
+        image: "",
+        active: true,
+        type: "single",
+        variants: [{
+          id: `impv-${Date.now()}-${i}`,
+          code: `${r.code}-01`,
+          name: r.variantName,
+          sellUnit: "Cái",
+          importUnit: "Thùng",
+          piecesPerImportUnit: 1,
+          sellPrice: r.sellPrice,
+          costPrice: r.costPrice,
+          stock: r.stock,
+          minStock: 10,
+          expiryDays: 0,
+          isDefault: true,
+        }],
+      };
+    });
+    productActions.bulkAdd(newProducts);
+  };
 
   return (
     <div className="space-y-4 admin-dense">
@@ -31,23 +93,21 @@ export default function AdminProducts() {
         description={`${products.length} sản phẩm`}
         actions={
           <div className="flex gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors">
+            <button onClick={() => setShowImport(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted transition-colors">
               <Upload className="h-3.5 w-3.5" /> Nhập Excel
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover transition-colors">
+            <button onClick={() => navigate("/admin/products/new")} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover transition-colors">
               <Plus className="h-3.5 w-3.5" /> Thêm sản phẩm
             </button>
           </div>
         }
       />
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+            value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Tìm tên, mã sản phẩm..."
             className="w-full h-8 pl-9 pr-3 text-sm bg-card rounded-md border focus:outline-none focus:ring-1 focus:ring-ring"
           />
@@ -87,12 +147,12 @@ export default function AdminProducts() {
               return (
                 <tr key={product.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-2.5">
+                    <button onClick={() => navigate(`/admin/products/${product.id}`)} className="flex items-center gap-2.5 text-left hover:text-primary">
                       <div className="h-9 w-9 bg-muted rounded-md flex items-center justify-center shrink-0">
                         <Package className="h-4 w-4 text-muted-foreground/40" />
                       </div>
                       <span className="font-medium">{product.name}</span>
-                    </div>
+                    </button>
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">{product.code}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{product.categoryName}</td>
@@ -104,13 +164,30 @@ export default function AdminProducts() {
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <StatusBadge status={product.active ? 'active' : 'inactive'} />
+                    <StatusBadge status={product.active ? "active" : "inactive"} />
                   </td>
-                  <td className="px-3 py-2.5 text-right font-medium">{formatVND(dv.sellPrice)}</td>
-                  <td className="px-3 py-2.5">
-                    <button className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted">
+                  <td className="px-3 py-2.5 text-right font-medium">{dv ? formatVND(dv.sellPrice) : "—"}</td>
+                  <td className="px-3 py-2.5 relative">
+                    <button onClick={() => setOpenMenu(openMenu === product.id ? null : product.id)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted">
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
+                    {openMenu === product.id && (
+                      <div ref={menuRef} className="absolute right-2 top-9 z-20 w-44 bg-popover border rounded-md shadow-lg py-1 animate-fade-in">
+                        <button onClick={() => { navigate(`/admin/products/${product.id}`); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left">
+                          <Eye className="h-3.5 w-3.5" /> Xem chi tiết
+                        </button>
+                        <button onClick={() => { navigate(`/admin/products/${product.id}`); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left">
+                          <Pencil className="h-3.5 w-3.5" /> Sửa sản phẩm
+                        </button>
+                        <button onClick={() => handleToggleActive(product)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left">
+                          <Power className="h-3.5 w-3.5" /> {product.active ? "Ngưng bán" : "Kích hoạt"}
+                        </button>
+                        <div className="my-1 border-t" />
+                        <button onClick={() => { setConfirmDelete(product); setOpenMenu(null); }} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-danger-soft text-danger text-left">
+                          <Trash2 className="h-3.5 w-3.5" /> Xóa sản phẩm
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
@@ -126,7 +203,7 @@ export default function AdminProducts() {
           const dv = product.variants.find(v => v.isDefault) || product.variants[0];
           const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
           return (
-            <div key={product.id} className="bg-card rounded-lg border p-3">
+            <div key={product.id} className="bg-card rounded-lg border p-3" onClick={() => navigate(`/admin/products/${product.id}`)}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                   <div className="h-10 w-10 bg-muted rounded-md flex items-center justify-center shrink-0">
@@ -137,19 +214,31 @@ export default function AdminProducts() {
                     <p className="text-xs text-muted-foreground">{product.code} · {product.categoryName}</p>
                   </div>
                 </div>
-                <StatusBadge status={product.active ? 'active' : 'inactive'} />
+                <StatusBadge status={product.active ? "active" : "inactive"} />
               </div>
               <div className="flex items-center justify-between mt-2 pt-2 border-t">
                 <div className="flex items-center gap-2">
                   <StatusBadge status={stockSignal} label={`Tồn: ${totalStock}`} />
                   <span className="text-xs text-muted-foreground">{product.variants.length} phân loại</span>
                 </div>
-                <span className="font-bold text-sm text-primary">{formatVND(dv.sellPrice)}</span>
+                <span className="font-bold text-sm text-primary">{dv ? formatVND(dv.sellPrice) : "—"}</span>
               </div>
             </div>
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+        variant="danger"
+        title="Xóa sản phẩm"
+        description={`Xóa "${confirmDelete?.name}" cùng tất cả phân loại? Hành động này không thể hoàn tác.`}
+        confirmLabel="Xóa"
+      />
+
+      <ImportPreviewDialog open={showImport} onClose={() => setShowImport(false)} onConfirm={handleImport} />
     </div>
   );
 }
