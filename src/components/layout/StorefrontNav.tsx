@@ -25,7 +25,7 @@ export function StorefrontNav() {
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary-hover text-primary-foreground flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
               <Store className="h-5 w-5" />
             </div>
-            <span className="font-bold text-base tracking-tight hidden sm:inline">NhaDanShop</span>
+            <span className="font-bold text-base tracking-tight hidden sm:inline">Nhã Đan Shop</span>
           </Link>
 
           {/* Desktop nav links */}

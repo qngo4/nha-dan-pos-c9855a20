@@ -234,7 +234,7 @@ export default function StorefrontHome() {
           <div className="flex items-end justify-between mb-5">
             <div>
               <p className="sf-eyebrow">Tất cả sản phẩm</p>
-              <h2 className="sf-section-title mt-1">Mới nhất tại NhaDanShop</h2>
+              <h2 className="sf-section-title mt-1">Mới nhất tại Nhã Đan Shop</h2>
             </div>
             <Link to="/products" className="text-sm font-semibold text-primary hover:underline flex items-center gap-1">
               Xem tất cả <ChevronRight className="h-3.5 w-3.5" />
