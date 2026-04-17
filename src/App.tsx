@@ -15,6 +15,8 @@ import PendingPaymentPage from "@/pages/storefront/PendingPayment";
 import LoginPage from "@/pages/storefront/Login";
 import SignupPage from "@/pages/storefront/Signup";
 import AccountPage from "@/pages/storefront/Account";
+import StorefrontProductDetail from "@/pages/storefront/ProductDetail";
+import StorefrontCombos from "@/pages/storefront/Combos";
 
 import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminCategories from "@/pages/admin/Categories";
@@ -53,8 +55,8 @@ const App = () => (
           <Route element={<StorefrontLayout />}>
             <Route path="/" element={<StorefrontHome />} />
             <Route path="/products" element={<StorefrontProducts />} />
-            <Route path="/products/:id" element={<PlaceholderPage title="Chi tiết sản phẩm" />} />
-            <Route path="/combos" element={<PlaceholderPage title="Combo" description="Danh sách combo ưu đãi" />} />
+            <Route path="/products/:id" element={<StorefrontProductDetail />} />
+            <Route path="/combos" element={<StorefrontCombos />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/pending-payment" element={<PendingPaymentPage />} />
