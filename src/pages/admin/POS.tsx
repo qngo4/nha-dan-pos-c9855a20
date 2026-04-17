@@ -35,10 +35,17 @@ export default function AdminPOS() {
   const [note, setNote] = useState('');
   const [scanFlash, setScanFlash] = useState<'ok' | 'err' | null>(null);
   const [lastInvoice, setLastInvoice] = useState<{ number: string; total: number } | null>(null);
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [discountMode, setDiscountMode] = useState<'amount' | 'percent'>('amount');
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.quantity * (1 - l.discount / 100), 0);
   const totalItems = lines.reduce((s, l) => s + l.quantity, 0);
+  const orderDiscount = Math.max(
+    0,
+    Math.min(subtotal, discountMode === 'percent' ? Math.round(subtotal * (discountValue || 0) / 100) : (discountValue || 0))
+  );
+  const total = Math.max(0, subtotal - orderDiscount);
 
   // HID mode keeps focus on barcode input
   useEffect(() => {
