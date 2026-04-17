@@ -201,7 +201,25 @@ export default function AdminGoodsReceiptCreate() {
         </div>
       )}
 
-      {missingExpiryCount > 0 && (
+      {totalLineErrors > 0 && (
+        <div className="flex items-start gap-2 p-3 mb-3 bg-danger-soft rounded-lg border border-danger/20 text-sm text-danger">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            Có <strong>{totalLineErrors} lỗi</strong> ở danh sách mặt hàng{importedWithIssues > 0 ? ` (trong đó ${importedWithIssues} dòng từ Excel)` : ''}. Vui lòng sửa các dòng đánh dấu đỏ trước khi lưu phiếu nhập.
+          </span>
+        </div>
+      )}
+
+      {totalLineWarnings > 0 && totalLineErrors === 0 && (
+        <div className="flex items-start gap-2 p-3 mb-3 bg-warning-soft rounded-lg border border-warning/20 text-sm text-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            Có <strong>{totalLineWarnings} cảnh báo</strong> ở danh sách mặt hàng. Bạn vẫn có thể lưu phiếu nhưng nên kiểm tra lại.
+          </span>
+        </div>
+      )}
+
+      {missingExpiryCount > 0 && totalLineErrors === 0 && totalLineWarnings === 0 && (
         <div className="flex items-center gap-2 p-3 mb-3 bg-warning-soft rounded-lg border border-warning/20 text-sm text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{missingExpiryCount} mặt hàng chưa có hạn sử dụng. Hàng cần HSD nên được điền đầy đủ.</span>
