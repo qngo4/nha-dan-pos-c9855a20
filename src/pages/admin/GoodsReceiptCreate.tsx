@@ -461,8 +461,11 @@ export default function AdminGoodsReceiptCreate() {
             unitCost: r.unitCost,
             discount: r.discountPercent || 0,
             importUnit: r.importUnit,
+            sellUnit: r.sellUnit,
             piecesPerUnit: r.piecesPerUnit,
             expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
+            expiryDays: r.expiryDays,
+            expiryMode: r.expiryDate ? 'date' : (r.expiryDays ? 'days' : 'date'),
             fromImport: true,
           }));
           setLines(prev => [...prev, ...newLines]);
