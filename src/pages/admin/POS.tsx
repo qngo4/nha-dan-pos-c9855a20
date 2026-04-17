@@ -437,7 +437,7 @@ export default function AdminPOS() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="h-4 w-4" />
-                Thanh toán — {formatVND(subtotal)}
+                Thanh toán — {formatVND(total)}
               </button>
               <button onClick={handlePrint} disabled={lines.length === 0} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted transition-colors disabled:opacity-50">
                 <Printer className="h-4 w-4" />
