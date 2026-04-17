@@ -22,7 +22,8 @@ function getStockSignal(product: Product) {
 export default function AdminProducts() {
   const { products, categories } = useStore();
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const initialQ = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q") ?? "" : "";
+  const [search, setSearch] = useState(initialQ);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
