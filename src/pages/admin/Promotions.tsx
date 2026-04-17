@@ -5,9 +5,10 @@ import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolb
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { promotions as initialPromotions, type Promotion } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { DateInput } from "@/components/shared/DateInput";
 import { formatVND, formatDate } from "@/lib/format";
-import { Plus, Tags, Calendar, Pencil, X, Trash2, Power } from "lucide-react";
+import { Plus, Tags, Calendar, Pencil, X, Trash2, Power, Check } from "lucide-react";
 import { toast } from "sonner";
 
 const typeLabels: Record<string, string> = {
@@ -50,6 +51,10 @@ export default function AdminPromotions() {
   const handleSave = (promo: Promotion) => {
     if (!promo.name.trim()) {
       toast.error('Vui lòng nhập tên khuyến mãi');
+      return;
+    }
+    if (promo.scope !== 'all' && promo.scopeIds.length === 0) {
+      toast.error(promo.scope === 'categories' ? 'Vui lòng chọn ít nhất 1 danh mục' : 'Vui lòng chọn ít nhất 1 sản phẩm');
       return;
     }
     if (promo.id) {
@@ -167,10 +172,34 @@ export default function AdminPromotions() {
 
 function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: () => void; onSave: (p: Promotion) => void }) {
   const [form, setForm] = useState<Promotion>(promo);
+  const [scopeSearch, setScopeSearch] = useState('');
+  const { categories, products } = useStore();
   const isEdit = !!promo.id;
 
   const update = <K extends keyof Promotion>(key: K, val: Promotion[K]) =>
     setForm(prev => ({ ...prev, [key]: val }));
+
+  const setScope = (scope: Promotion['scope']) => {
+    setForm(prev => ({ ...prev, scope, scopeIds: scope === prev.scope ? prev.scopeIds : [] }));
+  };
+
+  const toggleId = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      scopeIds: prev.scopeIds.includes(id)
+        ? prev.scopeIds.filter(x => x !== id)
+        : [...prev.scopeIds, id],
+    }));
+  };
+
+  const scopeMissing = form.scope !== 'all' && form.scopeIds.length === 0;
+  const canSubmit = !!form.name.trim() && !scopeMissing;
+
+  const optionsList = form.scope === 'categories'
+    ? categories.filter(c => !scopeSearch || c.name.toLowerCase().includes(scopeSearch.toLowerCase())).map(c => ({ id: c.id, label: c.name, sub: `${c.productCount} SP` }))
+    : form.scope === 'products'
+    ? products.filter(p => !scopeSearch || p.name.toLowerCase().includes(scopeSearch.toLowerCase()) || p.code.toLowerCase().includes(scopeSearch.toLowerCase())).map(p => ({ id: p.id, label: p.name, sub: p.code }))
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -220,7 +249,7 @@ function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: 
             </Field>
           </div>
 
-          <Field label="Phạm vi áp dụng">
+          <Field label="Phạm vi áp dụng *">
             <div className="flex gap-2">
               {([
                 { v: 'all', l: 'Toàn bộ' },
@@ -230,14 +259,65 @@ function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: 
                 <button
                   key={opt.v}
                   type="button"
-                  onClick={() => update('scope', opt.v)}
+                  onClick={() => setScope(opt.v)}
                   className={`flex-1 h-9 text-xs font-medium rounded-md border transition-colors ${form.scope === opt.v ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
                 >
                   {opt.l}
                 </button>
               ))}
             </div>
+            {form.scope === 'all' && (
+              <p className="text-[11px] text-muted-foreground mt-2">Áp dụng cho tất cả sản phẩm trong cửa hàng.</p>
+            )}
           </Field>
+
+          {form.scope !== 'all' && (
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium">
+                  {form.scope === 'categories' ? 'Chọn danh mục' : 'Chọn sản phẩm'}
+                  <span className={`ml-2 ${scopeMissing ? 'text-danger' : 'text-muted-foreground'}`}>
+                    ({form.scopeIds.length} đã chọn)
+                  </span>
+                </p>
+                {form.scopeIds.length > 0 && (
+                  <button onClick={() => update('scopeIds', [])} className="text-[11px] text-muted-foreground hover:text-foreground">Bỏ chọn</button>
+                )}
+              </div>
+              <input
+                value={scopeSearch}
+                onChange={e => setScopeSearch(e.target.value)}
+                placeholder={form.scope === 'categories' ? 'Tìm danh mục...' : 'Tìm sản phẩm hoặc mã SP...'}
+                className="w-full h-8 px-3 text-xs border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <div className="max-h-48 overflow-y-auto border rounded-md bg-card divide-y">
+                {optionsList.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground text-center">Không có kết quả</p>
+                ) : optionsList.map(opt => {
+                  const checked = form.scopeIds.includes(opt.id);
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => toggleId(opt.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-muted ${checked ? 'bg-primary-soft' : ''}`}
+                    >
+                      <span className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-primary border-primary text-primary-foreground' : 'bg-background'}`}>
+                        {checked && <Check className="h-3 w-3" />}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="font-medium truncate block">{opt.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{opt.sub}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {scopeMissing && (
+                <p className="text-[11px] text-danger">Bắt buộc chọn ít nhất 1 mục để lưu khuyến mãi.</p>
+              )}
+            </div>
+          )}
 
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.active} onChange={e => update('active', e.target.checked)} className="h-4 w-4 rounded border-input" />
@@ -247,7 +327,11 @@ function PromotionForm({ promo, onClose, onSave }: { promo: Promotion; onClose: 
 
         <div className="p-4 border-t flex gap-2">
           <button onClick={onClose} className="flex-1 px-3 py-2 text-sm border rounded-md hover:bg-muted">Hủy</button>
-          <button onClick={() => onSave(form)} className="flex-1 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
+          <button
+            onClick={() => onSave(form)}
+            disabled={!canSubmit}
+            className="flex-1 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {isEdit ? 'Lưu thay đổi' : 'Tạo khuyến mãi'}
           </button>
         </div>
