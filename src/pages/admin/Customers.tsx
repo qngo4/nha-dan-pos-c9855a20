@@ -62,7 +62,7 @@ export default function AdminCustomers() {
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tổng mua</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Đơn</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
-                  <th className="w-10" />
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[60px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
