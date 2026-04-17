@@ -409,23 +409,25 @@ export default function AdminGoodsReceiptCreate() {
         </div>
       </div>
 
-      <ImportPreviewDialog
+      <ReceiptImportPreviewDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onConfirm={(rows) => {
           const newLines: ReceiptLine[] = rows.map((r, i) => ({
             id: `imp-${Date.now()}-${i}`,
-            productName: r.name,
+            productName: r.productName,
             variantName: r.variantName,
-            variantCode: r.code,
-            quantity: r.stock,
-            unitCost: r.costPrice,
+            variantCode: r.productCode,
+            quantity: r.quantity,
+            unitCost: r.unitCost,
             discount: 0,
-            importUnit: 'Thùng',
-            piecesPerUnit: 1,
-            expiryDate: '',
+            importUnit: r.importUnit,
+            piecesPerUnit: r.piecesPerUnit,
+            expiryDate: r.expiryDate,
+            fromImport: true,
           }));
           setLines(prev => [...prev, ...newLines]);
+          toast.success(`Đã thêm ${newLines.length} dòng từ Excel — kiểm tra lỗi/cảnh báo bên dưới`);
         }}
       />
 
@@ -433,12 +435,17 @@ export default function AdminGoodsReceiptCreate() {
         open={barcodeOpen}
         onClose={() => setBarcodeOpen(false)}
         title={`In mã vạch — ${savedNumber ?? 'phiếu nhập'}`}
-        items={lines.map(l => ({
-          productName: l.productName,
-          variantName: l.variantName,
-          code: l.variantCode,
-          defaultQty: l.quantity * l.piecesPerUnit,
-        }))}
+        items={lines.map(l => {
+          const known = products.flatMap(p => p.variants).find(v => v.code === l.variantCode);
+          return {
+            productName: l.productName,
+            variantName: l.variantName,
+            code: l.variantCode,
+            price: known?.sellPrice,
+            lot: savedNumber ?? draftNumber ?? receiptDate,
+            defaultQty: l.quantity * l.piecesPerUnit,
+          };
+        })}
       />
     </div>
   );
