@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
 import { DateInput } from "@/components/shared/DateInput";
+import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
 import { suppliers } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
+import { draftActions } from "@/lib/drafts";
 import {
   ArrowLeft, Save, Trash2, Upload, Printer, Search,
   AlertTriangle, Package, FileText, Check
@@ -33,6 +34,9 @@ const initialLines: ReceiptLine[] = [
 
 export default function AdminGoodsReceiptCreate() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const draftId = params.get("draft");
+
   const [lines, setLines] = useState<ReceiptLine[]>(initialLines);
   const [supplier, setSupplier] = useState('');
   const [shippingFee, setShippingFee] = useState(50000);
@@ -42,7 +46,27 @@ export default function AdminGoodsReceiptCreate() {
   const [search, setSearch] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [savedNumber, setSavedNumber] = useState<string | null>(null);
-  const [confirmPrint, setConfirmPrint] = useState(false);
+  const [draftNumber, setDraftNumber] = useState<string | null>(null);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [barcodeOpen, setBarcodeOpen] = useState(false);
+
+  // Load existing draft (if any)
+  useEffect(() => {
+    if (!draftId) return;
+    const d = draftActions.get(draftId);
+    if (d) {
+      setLines(d.lines);
+      setSupplier(d.supplierId);
+      setShippingFee(d.shippingFee);
+      setVat(d.vat);
+      setNote(d.note);
+      setReceiptDate(d.receiptDate);
+      setDraftNumber(d.number);
+      setCurrentDraftId(d.id);
+      toast.info(`Đã mở phiếu nháp ${d.number}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId]);
 
   const subtotal = lines.reduce((s, l) => s + l.unitCost * l.quantity * (1 - l.discount / 100), 0);
   const vatAmount = subtotal * vat / 100;
@@ -79,7 +103,22 @@ export default function AdminGoodsReceiptCreate() {
       toast.error("Chưa có mặt hàng nào");
       return;
     }
-    toast.success("Đã lưu nháp phiếu nhập");
+    const number = draftNumber ?? `DRAFT-${receiptDate.replace(/-/g, '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
+    const supplierName = suppliers.find(s => s.id === supplier)?.name ?? '— Chưa chọn NCC —';
+    const saved = draftActions.save({
+      id: currentDraftId ?? undefined,
+      number,
+      supplierId: supplier,
+      supplierName,
+      receiptDate,
+      shippingFee,
+      vat,
+      note,
+      lines,
+    });
+    setDraftNumber(saved.number);
+    setCurrentDraftId(saved.id);
+    toast.success(`Đã lưu nháp ${saved.number}`);
   };
 
   const handleSave = () => {
@@ -91,17 +130,13 @@ export default function AdminGoodsReceiptCreate() {
     }
     const number = `PN-${receiptDate.replace(/-/g, '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
     setSavedNumber(number);
-    toast.success(`Đã lưu phiếu nhập ${number}`);
-  };
-
-  const handlePrintBarcodes = () => {
-    if (!savedNumber) {
-      toast.error("Vui lòng lưu phiếu trước khi in mã vạch");
-      return;
+    // Remove from drafts if it was a draft
+    if (currentDraftId) {
+      draftActions.remove(currentDraftId);
+      setCurrentDraftId(null);
+      setDraftNumber(null);
     }
-    toast.success(`Đang in ${lines.reduce((s, l) => s + l.quantity * l.piecesPerUnit, 0)} tem mã vạch...`);
-    setTimeout(() => window.print(), 200);
-    setConfirmPrint(false);
+    toast.success(`Đã lưu phiếu nhập ${number}`);
   };
 
   return (
@@ -110,12 +145,20 @@ export default function AdminGoodsReceiptCreate() {
         <Link to="/admin/goods-receipts" className="flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Phiếu nhập</Link>
         <span>/</span><span className="text-foreground font-medium">Tạo phiếu nhập</span>
         {savedNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-success-soft text-success text-xs font-mono">{savedNumber}</span>}
+        {!savedNumber && draftNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-info-soft text-info text-xs font-mono">Nháp: {draftNumber}</span>}
       </div>
 
       {savedNumber && (
         <div className="flex items-center gap-2 p-3 mb-3 bg-success-soft rounded-lg border border-success/20 text-sm text-success">
           <Check className="h-4 w-4 shrink-0" />
           <span>Đã lưu phiếu nhập <strong>{savedNumber}</strong>. Bạn có thể in mã vạch ngay.</span>
+        </div>
+      )}
+
+      {!savedNumber && draftNumber && (
+        <div className="flex items-center gap-2 p-3 mb-3 bg-info-soft rounded-lg border border-info/20 text-sm text-info">
+          <FileText className="h-4 w-4 shrink-0" />
+          <span>Phiếu này đang ở trạng thái <strong>nháp</strong>. Bấm "Lưu phiếu nhập" để xác nhận và cập nhật tồn kho.</span>
         </div>
       )}
 
@@ -198,7 +241,7 @@ export default function AdminGoodsReceiptCreate() {
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">CK %</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">HSD</th>
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground">Thành tiền</th>
-                  <th className="w-8" />
+                  <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
@@ -227,7 +270,9 @@ export default function AdminGoodsReceiptCreate() {
                         {missingExpiry && <AlertTriangle className="h-3 w-3 text-warning inline ml-1" />}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-xs">{formatVND(lineTotal)}</td>
-                      <td className="px-3 py-2"><button onClick={() => removeLine(l.id)} className="p-0.5 text-muted-foreground hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button></td>
+                      <td className="px-3 py-2 text-center">
+                        <button onClick={() => removeLine(l.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted inline-flex" title="Xóa dòng"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -263,12 +308,12 @@ export default function AdminGoodsReceiptCreate() {
                     <Save className="h-4 w-4" /> Lưu phiếu nhập
                   </button>
                   <button onClick={handleSaveDraft} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
-                    <FileText className="h-4 w-4" /> Lưu nháp
+                    <FileText className="h-4 w-4" /> {currentDraftId ? 'Cập nhật nháp' : 'Lưu nháp'}
                   </button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => setConfirmPrint(true)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover">
+                  <button onClick={() => setBarcodeOpen(true)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover">
                     <Printer className="h-4 w-4" /> In mã vạch
                   </button>
                   <button onClick={() => navigate('/admin/goods-receipts')} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
@@ -301,13 +346,16 @@ export default function AdminGoodsReceiptCreate() {
         }}
       />
 
-      <ConfirmDialog
-        open={confirmPrint}
-        onClose={() => setConfirmPrint(false)}
-        onConfirm={handlePrintBarcodes}
-        title="In mã vạch tem nhãn?"
-        description={`Sẽ in tem cho ${lines.reduce((s, l) => s + l.quantity * l.piecesPerUnit, 0)} sản phẩm. Đảm bảo máy in tem đã sẵn sàng.`}
-        confirmLabel="In ngay"
+      <BarcodePrintDialog
+        open={barcodeOpen}
+        onClose={() => setBarcodeOpen(false)}
+        title={`In mã vạch — ${savedNumber ?? 'phiếu nhập'}`}
+        items={lines.map(l => ({
+          productName: l.productName,
+          variantName: l.variantName,
+          code: l.variantCode,
+          defaultQty: l.quantity * l.piecesPerUnit,
+        }))}
       />
     </div>
   );
