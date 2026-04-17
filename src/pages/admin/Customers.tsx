@@ -14,7 +14,8 @@ import { Customer } from "@/lib/mock-data";
 
 export default function AdminCustomers() {
   const { customers } = useStore();
-  const [search, setSearch] = useState('');
+  const initialQ = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('q') ?? '' : '';
+  const [search, setSearch] = useState(initialQ);
   const [filterGroup, setFilterGroup] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);

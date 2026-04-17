@@ -24,7 +24,8 @@ function profitFor(inv: Invoice) {
 
 export default function AdminInvoices() {
   const [invoiceList, setInvoiceList] = useState<Invoice[]>(initialInvoices);
-  const [search, setSearch] = useState('');
+  const initialQ = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('q') ?? '' : '';
+  const [search, setSearch] = useState(initialQ);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
