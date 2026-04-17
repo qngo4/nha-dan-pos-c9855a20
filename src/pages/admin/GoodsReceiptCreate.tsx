@@ -416,14 +416,14 @@ export default function AdminGoodsReceiptCreate() {
           const newLines: ReceiptLine[] = rows.map((r, i) => ({
             id: `imp-${Date.now()}-${i}`,
             productName: r.productName,
-            variantName: r.variantName,
-            variantCode: r.productCode,
+            variantName: r.variantName || 'Mặc định',
+            variantCode: r.variantCode || r.productCode,
             quantity: r.quantity,
             unitCost: r.unitCost,
-            discount: 0,
+            discount: r.discountPercent || 0,
             importUnit: r.importUnit,
             piecesPerUnit: r.piecesPerUnit,
-            expiryDate: r.expiryDate,
+            expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
             fromImport: true,
           }));
           setLines(prev => [...prev, ...newLines]);

@@ -196,8 +196,8 @@ export default function AdminGoodsReceipts() {
           const totalCost = rows.reduce((s, r) => s + r.unitCost * r.quantity, 0);
           const newReceipt: GoodsReceipt = {
             id: `imp-${Date.now()}`,
-            number: `PN-IMPORT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(receipts.length + 1).padStart(3, '0')}`,
-            date: new Date().toISOString().slice(0, 10),
+            number: `PN-IMPORT-${meta.receiptDate.replace(/-/g, '')}-${String(receipts.length + 1).padStart(3, '0')}`,
+            date: meta.receiptDate,
             supplierId: '',
             supplierName: meta.supplierName,
             itemCount: rows.length,
