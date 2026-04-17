@@ -109,7 +109,7 @@ export default function AdminPOS() {
       return;
     }
     const number = `HD-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(Math.floor(Math.random()*999)+1).padStart(3,'0')}`;
-    setLastInvoice({ number, total: subtotal });
+    setLastInvoice({ number, total });
     toast.success(`Đã tạo hóa đơn ${number}`);
   };
 
@@ -118,6 +118,8 @@ export default function AdminPOS() {
     setNote('');
     setSelectedCustomer('');
     setLastInvoice(null);
+    setDiscountValue(0);
+    setDiscountMode('amount');
     barcodeRef.current?.focus();
   };
 
@@ -136,7 +138,7 @@ export default function AdminPOS() {
     date: new Date().toISOString(),
     customerId: selectedCustomer || '',
     customerName: customers.find(c => c.id === selectedCustomer)?.name || 'Khách lẻ',
-    total: lastInvoice?.total ?? subtotal,
+    total: lastInvoice?.total ?? total,
     paymentType: 'cash',
     status: 'active',
     createdBy: 'admin',
@@ -372,10 +374,47 @@ export default function AdminPOS() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Sản phẩm</span><span>{totalItems}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatVND(subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Giảm giá</span><span>-{formatVND(0)}</span></div>
+
+            {/* Order-level discount */}
+            <div className="pt-1">
+              <label className="text-[11px] font-medium text-muted-foreground">Chiết khấu</label>
+              <div className="mt-1 flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  value={discountValue || ''}
+                  onChange={e => setDiscountValue(Math.max(0, +e.target.value || 0))}
+                  disabled={!!lastInvoice || lines.length === 0}
+                  placeholder="0"
+                  className="flex-1 h-8 px-2 text-sm text-right bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+                />
+                <div className="flex border rounded-md overflow-hidden h-8">
+                  <button
+                    type="button"
+                    onClick={() => setDiscountMode('amount')}
+                    disabled={!!lastInvoice}
+                    className={cn("px-2 text-xs font-medium transition-colors", discountMode === 'amount' ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted")}
+                  >₫</button>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountMode('percent')}
+                    disabled={!!lastInvoice}
+                    className={cn("px-2 text-xs font-medium transition-colors border-l", discountMode === 'percent' ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted")}
+                  >%</button>
+                </div>
+              </div>
+              {orderDiscount > 0 && discountMode === 'percent' && (
+                <p className="text-[10px] text-muted-foreground mt-1">≈ -{formatVND(orderDiscount)}</p>
+              )}
+            </div>
+
+            <div className="flex justify-between pt-1">
+              <span className="text-muted-foreground">Giảm giá</span>
+              <span className={orderDiscount > 0 ? "text-danger font-medium" : ""}>-{formatVND(orderDiscount)}</span>
+            </div>
             <div className="border-t pt-2 flex justify-between font-bold text-base">
               <span>Tổng cộng</span>
-              <span className="text-primary">{formatVND(subtotal)}</span>
+              <span className="text-primary">{formatVND(total)}</span>
             </div>
           </div>
         </div>
