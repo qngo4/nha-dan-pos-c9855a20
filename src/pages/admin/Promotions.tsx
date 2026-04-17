@@ -5,6 +5,7 @@ import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolb
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { promotions as initialPromotions, type Promotion } from "@/lib/mock-data";
+import { DateInput } from "@/components/shared/DateInput";
 import { formatVND, formatDate } from "@/lib/format";
 import { Plus, Tags, Calendar, Pencil, X, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
@@ -260,6 +261,7 @@ function Field({ label, children, hint }: { label: string; children: React.React
     <div>
       <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
       {children}
+      {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }

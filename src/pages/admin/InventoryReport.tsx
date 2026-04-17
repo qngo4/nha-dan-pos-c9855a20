@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
+import { DateInput } from "@/components/shared/DateInput";
 import { inventoryReport } from "@/lib/mock-data";
 import { formatVND, formatNumber } from "@/lib/format";
 import { BarChart3, Download, Package, AlertTriangle } from "lucide-react";
