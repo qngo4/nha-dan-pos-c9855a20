@@ -22,8 +22,11 @@ interface ReceiptLine {
   unitCost: number;
   discount: number;
   importUnit: string;
+  sellUnit: string;
   piecesPerUnit: number;
   expiryDate: string;
+  expiryDays?: number;
+  expiryMode?: "date" | "days";
   fromImport?: boolean;
 }
 
@@ -50,8 +53,8 @@ function validateLine(l: ReceiptLine): LineIssue {
 }
 
 const initialLines: ReceiptLine[] = [
-  { id: '1', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', variantCode: 'SP001-01', quantity: 10, unitCost: 105000, discount: 0, importUnit: 'Thùng', piecesPerUnit: 30, expiryDate: '2025-10-15' },
-  { id: '2', productName: 'Coca-Cola', variantName: 'Lon 330ml', variantCode: 'SP002-01', quantity: 8, unitCost: 172800, discount: 0, importUnit: 'Thùng', piecesPerUnit: 24, expiryDate: '2026-04-15' },
+  { id: '1', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', variantCode: 'SP001-01', quantity: 10, unitCost: 105000, discount: 0, importUnit: 'Thùng', sellUnit: 'Gói', piecesPerUnit: 30, expiryDate: '2025-10-15', expiryMode: 'date' },
+  { id: '2', productName: 'Coca-Cola', variantName: 'Lon 330ml', variantCode: 'SP002-01', quantity: 8, unitCost: 172800, discount: 0, importUnit: 'Thùng', sellUnit: 'Lon', piecesPerUnit: 24, expiryDate: '2026-04-15', expiryMode: 'date' },
 ];
 
 export default function AdminGoodsReceiptCreate() {
@@ -122,8 +125,10 @@ export default function AdminGoodsReceiptCreate() {
       unitCost: 0,
       discount: 0,
       importUnit: 'Cái',
+      sellUnit: 'Cái',
       piecesPerUnit: 1,
       expiryDate: '',
+      expiryMode: 'date',
     };
     setLines(prev => [...prev, newLine]);
     setSearch('');
