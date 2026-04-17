@@ -140,14 +140,10 @@ export default function AdminGoodsReceiptCreate() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Ngày nhập *</label>
-                <input
-                  type="date"
+                <DateInput
                   value={receiptDate}
-                  onChange={e => setReceiptDate(e.target.value)}
-                  className={cn(
-                    "mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring",
-                    futureDateError && "border-danger"
-                  )}
+                  onChange={setReceiptDate}
+                  className={cn("mt-1 w-full h-8", futureDateError && "border-danger")}
                 />
               </div>
               <div>
@@ -226,7 +222,7 @@ export default function AdminGoodsReceiptCreate() {
                         <input type="number" value={l.discount} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, discount: +e.target.value } : x))} className="w-14 h-7 text-center text-xs border rounded bg-background" />
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <input type="date" value={l.expiryDate} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDate: e.target.value } : x))} className="h-7 text-xs border rounded bg-background px-1" />
+                        <DateInput allowFuture value={l.expiryDate} onChange={(v) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDate: v } : x))} className="h-7" />
                         {missingExpiry && <AlertTriangle className="h-3 w-3 text-warning inline ml-1" />}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-xs">{formatVND(lineTotal)}</td>
