@@ -19,22 +19,24 @@ export function StorefrontNav() {
   return (
     <>
       {/* Desktop top nav */}
-      <header className="sticky top-0 z-30 bg-card/95 backdrop-blur border-b">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <Store className="h-6 w-6 text-primary" />
+      <header className="sticky top-0 z-30 bg-card/90 backdrop-blur-md border-b border-border/60">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
+          <Link to="/" className="flex items-center gap-2 shrink-0 group">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary-hover text-primary-foreground flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+              <Store className="h-5 w-5" />
+            </div>
             <span className="font-bold text-base tracking-tight hidden sm:inline">NhaDanShop</span>
           </Link>
 
           {/* Desktop nav links */}
-          <nav className="hidden md:flex items-center gap-1 ml-4">
+          <nav className="hidden md:flex items-center gap-1 ml-2">
             {navItems.filter(i => i.path !== '/cart' && i.path !== '/account').map(item => (
               <Link
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                  isActive(item.path) ? "bg-primary-soft text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  "px-3.5 py-1.5 text-sm font-semibold rounded-full transition-colors",
+                  isActive(item.path) ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
                 {item.label}
@@ -47,23 +49,23 @@ export function StorefrontNav() {
           {/* Search */}
           <div className="hidden sm:block max-w-xs flex-1">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Tìm sản phẩm..."
-                className="w-full h-8 pl-9 pr-3 text-sm bg-muted rounded-md border-0 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                className="w-full h-9 pl-9 pr-3 text-sm bg-muted rounded-full border-0 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
               />
             </div>
           </div>
 
           {/* Cart */}
-          <Link to="/cart" className="relative p-1.5 text-muted-foreground hover:text-foreground">
+          <Link to="/cart" className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
             <ShoppingCart className="h-5 w-5" />
-            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+            <span className="absolute top-0 right-0 h-4 w-4 bg-storefront-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">3</span>
           </Link>
 
           {/* Account */}
-          <Link to="/login" className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted transition-colors">
+          <Link to="/login" className="hidden md:inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full bg-foreground text-background hover:bg-primary transition-colors">
             Đăng nhập
           </Link>
 
@@ -82,15 +84,15 @@ export function StorefrontNav() {
                 to={item.path}
                 onClick={() => setMenuOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md",
-                  isActive(item.path) ? "bg-primary-soft text-primary" : "text-muted-foreground"
+                  "flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-lg",
+                  isActive(item.path) ? "bg-foreground text-background" : "text-muted-foreground"
                 )}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
               </Link>
             ))}
-            <Link to="/login" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground">
+            <Link to="/login" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-muted-foreground">
               Đăng nhập
             </Link>
           </div>

@@ -3,7 +3,7 @@ import { StorefrontNav } from "./StorefrontNav";
 
 export function StorefrontLayout() {
   return (
-    <div className="min-h-screen bg-storefront-bg">
+    <div className="min-h-screen bg-storefront-bg text-foreground">
       <StorefrontNav />
       <main className="pb-20 md:pb-0">
         <Outlet />
