@@ -7,11 +7,20 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { InvoiceDetailDrawer } from "@/components/shared/InvoiceDetailDrawer";
 import { invoices as initialInvoices, type Invoice } from "@/lib/mock-data";
 import { formatVND, formatDateTime } from "@/lib/format";
-import { Receipt, Printer, XCircle, Trash2, Eye, ShieldAlert } from "lucide-react";
+import { Receipt, Printer, XCircle, Trash2, Eye, ShieldAlert, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const today = '2025-04-15';
+
+// Deterministic mock margin per invoice — keeps numbers stable per id.
+function profitFor(inv: Invoice) {
+  if (inv.status === 'cancelled') return 0;
+  // Margin between 18% and 32%, deterministic per id length+number suffix
+  const seed = inv.number.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+  const margin = 0.18 + ((seed % 15) / 100); // 0.18 - 0.32
+  return Math.round(inv.total * margin);
+}
 
 export default function AdminInvoices() {
   const [invoiceList, setInvoiceList] = useState<Invoice[]>(initialInvoices);
@@ -26,6 +35,8 @@ export default function AdminInvoices() {
     if (filterStatus && inv.status !== filterStatus) return false;
     return true;
   });
+
+  const totalProfit = filtered.reduce((s, i) => s + profitFor(i), 0);
 
   const canDeleteInvoice = (inv: Invoice) => inv.date.startsWith(today);
 
@@ -45,14 +56,21 @@ export default function AdminInvoices() {
     setDeleteTarget(null);
   };
 
-  const handlePrint = (inv: Invoice) => {
-    toast.success(`Đang in hóa đơn ${inv.number}...`);
-    setTimeout(() => window.print(), 200);
-  };
+  // Open the printable detail drawer (drawer triggers proper print isolation)
+  const handlePrint = (inv: Invoice) => setDetailInvoice(inv);
 
   return (
     <div className="space-y-4 admin-dense">
-      <PageHeader title="Hóa đơn" description={`${invoiceList.length} hóa đơn`} />
+      <PageHeader
+        title="Hóa đơn"
+        description={`${invoiceList.length} hóa đơn`}
+        actions={
+          <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-success-soft text-success rounded-md">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Lợi nhuận hiển thị: <strong>{formatVND(totalProfit)}</strong>
+          </div>
+        }
+      />
 
       <DataTableToolbar
         search={search}
@@ -78,13 +96,17 @@ export default function AdminInvoices() {
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground">Khách hàng</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Thanh toán</th>
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tổng</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Lợi nhuận</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden lg:table-cell">Người tạo</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Thao tác</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[120px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(inv => (
+                {filtered.map(inv => {
+                  const profit = profitFor(inv);
+                  const margin = inv.total ? profit / inv.total : 0;
+                  return (
                   <tr key={inv.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", inv.status === 'cancelled' && "opacity-60")}>
                     <td className="px-3 py-2.5 font-mono text-xs font-medium">
                       <button onClick={() => setDetailInvoice(inv)} className="hover:text-primary hover:underline">{inv.number}</button>
@@ -93,14 +115,26 @@ export default function AdminInvoices() {
                     <td className="px-3 py-2.5">{inv.customerName}</td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={inv.paymentType} /></td>
                     <td className="px-3 py-2.5 text-right font-medium">{formatVND(inv.total)}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      {inv.status === 'cancelled' ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-col items-end leading-tight">
+                          <span className="font-medium text-success">{formatVND(profit)}</span>
+                          <span className="text-[10px] text-muted-foreground">{(margin * 100).toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-center"><StatusBadge status={inv.status === 'cancelled' ? 'cancelled' : 'active'} /></td>
                     <td className="px-3 py-2.5 text-muted-foreground text-xs hidden lg:table-cell">{inv.createdBy}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => setDetailInvoice(inv)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="Xem chi tiết"><Eye className="h-3.5 w-3.5" /></button>
                         <button onClick={() => handlePrint(inv)} className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted" title="In hóa đơn"><Printer className="h-3.5 w-3.5" /></button>
-                        {inv.status === 'active' && (
+                        {inv.status === 'active' ? (
                           <button onClick={() => setCancelTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Hủy"><XCircle className="h-3.5 w-3.5" /></button>
+                        ) : (
+                          <span className="p-1 inline-flex w-[26px]" />
                         )}
                         {canDeleteInvoice(inv) ? (
                           <button onClick={() => setDeleteTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Xóa"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -114,13 +148,15 @@ export default function AdminInvoices() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(inv => (
+            {filtered.map(inv => {
+              const profit = profitFor(inv);
+              return (
               <div key={inv.id} className={cn("bg-card rounded-lg border p-3", inv.status === 'cancelled' && "opacity-60")}>
                 <button onClick={() => setDetailInvoice(inv)} className="w-full text-left">
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -132,7 +168,12 @@ export default function AdminInvoices() {
                   </div>
                   <div className="flex items-center justify-between">
                     <StatusBadge status={inv.paymentType} />
-                    <span className="font-bold text-sm">{formatVND(inv.total)}</span>
+                    <div className="text-right">
+                      <p className="font-bold text-sm">{formatVND(inv.total)}</p>
+                      {inv.status !== 'cancelled' && (
+                        <p className="text-[11px] text-success">LN: {formatVND(profit)}</p>
+                      )}
+                    </div>
                   </div>
                 </button>
                 <div className="flex gap-1 mt-2 pt-2 border-t">
@@ -146,7 +187,7 @@ export default function AdminInvoices() {
                   <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1"><ShieldAlert className="h-3 w-3" /> Chỉ xóa được trong ngày tạo</p>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         </>
       )}
