@@ -53,9 +53,13 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
   };
 
   const handleConfirm = () => {
+    if (stats.error > 0) {
+      toast.error(`Còn ${stats.error} dòng lỗi — vui lòng sửa file Excel hoặc bỏ qua các dòng đỏ trước khi nhập`);
+      return;
+    }
     const importable = (rows ?? []).filter((r) => r.status !== "error");
     onConfirm(importable);
-    toast.success(`Đã nhập ${importable.length} sản phẩm`);
+    toast.success(`Đã nhập ${importable.length} sản phẩm — mỗi sản phẩm tự tạo phân loại mặc định`);
     setRows(null);
     setFilename("");
     onClose();
@@ -166,15 +170,25 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
-          <button onClick={handleCancel} className="px-3 py-1.5 text-sm font-medium border rounded-md hover:bg-muted">Hủy</button>
-          <button
-            onClick={handleConfirm}
-            disabled={!rows || stats.ready + stats.warning === 0}
-            className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Nhập {stats.ready + stats.warning > 0 ? `${stats.ready + stats.warning} dòng` : ""}
-          </button>
+        <div className="flex items-center justify-between gap-2 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
+          <p className="text-[11px] text-muted-foreground">
+            {rows && stats.error > 0 ? (
+              <span className="text-danger font-medium">⚠ Còn {stats.error} dòng lỗi — không thể nhập đến khi sửa xong.</span>
+            ) : rows ? (
+              <>Mỗi sản phẩm sẽ tạo kèm <strong>phân loại mặc định</strong> tự động.</>
+            ) : ""}
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={handleCancel} className="px-3 py-1.5 text-sm font-medium border rounded-md hover:bg-muted">Hủy</button>
+            <button
+              onClick={handleConfirm}
+              disabled={!rows || stats.error > 0 || stats.ready + stats.warning === 0}
+              title={stats.error > 0 ? "Còn dòng lỗi — vui lòng sửa trước" : ""}
+              className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Nhập {stats.ready + stats.warning > 0 ? `${stats.ready + stats.warning} dòng (+ phân loại mặc định)` : ""}
+            </button>
+          </div>
         </div>
       </div>
     </div>

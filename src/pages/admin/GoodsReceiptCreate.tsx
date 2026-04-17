@@ -22,8 +22,11 @@ interface ReceiptLine {
   unitCost: number;
   discount: number;
   importUnit: string;
+  sellUnit?: string;
   piecesPerUnit: number;
   expiryDate: string;
+  expiryDays?: number;
+  expiryMode?: "date" | "days";
   fromImport?: boolean;
 }
 
@@ -50,8 +53,8 @@ function validateLine(l: ReceiptLine): LineIssue {
 }
 
 const initialLines: ReceiptLine[] = [
-  { id: '1', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', variantCode: 'SP001-01', quantity: 10, unitCost: 105000, discount: 0, importUnit: 'Thùng', piecesPerUnit: 30, expiryDate: '2025-10-15' },
-  { id: '2', productName: 'Coca-Cola', variantName: 'Lon 330ml', variantCode: 'SP002-01', quantity: 8, unitCost: 172800, discount: 0, importUnit: 'Thùng', piecesPerUnit: 24, expiryDate: '2026-04-15' },
+  { id: '1', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', variantCode: 'SP001-01', quantity: 10, unitCost: 105000, discount: 0, importUnit: 'Thùng', sellUnit: 'Gói', piecesPerUnit: 30, expiryDate: '2025-10-15', expiryMode: 'date' },
+  { id: '2', productName: 'Coca-Cola', variantName: 'Lon 330ml', variantCode: 'SP002-01', quantity: 8, unitCost: 172800, discount: 0, importUnit: 'Thùng', sellUnit: 'Lon', piecesPerUnit: 24, expiryDate: '2026-04-15', expiryMode: 'date' },
 ];
 
 export default function AdminGoodsReceiptCreate() {
@@ -122,8 +125,10 @@ export default function AdminGoodsReceiptCreate() {
       unitCost: 0,
       discount: 0,
       importUnit: 'Cái',
+      sellUnit: 'Cái',
       piecesPerUnit: 1,
       expiryDate: '',
+      expiryMode: 'date',
     };
     setLines(prev => [...prev, newLine]);
     setSearch('');
@@ -286,10 +291,10 @@ export default function AdminGoodsReceiptCreate() {
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground">#</th>
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground">Sản phẩm</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">SL</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">ĐV nhập</th>
+                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">ĐV nhập / bán / quy đổi</th>
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground">Đơn giá</th>
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">CK %</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">HSD</th>
+                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">HSD / Số ngày</th>
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground">Thành tiền</th>
                   <th className="w-10" />
                 </tr>
@@ -321,7 +326,13 @@ export default function AdminGoodsReceiptCreate() {
                       <td className="px-3 py-2 text-center align-top">
                         <input type="number" value={l.quantity} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, quantity: +e.target.value } : x))} className={cn("w-16 h-7 text-center text-xs border rounded bg-background", (!l.quantity || l.quantity <= 0) && "border-danger")} />
                       </td>
-                      <td className="px-3 py-2 text-center text-xs text-muted-foreground align-top">{l.importUnit} ({l.piecesPerUnit})</td>
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground align-top">
+                        <div className="font-medium text-foreground">{l.importUnit} → {l.sellUnit || '—'}</div>
+                        <div className="text-[10px]">x{l.piecesPerUnit}</div>
+                        {l.fromImport && !l.sellUnit && (
+                          <div className="text-[10px] text-info mt-0.5">Bổ sung ĐV bán</div>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right align-top">
                         <input type="number" value={l.unitCost} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, unitCost: +e.target.value } : x))} className={cn("w-24 h-7 text-right text-xs border rounded bg-background", (!l.unitCost || l.unitCost <= 0) && "border-danger")} />
                       </td>
@@ -329,7 +340,35 @@ export default function AdminGoodsReceiptCreate() {
                         <input type="number" value={l.discount} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, discount: +e.target.value } : x))} className="w-14 h-7 text-center text-xs border rounded bg-background" />
                       </td>
                       <td className="px-3 py-2 text-center align-top">
-                        <DateInput allowFuture value={l.expiryDate} onChange={(v) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDate: v } : x))} className="h-7" />
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={l.expiryMode ?? "date"}
+                            onChange={(e) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryMode: e.target.value as "date" | "days" } : x))}
+                            className="h-7 px-1 text-[11px] border rounded bg-background"
+                            title="Chế độ HSD"
+                          >
+                            <option value="date">Ngày</option>
+                            <option value="days">Số ngày</option>
+                          </select>
+                          {(l.expiryMode ?? "date") === "date" ? (
+                            <DateInput allowFuture value={l.expiryDate} onChange={(v) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDate: v } : x))} className="h-7" />
+                          ) : (
+                            <input
+                              type="number"
+                              value={l.expiryDays ?? ""}
+                              placeholder="ngày"
+                              onChange={(e) => {
+                                const days = +e.target.value;
+                                const computed = days > 0 ? new Date(new Date(receiptDate).getTime() + days * 86400000).toISOString().slice(0, 10) : "";
+                                setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDays: days, expiryDate: computed } : x));
+                              }}
+                              className="w-16 h-7 text-center text-xs border rounded bg-background"
+                            />
+                          )}
+                        </div>
+                        {l.expiryMode === "days" && l.expiryDate && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">→ {l.expiryDate}</div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-xs align-top">{formatVND(lineTotal)}</td>
                       <td className="px-3 py-2 text-center align-top">
@@ -422,8 +461,11 @@ export default function AdminGoodsReceiptCreate() {
             unitCost: r.unitCost,
             discount: r.discountPercent || 0,
             importUnit: r.importUnit,
+            sellUnit: r.sellUnit,
             piecesPerUnit: r.piecesPerUnit,
             expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
+            expiryDays: r.expiryDays,
+            expiryMode: r.expiryDate ? 'date' : (r.expiryDays ? 'days' : 'date'),
             fromImport: true,
           }));
           setLines(prev => [...prev, ...newLines]);
