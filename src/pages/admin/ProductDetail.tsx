@@ -309,18 +309,33 @@ function AdminProductDetail() {
                   ["Tồn kho hiện tại", "stock", "number", "0"],
                   ["Tồn kho tối thiểu", "minStock", "number", "50"],
                   ["Số ngày hết hạn", "expiryDays", "number", "180"],
-                ].map(([label, key, t, ph]) => (
-                  <div key={key as string}>
-                    <label className="text-xs font-medium text-muted-foreground">{label}</label>
-                    <input
-                      type={t as string}
-                      value={(variantForm as any)[key as string] as any}
-                      onChange={e => setVariantForm({ ...variantForm, [key as string]: t === "number" ? Number(e.target.value) : e.target.value })}
-                      placeholder={ph as string}
-                      className={cn("mt-1 w-full h-8 px-3 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring", key === "code" && "font-mono")}
-                    />
-                  </div>
-                ))}
+                ].map(([label, key, t, ph]) => {
+                  const k = key as string;
+                  const isNum = t === "number";
+                  const err = variantErrors[k];
+                  return (
+                    <div key={k}>
+                      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+                      <input
+                        type={t as string}
+                        min={isNum ? 0 : undefined}
+                        value={(variantForm as any)[k] as any}
+                        onChange={e => {
+                          const raw = e.target.value;
+                          const next = isNum ? Math.max(0, Number(raw) || 0) : raw;
+                          setVariantForm({ ...variantForm, [k]: next });
+                        }}
+                        placeholder={ph as string}
+                        className={cn(
+                          "mt-1 w-full h-8 px-3 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring",
+                          k === "code" && "font-mono",
+                          err && "border-danger focus:ring-danger"
+                        )}
+                      />
+                      {err && <p className="mt-0.5 text-[11px] text-danger">{err}</p>}
+                    </div>
+                  );
+                })}
                 <div className="flex items-end">
                   <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
                     <input type="checkbox" checked={variantForm.isDefault} onChange={e => setVariantForm({ ...variantForm, isDefault: e.target.checked })} className="h-3.5 w-3.5" />
@@ -328,9 +343,16 @@ function AdminProductDetail() {
                   </label>
                 </div>
               </div>
-              <div className="flex gap-2 mt-3">
-                <button onClick={handleSaveVariant} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md"><Check className="h-3 w-3" /> Lưu</button>
+              <div className="flex gap-2 mt-3 items-center">
+                <button
+                  onClick={handleSaveVariant}
+                  disabled={variantHasErrors}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Check className="h-3 w-3" /> Lưu
+                </button>
                 <button onClick={() => setVariantForm(null)} className="px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted">Hủy</button>
+                {variantHasErrors && <span className="text-[11px] text-danger">Còn {Object.keys(variantErrors).length} trường chưa hợp lệ</span>}
               </div>
             </div>
           )}
