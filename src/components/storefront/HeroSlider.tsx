@@ -138,10 +138,8 @@ export function HeroSlider({ items }: { items: Product[] }) {
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex">
           {slides.map((s, idx) => {
-            // @ts-expect-error augmented
-            const price: string = s._price;
-            // @ts-expect-error augmented
-            const unit: string = s._unit;
+            const price = s.price;
+            const unit = s.unit;
             const Icon = s.cta.icon === "sparkles" ? Sparkles : ShoppingBag;
             return (
               <div key={s.product.id} className="shrink-0 grow-0 basis-full">
