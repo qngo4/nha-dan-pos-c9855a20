@@ -192,25 +192,8 @@ export default function AdminGoodsReceipts() {
       <ReceiptImportPreviewDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onConfirm={(rows, meta) => {
-          const totalCost = rows.reduce((s, r) => s + r.unitCost * r.quantity, 0);
-          const newReceipt: GoodsReceipt = {
-            id: `imp-${Date.now()}`,
-            number: `PN-IMPORT-${meta.receiptDate.replace(/-/g, '')}-${String(receipts.length + 1).padStart(3, '0')}`,
-            date: meta.receiptDate,
-            supplierId: '',
-            supplierName: meta.supplierName,
-            itemCount: rows.length,
-            totalCost,
-            shippingFee: 0,
-            vat: 0,
-            note: `Tạo từ file ${meta.filename}`,
-            canDelete: true,
-          };
-          setReceipts(prev => [newReceipt, ...prev]);
-          toast.success(`Đã tạo phiếu nhập ${newReceipt.number}`);
-        }}
       />
+      {/* After review on /admin/goods-receipts/create, the new receipt is appended to this list via shared state. */}
     </div>
   );
 }
