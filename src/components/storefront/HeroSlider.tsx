@@ -92,12 +92,9 @@ export function HeroSlider({ items }: { items: Product[] }) {
         icon: i === 1 ? "sparkles" : "bag",
       },
       theme: THEMES[i % THEMES.length],
-      // attach computed price for render
-      // @ts-expect-error inline augment
-      _price: hasMulti ? `Từ ${formatVND(minPrice)}` : formatVND(dv.sellPrice),
-      // @ts-expect-error inline augment
-      _unit: dv.sellUnit,
-    } as Slide;
+      price: hasMulti ? `Từ ${formatVND(minPrice)}` : formatVND(dv.sellPrice),
+      unit: dv.sellUnit,
+    };
   });
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
