@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { importStaging } from "@/lib/import-staging";
 
 export interface ImportRow {
   status: "ready" | "warning" | "error";
@@ -18,7 +20,8 @@ export interface ImportRow {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (rows: ImportRow[]) => void;
+  /** Optional legacy callback. New flow stages rows + navigates to /admin/products/new?mode=import. */
+  onConfirm?: (rows: ImportRow[]) => void;
 }
 
 const SAMPLE_ROWS: ImportRow[] = [
@@ -31,6 +34,7 @@ const SAMPLE_ROWS: ImportRow[] = [
 ];
 
 export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [filename, setFilename] = useState<string>("");
 
@@ -54,15 +58,18 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
 
   const handleConfirm = () => {
     if (stats.error > 0) {
-      toast.error(`Còn ${stats.error} dòng lỗi — vui lòng sửa file Excel hoặc bỏ qua các dòng đỏ trước khi nhập`);
+      toast.error(`Còn ${stats.error} dòng lỗi — vui lòng sửa file Excel trước khi tiếp tục`);
       return;
     }
     const importable = (rows ?? []).filter((r) => r.status !== "error");
-    onConfirm(importable);
-    toast.success(`Đã nhập ${importable.length} sản phẩm — mỗi sản phẩm tự tạo phân loại mặc định`);
+    // Stage rows + navigate to create screen in IMPORT MODE for review/fix/save
+    importStaging.setProducts({ filename, rows: importable, createdAt: Date.now() });
+    onConfirm?.(importable);
+    toast.success(`Đã chuyển ${importable.length} dòng sang màn hình tạo sản phẩm để xem lại`);
     setRows(null);
     setFilename("");
     onClose();
+    navigate("/admin/products/new?mode=import");
   };
 
   const handleCancel = () => {
