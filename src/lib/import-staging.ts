@@ -1,13 +1,8 @@
-// Tiny in-memory staging buffer used to pass parsed Excel rows
-// from an upload modal to the dedicated "create" screen, where
-// the user reviews/fixes/confirms before final save.
-
-import type { ImportRow } from "@/components/shared/ImportPreviewDialog";
-import type { ReceiptImportRow } from "@/components/shared/ReceiptImportPreviewDialog";
+import type { ProductImportRow, ReceiptImportRow } from "@/lib/import-types";
 
 interface ProductStage {
   filename: string;
-  rows: ImportRow[];
+  rows: ProductImportRow[];
   createdAt: number;
 }
 
