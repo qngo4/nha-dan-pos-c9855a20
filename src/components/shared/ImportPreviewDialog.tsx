@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { importStaging } from "@/lib/import-staging";
 
 export interface ImportRow {
   status: "ready" | "warning" | "error";
@@ -18,7 +20,8 @@ export interface ImportRow {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (rows: ImportRow[]) => void;
+  /** Optional legacy callback. New flow stages rows + navigates to /admin/products/new?mode=import. */
+  onConfirm?: (rows: ImportRow[]) => void;
 }
 
 const SAMPLE_ROWS: ImportRow[] = [
@@ -31,6 +34,7 @@ const SAMPLE_ROWS: ImportRow[] = [
 ];
 
 export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [filename, setFilename] = useState<string>("");
 
@@ -54,15 +58,18 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
 
   const handleConfirm = () => {
     if (stats.error > 0) {
-      toast.error(`Còn ${stats.error} dòng lỗi — vui lòng sửa file Excel hoặc bỏ qua các dòng đỏ trước khi nhập`);
+      toast.error(`Còn ${stats.error} dòng lỗi — vui lòng sửa file Excel trước khi tiếp tục`);
       return;
     }
     const importable = (rows ?? []).filter((r) => r.status !== "error");
-    onConfirm(importable);
-    toast.success(`Đã nhập ${importable.length} sản phẩm — mỗi sản phẩm tự tạo phân loại mặc định`);
+    // Stage rows + navigate to create screen in IMPORT MODE for review/fix/save
+    importStaging.setProducts({ filename, rows: importable, createdAt: Date.now() });
+    onConfirm?.(importable);
+    toast.success(`Đã chuyển ${importable.length} dòng sang màn hình tạo sản phẩm để xem lại`);
     setRows(null);
     setFilename("");
     onClose();
+    navigate("/admin/products/new?mode=import");
   };
 
   const handleCancel = () => {
@@ -173,9 +180,9 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
         <div className="flex items-center justify-between gap-2 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
           <p className="text-[11px] text-muted-foreground">
             {rows && stats.error > 0 ? (
-              <span className="text-danger font-medium">⚠ Còn {stats.error} dòng lỗi — không thể nhập đến khi sửa xong.</span>
+              <span className="text-danger font-medium">⚠ Còn {stats.error} dòng lỗi — sửa file rồi tải lại để tiếp tục.</span>
             ) : rows ? (
-              <>Mỗi sản phẩm sẽ tạo kèm <strong>phân loại mặc định</strong> tự động.</>
+              <>Bước tiếp theo: xem lại + chỉnh sửa trong màn hình tạo sản phẩm. Mỗi sản phẩm sẽ kèm <strong>phân loại mặc định</strong>.</>
             ) : ""}
           </p>
           <div className="flex items-center gap-2">
@@ -183,10 +190,10 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
             <button
               onClick={handleConfirm}
               disabled={!rows || stats.error > 0 || stats.ready + stats.warning === 0}
-              title={stats.error > 0 ? "Còn dòng lỗi — vui lòng sửa trước" : ""}
-              className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              title={stats.error > 0 ? "Còn dòng lỗi — vui lòng sửa trước" : "Tiếp tục sang màn hình tạo sản phẩm"}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Nhập {stats.ready + stats.warning > 0 ? `${stats.ready + stats.warning} dòng (+ phân loại mặc định)` : ""}
+              Tiếp tục xem lại {stats.ready + stats.warning > 0 ? `(${stats.ready + stats.warning} dòng)` : ""} <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

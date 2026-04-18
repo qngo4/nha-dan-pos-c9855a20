@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { QuantityStepper } from "@/components/shared/QuantityStepper";
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
+import { CustomerFormDrawer } from "@/components/shared/CustomerFormDrawer";
 import { formatVND } from "@/lib/format";
-import { products, customers } from "@/lib/mock-data";
+import { products } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import {
   Search, Barcode, Camera, Keyboard, ShoppingCart, Receipt,
   AlertTriangle, Printer, X, Check, CheckCircle2, ScanLine
@@ -27,6 +30,7 @@ interface POSLine {
 type ScanMode = 'hid' | 'camera' | 'manual';
 
 export default function AdminPOS() {
+  const { customers } = useStore();
   const [lines, setLines] = useState<POSLine[]>([]);
   const [scanMode, setScanMode] = useState<ScanMode>('hid');
   const [barcodeInput, setBarcodeInput] = useState('');
@@ -37,7 +41,18 @@ export default function AdminPOS() {
   const [lastInvoice, setLastInvoice] = useState<{ number: string; total: number } | null>(null);
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountMode, setDiscountMode] = useState<'amount' | 'percent'>('amount');
+  const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
+  const customerCountRef = useState({ n: customers.length })[0];
   const barcodeRef = useRef<HTMLInputElement>(null);
+
+  // Auto-select newly created customer (newest is at the head of array)
+  useEffect(() => {
+    if (customers.length > customerCountRef.n) {
+      setSelectedCustomer(customers[0].id);
+      customerCountRef.n = customers.length;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customers.length]);
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.quantity * (1 - l.discount / 100), 0);
   const totalItems = lines.reduce((s, l) => s + l.quantity, 0);
@@ -346,17 +361,18 @@ export default function AdminPOS() {
         <div className="p-3 border-b space-y-2">
           <div>
             <label className="text-[11px] font-medium text-muted-foreground">Khách hàng</label>
-            <select
+            <SearchableCombobox
+              className="mt-1"
               value={selectedCustomer}
-              onChange={e => setSelectedCustomer(e.target.value)}
+              onChange={setSelectedCustomer}
               disabled={!!lastInvoice}
-              className="mt-1 w-full h-8 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
-            >
-              <option value="">Khách lẻ</option>
-              {customers.filter(c => c.active).map(c => (
-                <option key={c.id} value={c.id}>{c.name} — {c.phone}</option>
-              ))}
-            </select>
+              showEmptyOption
+              emptyOptionLabel="Khách lẻ"
+              placeholder="Tìm SĐT, tên khách..."
+              options={customers.filter(c => c.active).map(c => ({ id: c.id, label: c.name, sub: `${c.code} · ${c.phone}` }))}
+              onCreateNew={() => setCustomerDrawerOpen(true)}
+              createLabel="Tạo khách hàng mới"
+            />
           </div>
           <div>
             <label className="text-[11px] font-medium text-muted-foreground">Ghi chú</label>
@@ -452,6 +468,7 @@ export default function AdminPOS() {
     {(lines.length > 0 || lastInvoice) && (
       <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: 'Hóa đơn trống', code: '-', qty: 0, price: 0 }]} />
     )}
+    <CustomerFormDrawer open={customerDrawerOpen} onClose={() => setCustomerDrawerOpen(false)} />
     </>
   );
 }

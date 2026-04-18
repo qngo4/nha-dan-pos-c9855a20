@@ -3,12 +3,16 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
 import { DateInput } from "@/components/shared/DateInput";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
-import { suppliers, products } from "@/lib/mock-data";
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
+import { SupplierFormDrawer } from "@/components/shared/SupplierFormDrawer";
+import { products } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { formatVND } from "@/lib/format";
 import { draftActions } from "@/lib/drafts";
+import { importStaging } from "@/lib/import-staging";
 import {
   ArrowLeft, Save, Trash2, Upload, Printer, Search,
-  AlertTriangle, AlertCircle, Package, FileText, Check
+  AlertTriangle, AlertCircle, Package, FileText, Check, FileSpreadsheet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -61,6 +65,8 @@ export default function AdminGoodsReceiptCreate() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const draftId = params.get("draft");
+  const isImportMode = params.get("mode") === "import";
+  const { suppliers } = useStore();
 
   const [lines, setLines] = useState<ReceiptLine[]>(initialLines);
   const [supplier, setSupplier] = useState('');
@@ -74,6 +80,48 @@ export default function AdminGoodsReceiptCreate() {
   const [draftNumber, setDraftNumber] = useState<string | null>(null);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
+  const supplierCountRef = useState({ n: suppliers.length })[0];
+  const [importedFilename, setImportedFilename] = useState<string | null>(null);
+
+  // Consume staged Excel import (set by ReceiptImportPreviewDialog when mode=import)
+  useEffect(() => {
+    if (!isImportMode) return;
+    const stage = importStaging.takeReceipt();
+    if (!stage) return;
+    setImportedFilename(stage.filename);
+    if (stage.meta?.receiptDate) setReceiptDate(stage.meta.receiptDate);
+    const newLines: ReceiptLine[] = stage.rows.map((r, i) => ({
+      id: `imp-${Date.now()}-${i}`,
+      productName: r.productName,
+      variantName: r.variantName || 'Mặc định',
+      variantCode: r.variantCode || r.productCode,
+      quantity: r.quantity,
+      unitCost: r.unitCost,
+      discount: r.discountPercent || 0,
+      importUnit: r.importUnit,
+      sellUnit: r.sellUnit,
+      piecesPerUnit: r.piecesPerUnit,
+      expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
+      expiryDays: r.expiryDays,
+      expiryMode: r.expiryDate ? 'date' : (r.expiryDays ? 'days' : 'date'),
+      fromImport: true,
+    }));
+    setLines(newLines);
+    toast.success(`Đã tải ${newLines.length} dòng từ ${stage.filename} — vui lòng chọn NCC và xác nhận`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isImportMode]);
+
+  // Auto-select newly created supplier when the drawer adds one
+  useEffect(() => {
+    if (suppliers.length > supplierCountRef.n) {
+      // newest is at the head
+      const newest = suppliers[0];
+      setSupplier(newest.id);
+      supplierCountRef.n = suppliers.length;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppliers.length]);
 
   // Load existing draft (if any)
   useEffect(() => {
@@ -180,10 +228,21 @@ export default function AdminGoodsReceiptCreate() {
     <div className="admin-dense">
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
         <Link to="/admin/goods-receipts" className="flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Phiếu nhập</Link>
-        <span>/</span><span className="text-foreground font-medium">Tạo phiếu nhập</span>
+        <span>/</span><span className="text-foreground font-medium">{isImportMode ? "Xem lại phiếu nhập từ Excel" : "Tạo phiếu nhập"}</span>
         {savedNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-success-soft text-success text-xs font-mono">{savedNumber}</span>}
         {!savedNumber && draftNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-info-soft text-info text-xs font-mono">Nháp: {draftNumber}</span>}
+        {isImportMode && <span className="ml-2 px-2 py-0.5 rounded-full bg-info-soft text-info text-[11px] flex items-center gap-1"><FileSpreadsheet className="h-3 w-3" /> Chế độ nhập từ Excel</span>}
       </div>
+
+      {isImportMode && !savedNumber && (
+        <div className="flex items-start gap-2 p-3 mb-3 bg-info-soft rounded-lg border border-info/20 text-sm text-info">
+          <FileSpreadsheet className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <strong>Đang xem lại {lines.filter(l => l.fromImport).length} dòng từ {importedFilename ?? 'Excel'}.</strong>
+            <span className="ml-1">Hãy chọn nhà cung cấp, kiểm tra/sửa các dòng có cảnh báo hoặc lỗi rồi bấm <em>Lưu phiếu nhập</em>. Phiếu chỉ được tạo sau khi bạn xác nhận tại đây.</span>
+          </div>
+        </div>
+      )}
 
       {savedNumber && (
         <div className="flex items-center gap-2 p-3 mb-3 bg-success-soft rounded-lg border border-success/20 text-sm text-success">
@@ -247,10 +306,16 @@ export default function AdminGoodsReceiptCreate() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Nhà cung cấp *</label>
-                <select value={supplier} onChange={e => setSupplier(e.target.value)} className="mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">Chọn NCC</option>
-                  {suppliers.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <SearchableCombobox
+                  className="mt-1"
+                  value={supplier}
+                  onChange={setSupplier}
+                  invalid={!supplier}
+                  placeholder="Tìm hoặc tạo NCC..."
+                  options={suppliers.filter(s => s.active).map(s => ({ id: s.id, label: s.name, sub: `${s.code} · ${s.phone}` }))}
+                  onCreateNew={() => setSupplierDrawerOpen(true)}
+                  createLabel="Tạo NCC mới"
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Phí vận chuyển</label>
@@ -451,6 +516,7 @@ export default function AdminGoodsReceiptCreate() {
       <ReceiptImportPreviewDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
+        inlineMode
         onConfirm={(rows) => {
           const newLines: ReceiptLine[] = rows.map((r, i) => ({
             id: `imp-${Date.now()}-${i}`,
@@ -469,9 +535,10 @@ export default function AdminGoodsReceiptCreate() {
             fromImport: true,
           }));
           setLines(prev => [...prev, ...newLines]);
-          toast.success(`Đã thêm ${newLines.length} dòng từ Excel — kiểm tra lỗi/cảnh báo bên dưới`);
         }}
       />
+
+      <SupplierFormDrawer open={supplierDrawerOpen} onClose={() => setSupplierDrawerOpen(false)} />
 
       <BarcodePrintDialog
         open={barcodeOpen}
