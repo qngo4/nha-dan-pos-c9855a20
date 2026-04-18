@@ -295,10 +295,16 @@ export default function AdminGoodsReceiptCreate() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Nhà cung cấp *</label>
-                <select value={supplier} onChange={e => setSupplier(e.target.value)} className="mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring">
-                  <option value="">Chọn NCC</option>
-                  {suppliers.filter(s => s.active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <SearchableCombobox
+                  className="mt-1"
+                  value={supplier}
+                  onChange={setSupplier}
+                  invalid={!supplier}
+                  placeholder="Tìm hoặc tạo NCC..."
+                  options={suppliers.filter(s => s.active).map(s => ({ id: s.id, label: s.name, sub: `${s.code} · ${s.phone}` }))}
+                  onCreateNew={() => setSupplierDrawerOpen(true)}
+                  createLabel="Tạo NCC mới"
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Phí vận chuyển</label>
