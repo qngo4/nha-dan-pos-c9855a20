@@ -3,12 +3,16 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
 import { DateInput } from "@/components/shared/DateInput";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
-import { suppliers, products } from "@/lib/mock-data";
+import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
+import { SupplierFormDrawer } from "@/components/shared/SupplierFormDrawer";
+import { products } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { formatVND } from "@/lib/format";
 import { draftActions } from "@/lib/drafts";
+import { importStaging } from "@/lib/import-staging";
 import {
   ArrowLeft, Save, Trash2, Upload, Printer, Search,
-  AlertTriangle, AlertCircle, Package, FileText, Check
+  AlertTriangle, AlertCircle, Package, FileText, Check, FileSpreadsheet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
