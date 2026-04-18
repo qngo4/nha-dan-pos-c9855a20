@@ -207,7 +207,9 @@ export function validatePromotion(p: Promotion): ValidationResult {
       if (p.getItems.some((g) => !(g.quantity > 0))) errors.getItems = "Số lượng tặng phải lớn hơn 0";
       break;
     case "gift":
-      if (!(p.triggerValue > 0)) errors.triggerValue = "Giá trị kích hoạt phải lớn hơn 0";
+      if (p.triggerType !== "buy-product" && !(p.triggerValue > 0)) {
+        errors.triggerValue = "Giá trị kích hoạt phải lớn hơn 0";
+      }
       if ((p.triggerType === "buy-product" || p.triggerType === "buy-quantity") && !p.triggerProductId) {
         errors.triggerProductId = "Vui lòng chọn sản phẩm kích hoạt";
       }

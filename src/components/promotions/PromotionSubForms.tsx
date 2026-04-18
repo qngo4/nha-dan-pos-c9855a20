@@ -121,7 +121,7 @@ export function GiftForm({ value, onChange, validation }: { value: GiftPromotion
   const e = validation.errors;
   const triggerLabel =
     value.triggerType === "min-order" ? "Giá trị đơn tối thiểu (₫)" :
-    value.triggerType === "buy-quantity" ? "Số lượng tối thiểu" : "Tự động kích hoạt khi mua sản phẩm";
+    value.triggerType === "buy-quantity" ? "Số lượng tối thiểu của sản phẩm chỉ định" : "Tự động kích hoạt khi mua sản phẩm";
 
   return (
     <div className="space-y-3">
@@ -144,8 +144,17 @@ export function GiftForm({ value, onChange, validation }: { value: GiftPromotion
         </div>
       </Field>
 
+      {value.triggerType === "min-order" && (
+        <p className="text-[11px] text-muted-foreground -mt-1">Tính trên tổng giá trị toàn đơn hàng.</p>
+      )}
+
       {(value.triggerType === "buy-product" || value.triggerType === "buy-quantity") && (
-        <Field label="Sản phẩm kích hoạt" error={e.triggerProductId} required>
+        <Field
+          label="Sản phẩm kích hoạt"
+          error={e.triggerProductId}
+          hint={value.triggerType === "buy-quantity" ? "Số lượng được tính trên đúng sản phẩm này trong giỏ." : undefined}
+          required
+        >
           <ProductPicker
             value={value.triggerProductId}
             valueName={value.triggerProductName}
