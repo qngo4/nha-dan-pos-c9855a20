@@ -14,12 +14,9 @@ type Slide = {
   eyebrow: string;
   tagline: string;
   cta: { label: string; to: string; icon?: "bag" | "sparkles" };
-  // Visual theming per slide for cinematic variation
-  theme: {
-    bg: string; // tailwind gradient classes for backdrop
-    glow: string; // accent glow color
-    chip: string; // foreground chip text on top of bg
-  };
+  theme: { bg: string; glow: string; chip: string };
+  price: string;
+  unit: string;
 };
 
 const THEMES = [
