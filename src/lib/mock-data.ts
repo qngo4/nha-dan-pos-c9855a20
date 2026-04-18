@@ -379,7 +379,15 @@ export const mockAdjustmentLines: StockAdjustmentLine[] = [
 
 export const promotions: Promotion[] = [
   { id: '1', name: 'Giảm 10% toàn bộ', description: 'Khuyến mãi cuối tuần', type: 'percent', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 100000, maxDiscount: 50000, discountValue: 10, scope: 'all', scopeIds: [] },
-  { id: '2', name: 'Mua 5 tặng 1 Mì Hảo Hảo', description: 'Áp dụng cho mì gói', type: 'buy-x-get-y', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 0, maxDiscount: 0, discountValue: 0, scope: 'products', scopeIds: ['1'] },
+  {
+    id: '2', name: 'Mua 5 tặng 1 Mì Hảo Hảo', description: 'Áp dụng cho mì gói', type: 'buy-x-get-y', active: true,
+    startDate: '2026-01-01', endDate: '2026-12-31',
+    minOrderValue: 0, maxDiscount: 0, discountValue: 0, scope: 'products', scopeIds: ['1'],
+    // type-specific fields used by the promotions engine
+    buyItems: [{ productId: '1', productName: 'Mì Hảo Hảo', quantity: 5 }],
+    getItems: [{ productId: '1', productName: 'Mì Hảo Hảo', quantity: 1 }],
+    mode: 'same', repeatable: true,
+  } as any,
   { id: '3', name: 'Giảm 20.000đ cho đơn từ 200K', description: 'Áp dụng mọi sản phẩm', type: 'fixed', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 200000, maxDiscount: 20000, discountValue: 20000, scope: 'all', scopeIds: [] },
   { id: '4', name: 'Miễn phí vận chuyển', description: 'Đơn từ 300K', type: 'free-shipping', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 300000, maxDiscount: 0, discountValue: 0, scope: 'all', scopeIds: [] },
 ];
