@@ -274,12 +274,17 @@ export default function AdminGoodsReceiptCreate() {
     setLines((prev) => revalidateLines(prev.map((l) => {
       if (l.id !== id) return l;
       const merged: ReceiptLineDraft = { ...l, ...patch, edited: true };
-      if (patch.expiryMode === "date") merged.expiryDays = 0;
-      if (patch.expiryMode === "days" && merged.expiryDays > 0) {
-        merged.expiryDate = new Date(new Date(receiptDate).getTime() + merged.expiryDays * 86400000).toISOString().slice(0, 10);
-      }
+      // When switching modes, keep both values intact so user can toggle back without data loss.
+      // Compute a date PREVIEW from shelf-life days but only as a hint, not as the source of truth.
       return merged;
     })));
+  };
+
+  const computePreviewDate = (line: ReceiptLineDraft) => {
+    if (line.expiryMode !== "days" || line.expiryDays <= 0) return "";
+    const base = new Date(receiptDate);
+    if (Number.isNaN(base.getTime())) return "";
+    return new Date(base.getTime() + line.expiryDays * 86400000).toISOString().slice(0, 10);
   };
 
   const handleRevalidate = () => {
