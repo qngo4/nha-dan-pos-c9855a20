@@ -27,15 +27,12 @@ const TYPE_ICON_BG: Record<PromotionType, string> = {
 };
 
 export default function AdminPromotions() {
-  const [promoList, setPromoList] = useState<Promotion[]>(() =>
-    initialPromotions.map((p: any) => migratePromotion(p))
-  );
+  const { promotions: promoList, categories, products } = useStore();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<PromotionType | null>(null);
   const [editing, setEditing] = useState<Promotion | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const { categories, products } = useStore();
 
   const categoryNames = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c.name])), [categories]);
   const productNames = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p.name])), [products]);
@@ -49,27 +46,21 @@ export default function AdminPromotions() {
   });
 
   const handleSave = (promo: Promotion) => {
-    if (promo.id) {
-      setPromoList((prev) => prev.map((p) => (p.id === promo.id ? promo : p)));
-      toast.success(`Đã cập nhật "${promo.name}"`);
-    } else {
-      const newPromo = { ...promo, id: `promo-${Date.now()}` };
-      setPromoList((prev) => [newPromo, ...prev]);
-      toast.success(`Đã tạo "${promo.name}"`);
-    }
+    promotionActions.upsert(promo);
+    toast.success(promo.id ? `Đã cập nhật "${promo.name}"` : `Đã tạo "${promo.name}"`);
     setEditing(null);
   };
 
   const toggleActive = (id: string) => {
-    setPromoList((prev) => prev.map((p) => (p.id === id ? { ...p, active: !p.active } : p)));
     const p = promoList.find((x) => x.id === id);
+    promotionActions.toggleActive(id);
     toast.success(`Đã ${p?.active ? "tạm dừng" : "kích hoạt"} "${p?.name}"`);
   };
 
   const handleDelete = () => {
     if (!deleteTarget) return;
     const p = promoList.find((x) => x.id === deleteTarget);
-    setPromoList((prev) => prev.filter((x) => x.id !== deleteTarget));
+    promotionActions.remove(deleteTarget);
     toast.success(`Đã xóa "${p?.name}"`);
     setDeleteTarget(null);
   };
