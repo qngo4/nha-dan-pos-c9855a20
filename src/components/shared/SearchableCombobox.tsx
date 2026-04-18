@@ -6,6 +6,12 @@ export interface ComboOption {
   id: string;
   label: string;
   sub?: string;
+  /** Optional group heading. Options sharing the same group render under one heading. */
+  group?: string;
+  /** If true, option is shown but not selectable (e.g. ineligible promotion). */
+  disabled?: boolean;
+  /** Optional small status badge shown on the right of the option. */
+  badge?: { label: string; tone?: "success" | "warning" | "danger" | "muted" };
 }
 
 interface Props {

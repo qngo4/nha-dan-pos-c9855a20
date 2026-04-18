@@ -378,10 +378,10 @@ export const mockAdjustmentLines: StockAdjustmentLine[] = [
 ];
 
 export const promotions: Promotion[] = [
-  { id: '1', name: 'Giảm 10% toàn bộ', description: 'Khuyến mãi cuối tuần', type: 'percent', active: true, startDate: '2025-04-14', endDate: '2025-04-20', minOrderValue: 100000, maxDiscount: 50000, discountValue: 10, scope: 'all', scopeIds: [] },
-  { id: '2', name: 'Mua 5 tặng 1 Mì Hảo Hảo', description: 'Áp dụng cho mì gói', type: 'buy-x-get-y', active: true, startDate: '2025-04-01', endDate: '2025-04-30', minOrderValue: 0, maxDiscount: 0, discountValue: 0, scope: 'products', scopeIds: ['1'] },
-  { id: '3', name: 'Giảm 20.000đ cho đơn từ 200K', description: 'Áp dụng mọi sản phẩm', type: 'fixed', active: false, startDate: '2025-03-01', endDate: '2025-03-31', minOrderValue: 200000, maxDiscount: 20000, discountValue: 20000, scope: 'all', scopeIds: [] },
-  { id: '4', name: 'Miễn phí vận chuyển', description: 'Đơn từ 300K', type: 'free-shipping', active: true, startDate: '2025-04-01', endDate: '2025-06-30', minOrderValue: 300000, maxDiscount: 0, discountValue: 0, scope: 'all', scopeIds: [] },
+  { id: '1', name: 'Giảm 10% toàn bộ', description: 'Khuyến mãi cuối tuần', type: 'percent', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 100000, maxDiscount: 50000, discountValue: 10, scope: 'all', scopeIds: [] },
+  { id: '2', name: 'Mua 5 tặng 1 Mì Hảo Hảo', description: 'Áp dụng cho mì gói', type: 'buy-x-get-y', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 0, maxDiscount: 0, discountValue: 0, scope: 'products', scopeIds: ['1'] },
+  { id: '3', name: 'Giảm 20.000đ cho đơn từ 200K', description: 'Áp dụng mọi sản phẩm', type: 'fixed', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 200000, maxDiscount: 20000, discountValue: 20000, scope: 'all', scopeIds: [] },
+  { id: '4', name: 'Miễn phí vận chuyển', description: 'Đơn từ 300K', type: 'free-shipping', active: true, startDate: '2026-01-01', endDate: '2026-12-31', minOrderValue: 300000, maxDiscount: 0, discountValue: 0, scope: 'all', scopeIds: [] },
 ];
 
 export const userAccounts: UserAccount[] = [
