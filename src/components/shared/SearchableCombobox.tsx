@@ -166,3 +166,14 @@ export function SearchableCombobox({
     </div>
   );
 }
+
+// Preserve insertion order of groups; "" group renders without heading.
+function groupOptions(opts: ComboOption[]): [string, ComboOption[]][] {
+  const map = new Map<string, ComboOption[]>();
+  for (const o of opts) {
+    const key = o.group ?? "";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(o);
+  }
+  return Array.from(map.entries());
+}
