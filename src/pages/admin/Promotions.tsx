@@ -4,15 +4,13 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { promotions as initialPromotions } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import { useStore, promotionActions } from "@/lib/store";
 import { formatDate } from "@/lib/format";
 import {
   type Promotion,
   type PromotionType,
   PROMOTION_TYPE_LABELS,
   makeEmptyPromotion,
-  migratePromotion,
   formatPromotionSummary,
   formatScope,
 } from "@/lib/promotions";
