@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ImportPreviewDialog, type ImportRow } from "@/components/shared/ImportPreviewDialog";
+import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
 import { useStore, productActions } from "@/lib/store";
 import type { Product } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
