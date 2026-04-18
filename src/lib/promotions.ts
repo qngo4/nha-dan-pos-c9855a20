@@ -414,3 +414,120 @@ export function applyPromotionToCart(
     }
   }
 }
+
+// ===== Progress hint =====
+// Computes how close the cart is to qualifying for a given promotion.
+// Returns null if the promotion is already eligible OR if progress is not meaningful
+// (e.g. unavailable / outside date / scope mismatch with no clear numeric target).
+export interface PromotionProgress {
+  /** 0..1 ratio toward eligibility */
+  ratio: number;
+  /** Short human-readable message, e.g. "Cần thêm 75.000đ để đạt khuyến mãi Giảm 10%" */
+  message: string;
+  /** Optional numeric current/target for callers that want to render their own bar */
+  current?: number;
+  target?: number;
+  unit?: "vnd" | "qty";
+}
+
+export function getPromotionProgress(
+  cart: Cart,
+  p: Promotion,
+  ctx?: { productCategory?: Record<string, string> }
+): PromotionProgress | null {
+  if (!isWithinDate(p)) return null;
+
+  const scopedSub = scopedSubtotal(cart, p, ctx?.productCategory);
+  const subtotal = cart.subtotal;
+  const ratio = (cur: number, tgt: number) => (tgt <= 0 ? 1 : Math.max(0, Math.min(1, cur / tgt)));
+
+  switch (p.type) {
+    case "percent":
+    case "fixed": {
+      const min = p.minOrder ?? 0;
+      if (min > 0 && subtotal < min) {
+        const remain = min - subtotal;
+        return {
+          ratio: ratio(subtotal, min),
+          current: subtotal,
+          target: min,
+          unit: "vnd",
+          message: `Cần thêm ${formatVND(remain)} để đạt khuyến mãi "${p.name}"`,
+        };
+      }
+      if (scopedSub <= 0 && p.scope.kind !== "all") {
+        return { ratio: 0, message: `Thêm sản phẩm thuộc phạm vi của "${p.name}" để áp dụng` };
+      }
+      return null;
+    }
+    case "free-shipping": {
+      const min = p.minOrder ?? 0;
+      const ship = cart.shippingFee ?? 0;
+      if (min > 0 && subtotal < min) {
+        const remain = min - subtotal;
+        return {
+          ratio: ratio(subtotal, min),
+          current: subtotal,
+          target: min,
+          unit: "vnd",
+          message: `Cần thêm ${formatVND(remain)} để miễn phí ship`,
+        };
+      }
+      if (ship <= 0) return { ratio: 0, message: "Thêm phí ship để áp dụng ưu đãi miễn phí ship" };
+      return null;
+    }
+    case "buy-x-get-y": {
+      if (p.buyItems.length === 0) return null;
+      const qtyOf = (id: string) => cart.lines.filter((l) => l.productId === id).reduce((s, l) => s + l.quantity, 0);
+      // Find the buyItem furthest from being satisfied
+      const gaps = p.buyItems.map((b) => {
+        const have = qtyOf(b.productId);
+        return { name: b.productName, need: b.quantity, have, missing: Math.max(0, b.quantity - have) };
+      });
+      const worst = gaps.reduce((a, b) => (b.missing > a.missing ? b : a), gaps[0]);
+      if (worst.missing <= 0) return null;
+      const totalNeed = gaps.reduce((s, g) => s + g.need, 0);
+      const totalHave = gaps.reduce((s, g) => s + Math.min(g.have, g.need), 0);
+      return {
+        ratio: ratio(totalHave, totalNeed),
+        current: totalHave,
+        target: totalNeed,
+        unit: "qty",
+        message: `Cần thêm ${worst.missing} ${worst.name} để đạt khuyến mãi "${p.name}"`,
+      };
+    }
+    case "gift": {
+      if (p.triggerType === "min-order") {
+        if (subtotal >= p.triggerValue) return null;
+        const remain = p.triggerValue - subtotal;
+        return {
+          ratio: ratio(subtotal, p.triggerValue),
+          current: subtotal,
+          target: p.triggerValue,
+          unit: "vnd",
+          message: `Cần thêm ${formatVND(remain)} để nhận quà từ "${p.name}"`,
+        };
+      }
+      if (p.triggerType === "buy-product") {
+        if (!p.triggerProductId) return null;
+        const have = cart.lines.find((l) => l.productId === p.triggerProductId && l.quantity > 0);
+        if (have) return null;
+        return { ratio: 0, message: `Thêm ${p.triggerProductName ?? "sản phẩm điều kiện"} để nhận quà` };
+      }
+      if (p.triggerType === "buy-quantity") {
+        if (!p.triggerProductId) return null;
+        const qty = cart.lines.filter((l) => l.productId === p.triggerProductId).reduce((s, l) => s + l.quantity, 0);
+        if (qty >= p.triggerValue) return null;
+        const remain = p.triggerValue - qty;
+        return {
+          ratio: ratio(qty, p.triggerValue),
+          current: qty,
+          target: p.triggerValue,
+          unit: "qty",
+          message: `Cần thêm ${remain} ${p.triggerProductName ?? "sản phẩm điều kiện"} để nhận quà`,
+        };
+      }
+      return null;
+    }
+  }
+}

@@ -19,7 +19,7 @@ import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
-import { applyPromotionToCart, formatPromotionSummary, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
+import { applyPromotionToCart, formatPromotionSummary, getPromotionProgress, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
 
 type ScanMode = "hid" | "camera" | "manual";
 
@@ -256,6 +256,22 @@ export default function AdminPOS() {
     }));
   }, [activePromotions, lines, shippingFee, productCategory]);
 
+  // Progress hint toward the currently-selected promotion (null when eligible / N/A).
+  const promoProgress = useMemo(() => {
+    if (!selectedPromotion) return null;
+    const billable = lines.filter((l) => !l.reward);
+    const subtotal = billable.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+    const cart: Cart = {
+      lines: billable.map((l) => ({
+        productId: l.productId, variantId: l.variantId, productName: l.productName,
+        unitPrice: l.unitPrice, quantity: l.quantity,
+      })),
+      subtotal,
+      shippingFee,
+    };
+    return getPromotionProgress(cart, selectedPromotion, { productCategory });
+  }, [selectedPromotion, lines, shippingFee, productCategory]);
+
   // ------ Render helpers ------
   const SummaryBreakdown = () => (
     <div className="space-y-1.5 text-sm">
@@ -316,6 +332,17 @@ export default function AdminPOS() {
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
+          {!totals.promoEligible && promoProgress && (
+            <div className="mt-2">
+              <div className="h-1.5 w-full rounded-full bg-warning/20 overflow-hidden">
+                <div
+                  className="h-full bg-warning transition-all"
+                  style={{ width: `${Math.round(promoProgress.ratio * 100)}%` }}
+                />
+              </div>
+              <div className="mt-1 text-warning">{promoProgress.message}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -417,6 +444,28 @@ export default function AdminPOS() {
           </div>
 
           <div className="flex-1 overflow-y-auto scrollbar-thin">
+            {selectedPromotion && !lastInvoice && lines.length > 0 && !totals.promoEligible && promoProgress && (
+              <div className="m-3 p-2.5 rounded-md border border-warning/40 bg-warning-soft flex items-start gap-2 text-xs">
+                <Tag className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground">{promoProgress.message}</p>
+                  <div className="mt-1.5 h-1.5 w-full rounded-full bg-warning/20 overflow-hidden">
+                    <div
+                      className="h-full bg-warning transition-all"
+                      style={{ width: `${Math.round(promoProgress.ratio * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            {selectedPromotion && !lastInvoice && lines.length > 0 && totals.promoEligible && (
+              <div className="m-3 p-2.5 rounded-md border border-success/40 bg-success-soft flex items-center gap-2 text-xs">
+                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                <p className="font-medium text-foreground">
+                  Đã áp dụng khuyến mãi <span className="font-semibold">{selectedPromotion.name}</span>
+                </p>
+              </div>
+            )}
             {lastInvoice ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-6">
                 <div className="rounded-full bg-success-soft p-4 mb-4">
