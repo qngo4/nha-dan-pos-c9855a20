@@ -494,9 +494,9 @@ export default function AdminGoodsReceiptCreate() {
                   <th className="px-2 py-1.5 text-left font-medium">Danh mục / ĐV SP mới</th>
                   <th className="px-2 py-1.5 text-center font-medium">SL</th>
                   <th className="px-2 py-1.5 text-center font-medium">ĐV nhập / bán / quy đổi</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Giá nhập / bán</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Giá nhập / bán (₫)</th>
                   <th className="px-2 py-1.5 text-center font-medium">CK%</th>
-                  <th className="px-2 py-1.5 text-center font-medium">HSD</th>
+                  <th className="px-2 py-1.5 text-center font-medium w-64">HSD (Ngày · Số ngày)</th>
                   <th className="px-2 py-1.5 text-left font-medium w-56">Trạng thái</th>
                   <th className="w-8" />
                 </tr>
