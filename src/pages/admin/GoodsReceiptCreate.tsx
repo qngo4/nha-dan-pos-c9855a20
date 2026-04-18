@@ -483,8 +483,85 @@ export default function AdminGoodsReceiptCreate() {
             </button>
           </div>
 
-          {/* Lines table */}
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          {/* Mobile/tablet cards (≤md) */}
+          <div className="space-y-2 md:hidden">
+            {filteredLines.map((line, index) => {
+              const issue = lineIssues.get(line.id) ?? { errors: [], warnings: [] };
+              const hasError = issue.errors.length > 0;
+              const hasWarning = !hasError && issue.warnings.length > 0;
+              return (
+                <div key={line.id} ref={(el) => (rowRefs.current[line.id] = el as any)} className={cn(
+                  "rounded-lg border bg-card p-2.5 space-y-2",
+                  hasError && "border-danger/40 bg-danger-soft/20",
+                  hasWarning && "border-warning/40 bg-warning-soft/20",
+                )}>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="font-mono text-muted-foreground">#{index + 1}{line.sourceRow ? `·${line.sourceRow}` : ""}</span>
+                    <span className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]",
+                      line.status === "error" && "bg-danger-soft text-danger",
+                      line.status === "warning" && "bg-warning-soft text-warning",
+                      line.status === "ready" && "bg-success-soft text-success",
+                    )}>
+                      {line.status === "error" ? <AlertCircle className="h-2.5 w-2.5" /> : line.status === "warning" ? <AlertTriangle className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+                      {line.status}
+                    </span>
+                    <button onClick={() => removeLine(line.id)} className="ml-auto rounded p-1 text-muted-foreground hover:text-danger"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input value={line.productCode} onChange={(e) => syncLine(line.id, { productCode: e.target.value.toUpperCase() })} className={cn("h-8 rounded border bg-background px-2 text-xs font-mono", !line.productCode.trim() && "border-danger")} placeholder="Mã SP" />
+                    <input value={line.variantCode} onChange={(e) => syncLine(line.id, { variantCode: e.target.value.toUpperCase() })} className="h-8 rounded border bg-background px-2 text-xs font-mono" placeholder="Mã variant" />
+                    <input value={line.productName} onChange={(e) => syncLine(line.id, { productName: e.target.value })} className="col-span-2 h-8 rounded border bg-background px-2 text-xs" placeholder="Tên SP" />
+                  </div>
+                  <SearchableCombobox
+                    value={line.category}
+                    onChange={(v) => syncLine(line.id, { category: v })}
+                    placeholder="Danh mục"
+                    options={categoryOptions}
+                    onCreateNew={(q) => { const name = q.trim(); if (!name) return; categoryActions.create({ name, description: "Tạo từ phiếu nhập" }); syncLine(line.id, { category: name }); toast.success(`Đã tạo "${name}".`); }}
+                    createLabel="Tạo danh mục mới"
+                  />
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <label className="text-[10px] text-muted-foreground">SL<input type="number" min={0} value={line.quantity} onChange={(e) => syncLine(line.id, { quantity: Math.max(0, Number(e.target.value)) })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", line.quantity <= 0 && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">ĐV nhập<input value={line.importUnit} onChange={(e) => syncLine(line.id, { importUnit: e.target.value })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", !line.importUnit.trim() && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">ĐV bán<input value={line.sellUnit} onChange={(e) => syncLine(line.id, { sellUnit: e.target.value })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", !line.sellUnit.trim() && "border-danger")} /></label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <label className="text-[10px] text-muted-foreground">Quy đổi<input type="number" min={1} value={line.piecesPerUnit} onChange={(e) => syncLine(line.id, { piecesPerUnit: Number(e.target.value) })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", line.piecesPerUnit <= 0 && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">Giá nhập (₫)<input type="number" min={0} value={line.unitCost} onChange={(e) => syncLine(line.id, { unitCost: Math.max(0, Number(e.target.value)) })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-right text-xs", line.unitCost <= 0 && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">Giá bán (₫)<input type="number" min={0} value={line.sellPrice} onChange={(e) => syncLine(line.id, { sellPrice: Math.max(0, Number(e.target.value)) })} className="mt-0.5 h-8 w-full rounded border bg-background px-2 text-right text-xs" /></label>
+                  </div>
+                  <div>
+                    <div className="mb-1 inline-flex rounded-md border bg-muted/40 p-0.5 text-[10px]">
+                      <button type="button" onClick={() => syncLine(line.id, { expiryMode: "date" })} className={cn("rounded px-2 py-0.5", line.expiryMode === "date" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Ngày HSD</button>
+                      <button type="button" onClick={() => syncLine(line.id, { expiryMode: "days" })} className={cn("rounded px-2 py-0.5", line.expiryMode === "days" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Số ngày SD</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <DateInput allowFuture value={line.expiryDate} onChange={(v) => syncLine(line.id, { expiryDate: v, expiryMode: "date" })} className={cn("h-8 w-full text-xs", line.expiryMode === "date" ? "ring-1 ring-ring/40" : "opacity-70")} />
+                      <input type="number" min={0} value={line.expiryDays} onChange={(e) => syncLine(line.id, { expiryDays: Math.max(0, Number(e.target.value)), expiryMode: "days" })} className={cn("h-8 w-full rounded border bg-card px-2 text-center text-xs", line.expiryMode === "days" && line.expiryDays <= 0 && "border-danger", line.expiryMode === "days" ? "ring-1 ring-ring/40" : "opacity-70")} placeholder="Số ngày" />
+                    </div>
+                    {line.expiryMode === "days" && line.expiryDays > 0 && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">≈ HSD: {computePreviewDate(line) || "—"}</div>
+                    )}
+                  </div>
+                  {(issue.errors.length > 0 || issue.warnings.length > 0) && (
+                    <div className="space-y-0.5 rounded-md bg-muted/30 px-2 py-1.5 text-[11px]">
+                      {issue.errors.map((m, i) => <div key={`e-${i}`} className="flex items-center gap-1 text-danger"><AlertCircle className="h-3 w-3" /> {m}</div>)}
+                      {issue.warnings.map((m, i) => <div key={`w-${i}`} className="flex items-center gap-1 text-warning"><AlertTriangle className="h-3 w-3" /> {m}</div>)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {filteredLines.length === 0 && (
+              <div className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
+                {lines.length === 0 ? "Chưa có dòng nhập nào." : "Không có dòng khớp bộ lọc."}
+              </div>
+            )}
+          </div>
+
+          {/* Lines table — desktop only */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border bg-card">
             <table className="min-w-[1500px] w-full text-xs">
               <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
                 <tr className="border-b text-[10px] uppercase text-muted-foreground">
