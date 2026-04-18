@@ -257,8 +257,11 @@ export async function parseReceiptExcel(file: File): Promise<ReceiptImportRow[]>
       const importUnit = toStr(pick(row, ["K: DV Nhap kho", "DV Nhap kho", "Don vi nhap kho"])) || newProductUnit;
       const sellUnit = toStr(pick(row, ["L: DV Ban le", "DV Ban le", "Don vi ban le"])) || newProductUnit || importUnit;
       const piecesPerUnit = Math.max(1, toNum(pick(row, ["M: So le/DV", "So le/DV", "So le DV"])) || 1);
-      const expiryDate = toDate(pick(row, ["N: Ngay HSD (ghi de)", "Ngay HSD (ghi de)", "Ngay HSD"]));
-      const expiryDaysRaw = toNum(pick(row, ["O: So ngay HSD", "So ngay HSD"]));
+      // IMPORTANT: do NOT use a loose "Ngay HSD" alias here — it fuzzy-matches column O ("So ngay HSD")
+      // and would incorrectly parse a shelf-life-days number (e.g. 30) as Excel serial date 29/01/1900.
+      const expiryDateRaw = pick(row, ["N: Ngay HSD (ghi de)", "Ngay HSD (ghi de)", "HSD ghi de"]);
+      const expiryDate = toDate(expiryDateRaw);
+      const expiryDaysRaw = toNum(pick(row, ["O: So ngay HSD", "So ngay HSD", "So ngay su dung", "Han su dung"]));
       const expiryDays = expiryDaysRaw > 0 ? expiryDaysRaw : undefined;
 
       if (!productCode && !productName && !variantCode) return null;
