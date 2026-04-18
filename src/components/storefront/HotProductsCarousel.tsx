@@ -56,12 +56,12 @@ export function HotProductsCarousel({ items }: { items: Product[] }) {
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
     >
-      <div ref={emblaRef} className="overflow-hidden">
+      <div ref={emblaRef} className="overflow-hidden -mx-4 px-4 md:mx-0 md:px-0">
         <div className="flex -ml-3 md:-ml-4">
           {items.map((p) => (
             <div
               key={p.id}
-              className="pl-3 md:pl-4 shrink-0 grow-0 basis-1/2 sm:basis-1/3 lg:basis-1/4 xl:basis-1/5"
+              className="pl-3 md:pl-4 shrink-0 grow-0 basis-[78%] xs:basis-[72%] sm:basis-1/3 lg:basis-1/4 xl:basis-1/5"
             >
               <ProductCard product={p} />
             </div>
