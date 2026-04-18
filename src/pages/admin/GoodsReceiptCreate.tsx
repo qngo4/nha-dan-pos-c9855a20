@@ -65,6 +65,8 @@ export default function AdminGoodsReceiptCreate() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const draftId = params.get("draft");
+  const isImportMode = params.get("mode") === "import";
+  const { suppliers } = useStore();
 
   const [lines, setLines] = useState<ReceiptLine[]>(initialLines);
   const [supplier, setSupplier] = useState('');
@@ -78,6 +80,48 @@ export default function AdminGoodsReceiptCreate() {
   const [draftNumber, setDraftNumber] = useState<string | null>(null);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
+  const supplierCountRef = useState({ n: suppliers.length })[0];
+  const [importedFilename, setImportedFilename] = useState<string | null>(null);
+
+  // Consume staged Excel import (set by ReceiptImportPreviewDialog when mode=import)
+  useEffect(() => {
+    if (!isImportMode) return;
+    const stage = importStaging.takeReceipt();
+    if (!stage) return;
+    setImportedFilename(stage.filename);
+    if (stage.meta?.receiptDate) setReceiptDate(stage.meta.receiptDate);
+    const newLines: ReceiptLine[] = stage.rows.map((r, i) => ({
+      id: `imp-${Date.now()}-${i}`,
+      productName: r.productName,
+      variantName: r.variantName || 'Mặc định',
+      variantCode: r.variantCode || r.productCode,
+      quantity: r.quantity,
+      unitCost: r.unitCost,
+      discount: r.discountPercent || 0,
+      importUnit: r.importUnit,
+      sellUnit: r.sellUnit,
+      piecesPerUnit: r.piecesPerUnit,
+      expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
+      expiryDays: r.expiryDays,
+      expiryMode: r.expiryDate ? 'date' : (r.expiryDays ? 'days' : 'date'),
+      fromImport: true,
+    }));
+    setLines(newLines);
+    toast.success(`Đã tải ${newLines.length} dòng từ ${stage.filename} — vui lòng chọn NCC và xác nhận`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isImportMode]);
+
+  // Auto-select newly created supplier when the drawer adds one
+  useEffect(() => {
+    if (suppliers.length > supplierCountRef.n) {
+      // newest is at the head
+      const newest = suppliers[0];
+      setSupplier(newest.id);
+      supplierCountRef.n = suppliers.length;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppliers.length]);
 
   // Load existing draft (if any)
   useEffect(() => {
