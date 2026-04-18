@@ -1,37 +1,44 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
+import { AlertCircle, AlertTriangle, ArrowLeft, Check, FileSpreadsheet, FileText, Package, Plus, Printer, RefreshCw, Save, Search, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { DateInput } from "@/components/shared/DateInput";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
 import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
 import { SupplierFormDrawer } from "@/components/shared/SupplierFormDrawer";
-import { products } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
-import { formatVND } from "@/lib/format";
-import { draftActions } from "@/lib/drafts";
+import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
 import { importStaging } from "@/lib/import-staging";
-import {
-  ArrowLeft, Save, Trash2, Upload, Printer, Search,
-  AlertTriangle, AlertCircle, Package, FileText, Check, FileSpreadsheet
-} from "lucide-react";
+import { draftActions } from "@/lib/drafts";
+import { formatVND } from "@/lib/format";
+import type { ReceiptImportOutcome, ReceiptImportRow } from "@/lib/import-types";
+import { supplierActions, useStore } from "@/lib/store";
+import { products as seedProducts } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
-interface ReceiptLine {
+interface ReceiptLineDraft {
   id: string;
+  sourceRow: number;
+  status: ReceiptImportRow["status"];
+  outcome: ReceiptImportOutcome;
+  message?: string;
+  productCode: string;
+  variantCode: string;
   productName: string;
   variantName: string;
-  variantCode: string;
+  category: string;
+  newProductUnit: string;
+  importUnit: string;
+  sellUnit: string;
+  piecesPerUnit: number;
   quantity: number;
   unitCost: number;
-  discount: number;
-  importUnit: string;
-  sellUnit?: string;
-  piecesPerUnit: number;
+  sellPrice: number;
+  discountPercent: number;
   expiryDate: string;
-  expiryDays?: number;
-  expiryMode?: "date" | "days";
-  fromImport?: boolean;
+  expiryDays: number;
+  expiryMode: "date" | "days";
+  note: string;
+  fromImport: boolean;
 }
 
 interface LineIssue {
@@ -39,27 +46,114 @@ interface LineIssue {
   warnings: string[];
 }
 
-function validateLine(l: ReceiptLine): LineIssue {
+const initialLines: ReceiptLineDraft[] = [];
+
+function createLineId(prefix = "line") {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function convertImportedRow(row: ReceiptImportRow, receiptDate: string, index: number): ReceiptLineDraft {
+  const expiryMode: "date" | "days" = row.expiryDate ? "date" : row.expiryDays ? "days" : "date";
+  const expiryDate = row.expiryDate || (row.expiryDays ? new Date(new Date(receiptDate).getTime() + row.expiryDays * 86400000).toISOString().slice(0, 10) : "");
+  return {
+    id: createLineId(`imp-${index}`),
+    sourceRow: row.sourceRow,
+    status: row.status,
+    outcome: row.outcome,
+    message: row.message,
+    productCode: row.productCode,
+    variantCode: row.variantCode,
+    productName: row.productName,
+    variantName: row.variantName,
+    category: row.category || "",
+    newProductUnit: row.newProductUnit || "",
+    importUnit: row.importUnit,
+    sellUnit: row.sellUnit,
+    piecesPerUnit: row.piecesPerUnit,
+    quantity: row.quantity,
+    unitCost: row.unitCost,
+    sellPrice: row.sellPrice,
+    discountPercent: row.discountPercent,
+    expiryDate,
+    expiryDays: row.expiryDays || 0,
+    expiryMode,
+    note: row.note || "",
+    fromImport: true,
+  };
+}
+
+function inferOutcome(line: ReceiptLineDraft): { outcome: ReceiptImportOutcome; message?: string } {
+  const product = seedProducts.find((item) => item.code.toUpperCase() === line.productCode.trim().toUpperCase());
+  if (!product) {
+    return {
+      outcome: "create-product-and-variant",
+      message: `Tạo mới sản phẩm ${line.productCode || "(chưa có mã)"} và phân loại ${line.variantCode || line.variantName || "mặc định"}.`,
+    };
+  }
+  if (!line.variantCode.trim()) {
+    const variant = product.variants.find((item) => item.isDefault) ?? product.variants[0];
+    return {
+      outcome: variant?.importUnit ? "use-default-variant" : "update-legacy-unit",
+      message: `Dùng phân loại mặc định ${variant?.name ?? ""}.`,
+    };
+  }
+  const variant = product.variants.find((item) => item.code.toUpperCase() === line.variantCode.trim().toUpperCase());
+  if (!variant) {
+    return {
+      outcome: "create-variant",
+      message: `Tạo phân loại mới ${line.variantCode} cho ${product.name}.`,
+    };
+  }
+  return {
+    outcome: variant.importUnit ? "update-pricing" : "update-legacy-unit",
+    message: variant.importUnit ? "Cập nhật giá / tồn cho phân loại đã có." : "Bổ sung đơn vị cho phân loại cũ.",
+  };
+}
+
+function validateImportedLine(line: ReceiptLineDraft): LineIssue {
   const errors: string[] = [];
   const warnings: string[] = [];
-  if (!l.quantity || l.quantity <= 0) errors.push("Số lượng phải lớn hơn 0 — chỉnh trực tiếp ở cột SL.");
-  if (!l.unitCost || l.unitCost <= 0) errors.push("Đơn giá nhập phải lớn hơn 0 — nhập lại ở cột Đơn giá.");
-  if (!l.variantCode) errors.push("Thiếu mã sản phẩm — không thể lưu.");
-  // Warnings (non-blocking)
-  if (!l.expiryDate) warnings.push("Chưa có hạn sử dụng — bổ sung ngày HSD nếu sản phẩm cần.");
-  if (l.unitCost > 0 && l.quantity > 0) {
-    const known = products.flatMap(p => p.variants).find(v => v.code === l.variantCode);
-    if (known && known.costPrice > 0 && l.unitCost > known.costPrice * 2) {
-      warnings.push(`Đơn giá cao bất thường (gấp >2 lần giá nhập gần nhất ${formatVND(known.costPrice)}).`);
+  if (!line.productCode.trim()) errors.push("Thiếu mã sản phẩm.");
+  if (!line.productName.trim()) warnings.push("Thiếu tên sản phẩm hiển thị.");
+  if (line.quantity <= 0) errors.push("Số lượng phải lớn hơn 0.");
+  if (line.unitCost <= 0) errors.push("Giá nhập phải lớn hơn 0.");
+  if (!line.importUnit.trim()) errors.push("Thiếu đơn vị nhập kho.");
+  if (!line.sellUnit.trim()) errors.push("Thiếu đơn vị bán lẻ.");
+  if (line.piecesPerUnit <= 0) errors.push("Số lẻ/đơn vị phải lớn hơn 0.");
+  if (line.discountPercent < 0 || line.discountPercent > 100) errors.push("Chiết khấu phải từ 0-100%.");
+  if (line.expiryMode === "date" && !line.expiryDate) warnings.push("Chưa có ngày HSD thực tế.");
+  if (line.expiryMode === "days" && line.expiryDays <= 0) errors.push("Số ngày HSD phải lớn hơn 0.");
+
+  const product = seedProducts.find((item) => item.code.toUpperCase() === line.productCode.trim().toUpperCase());
+  if (!product) {
+    if (!line.category.trim()) errors.push("SP mới phải có danh mục.");
+    if (!line.productName.trim()) errors.push("SP mới phải có tên sản phẩm.");
+  } else if (line.variantCode.trim()) {
+    const variant = product.variants.find((item) => item.code.toUpperCase() === line.variantCode.trim().toUpperCase());
+    if (variant && variant.importUnit && variant.importUnit.trim().toUpperCase() !== line.importUnit.trim().toUpperCase()) {
+      errors.push(`Variant ${line.variantCode} đang dùng ${variant.importUnit}/${variant.piecesPerImportUnit}, Excel lại là ${line.importUnit}/${line.piecesPerUnit}.`);
     }
   }
+
+  if (line.sellPrice > 0 && line.unitCost > 0 && line.sellPrice < line.unitCost) warnings.push("Giá bán đang thấp hơn giá nhập.");
+  const knownVariant = seedProducts.flatMap((productItem) => productItem.variants).find((variant) => variant.code === line.variantCode);
+  if (knownVariant && line.unitCost > knownVariant.costPrice * 2) warnings.push(`Giá nhập cao bất thường so với giá gần nhất ${formatVND(knownVariant.costPrice)}.`);
+  if (!line.variantCode.trim()) warnings.push("Để trống mã variant — hệ thống sẽ dùng default variant nếu SP đã có.");
   return { errors, warnings };
 }
 
-const initialLines: ReceiptLine[] = [
-  { id: '1', productName: 'Mì Hảo Hảo', variantName: 'Tôm chua cay', variantCode: 'SP001-01', quantity: 10, unitCost: 105000, discount: 0, importUnit: 'Thùng', sellUnit: 'Gói', piecesPerUnit: 30, expiryDate: '2025-10-15', expiryMode: 'date' },
-  { id: '2', productName: 'Coca-Cola', variantName: 'Lon 330ml', variantCode: 'SP002-01', quantity: 8, unitCost: 172800, discount: 0, importUnit: 'Thùng', sellUnit: 'Lon', piecesPerUnit: 24, expiryDate: '2026-04-15', expiryMode: 'date' },
-];
+function revalidateLines(lines: ReceiptLineDraft[]) {
+  return lines.map((line) => {
+    const issue = validateImportedLine(line);
+    const inferred = inferOutcome(line);
+    return {
+      ...line,
+      status: issue.errors.length ? "error" : issue.warnings.length ? "warning" : "ready",
+      outcome: inferred.outcome,
+      message: issue.errors[0] ?? issue.warnings[0] ?? inferred.message,
+    };
+  });
+}
 
 export default function AdminGoodsReceiptCreate() {
   const navigate = useNavigate();
@@ -67,129 +161,154 @@ export default function AdminGoodsReceiptCreate() {
   const draftId = params.get("draft");
   const isImportMode = params.get("mode") === "import";
   const { suppliers } = useStore();
-
-  const [lines, setLines] = useState<ReceiptLine[]>(initialLines);
-  const [supplier, setSupplier] = useState('');
+  const [lines, setLines] = useState<ReceiptLineDraft[]>(initialLines);
+  const [supplier, setSupplier] = useState("");
   const [shippingFee, setShippingFee] = useState(50000);
   const [vat, setVat] = useState(10);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState("");
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [savedNumber, setSavedNumber] = useState<string | null>(null);
   const [draftNumber, setDraftNumber] = useState<string | null>(null);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [barcodeOpen, setBarcodeOpen] = useState(false);
   const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
-  const supplierCountRef = useState({ n: suppliers.length })[0];
+  const [supplierSeedName, setSupplierSeedName] = useState("");
   const [importedFilename, setImportedFilename] = useState<string | null>(null);
+  const [validationTick, setValidationTick] = useState(0);
 
-  // Consume staged Excel import (set by ReceiptImportPreviewDialog when mode=import)
   useEffect(() => {
     if (!isImportMode) return;
     const stage = importStaging.takeReceipt();
     if (!stage) return;
+    const nextReceiptDate = stage.meta?.receiptDate || new Date().toISOString().slice(0, 10);
+    setReceiptDate(nextReceiptDate);
     setImportedFilename(stage.filename);
-    if (stage.meta?.receiptDate) setReceiptDate(stage.meta.receiptDate);
-    const newLines: ReceiptLine[] = stage.rows.map((r, i) => ({
-      id: `imp-${Date.now()}-${i}`,
-      productName: r.productName,
-      variantName: r.variantName || 'Mặc định',
-      variantCode: r.variantCode || r.productCode,
-      quantity: r.quantity,
-      unitCost: r.unitCost,
-      discount: r.discountPercent || 0,
-      importUnit: r.importUnit,
-      sellUnit: r.sellUnit,
-      piecesPerUnit: r.piecesPerUnit,
-      expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
-      expiryDays: r.expiryDays,
-      expiryMode: r.expiryDate ? 'date' : (r.expiryDays ? 'days' : 'date'),
-      fromImport: true,
-    }));
-    setLines(newLines);
-    toast.success(`Đã tải ${newLines.length} dòng từ ${stage.filename} — vui lòng chọn NCC và xác nhận`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setSupplier("");
+    setLines(revalidateLines(stage.rows.map((row, index) => convertImportedRow(row, nextReceiptDate, index))));
+    toast.success(`Đã nạp ${stage.rows.length} dòng từ ${stage.filename} vào màn review phiếu nhập.`);
   }, [isImportMode]);
 
-  // Auto-select newly created supplier when the drawer adds one
-  useEffect(() => {
-    if (suppliers.length > supplierCountRef.n) {
-      // newest is at the head
-      const newest = suppliers[0];
-      setSupplier(newest.id);
-      supplierCountRef.n = suppliers.length;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suppliers.length]);
-
-  // Load existing draft (if any)
   useEffect(() => {
     if (!draftId) return;
-    const d = draftActions.get(draftId);
-    if (d) {
-      setLines(d.lines);
-      setSupplier(d.supplierId);
-      setShippingFee(d.shippingFee);
-      setVat(d.vat);
-      setNote(d.note);
-      setReceiptDate(d.receiptDate);
-      setDraftNumber(d.number);
-      setCurrentDraftId(d.id);
-      toast.info(`Đã mở phiếu nháp ${d.number}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const draft = draftActions.get(draftId);
+    if (!draft) return;
+    setLines(revalidateLines(draft.lines.map((line: any, index: number) => ({
+      id: line.id || createLineId(`draft-${index}`),
+      sourceRow: 0,
+      status: "ready",
+      outcome: "ok",
+      message: undefined,
+      productCode: line.variantCode,
+      variantCode: line.variantCode,
+      productName: line.productName,
+      variantName: line.variantName,
+      category: "",
+      newProductUnit: "",
+      importUnit: line.importUnit,
+      sellUnit: line.sellUnit || line.importUnit,
+      piecesPerUnit: line.piecesPerUnit,
+      quantity: line.quantity,
+      unitCost: line.unitCost,
+      sellPrice: 0,
+      discountPercent: line.discount,
+      expiryDate: line.expiryDate || "",
+      expiryDays: line.expiryDays || 0,
+      expiryMode: line.expiryDays ? "days" : "date",
+      note: "",
+      fromImport: false,
+    }))));
+    setSupplier(draft.supplierId);
+    setShippingFee(draft.shippingFee);
+    setVat(draft.vat);
+    setNote(draft.note);
+    setReceiptDate(draft.receiptDate);
+    setDraftNumber(draft.number);
+    setCurrentDraftId(draft.id);
+    toast.info(`Đã mở phiếu nháp ${draft.number}.`);
   }, [draftId]);
 
-  const subtotal = lines.reduce((s, l) => s + l.unitCost * l.quantity * (1 - l.discount / 100), 0);
-  const vatAmount = subtotal * vat / 100;
-  const total = subtotal + shippingFee + vatAmount;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const futureDateError = receiptDate > today;
-  const missingExpiryCount = lines.filter(l => !l.expiryDate).length;
+  const supplierOptions = useMemo(
+    () => suppliers.filter((item) => item.active).map((item) => ({ id: item.id, label: item.name, sub: `${item.code} · ${item.phone}` })),
+    [suppliers]
+  );
 
   const lineIssues = useMemo(() => {
     const map = new Map<string, LineIssue>();
-    lines.forEach(l => map.set(l.id, validateLine(l)));
+    lines.forEach((line) => map.set(line.id, validateImportedLine(line)));
     return map;
-  }, [lines]);
-  const totalLineErrors = Array.from(lineIssues.values()).reduce((n, i) => n + i.errors.length, 0);
-  const totalLineWarnings = Array.from(lineIssues.values()).reduce((n, i) => n + i.warnings.length, 0);
-  const importedWithIssues = lines.filter(l => l.fromImport && (lineIssues.get(l.id)?.errors.length ?? 0) > 0).length;
+  }, [lines, validationTick]);
 
-  const canSave = lines.length > 0 && !!supplier && !futureDateError && totalLineErrors === 0;
+  const totalLineErrors = useMemo(() => Array.from(lineIssues.values()).reduce((sum, issue) => sum + issue.errors.length, 0), [lineIssues]);
+  const totalLineWarnings = useMemo(() => Array.from(lineIssues.values()).reduce((sum, issue) => sum + issue.warnings.length, 0), [lineIssues]);
+  const importedLineCount = lines.filter((line) => line.fromImport).length;
+  const subtotal = useMemo(() => lines.reduce((sum, line) => sum + line.unitCost * line.quantity * (1 - line.discountPercent / 100), 0), [lines]);
+  const vatAmount = subtotal * vat / 100;
+  const total = subtotal + shippingFee + vatAmount;
+  const today = new Date().toISOString().slice(0, 10);
+  const futureDateError = receiptDate > today;
+  const missingSupplier = !supplier;
+  const canSave = lines.length > 0 && !missingSupplier && !futureDateError && totalLineErrors === 0;
 
-  const removeLine = (id: string) => setLines(prev => prev.filter(l => l.id !== id));
+  const syncLine = (id: string, patch: Partial<ReceiptLineDraft>) => {
+    setLines((prev) => revalidateLines(prev.map((line) => {
+      if (line.id !== id) return line;
+      const merged = { ...line, ...patch };
+      if (patch.expiryMode === "date") merged.expiryDays = 0;
+      if (patch.expiryMode === "days" && merged.expiryDays > 0) {
+        merged.expiryDate = new Date(new Date(receiptDate).getTime() + merged.expiryDays * 86400000).toISOString().slice(0, 10);
+      }
+      return merged;
+    })));
+  };
+
+  const handleRevalidate = () => {
+    setLines((prev) => revalidateLines(prev));
+    setValidationTick((value) => value + 1);
+    toast.info("Đã revalidate toàn bộ dòng phiếu nhập.");
+  };
+
+  const removeLine = (id: string) => setLines((prev) => prev.filter((line) => line.id !== id));
 
   const addManualLine = () => {
     if (!search.trim()) return;
-    const newLine: ReceiptLine = {
-      id: `m-${Date.now()}`,
-      productName: search,
-      variantName: 'Mặc định',
-      variantCode: search.toUpperCase().replace(/\s+/g, '-'),
+    const nextLine: ReceiptLineDraft = {
+      id: createLineId("manual"),
+      sourceRow: 0,
+      status: "warning",
+      outcome: "create-product-and-variant",
+      message: "Dòng thêm tay cần điền đủ metadata trước khi lưu.",
+      productCode: search.trim().toUpperCase().replace(/\s+/g, "-"),
+      variantCode: "",
+      productName: search.trim(),
+      variantName: "Mặc định",
+      category: "",
+      newProductUnit: "",
+      importUnit: "Cái",
+      sellUnit: "Cái",
+      piecesPerUnit: 1,
       quantity: 1,
       unitCost: 0,
-      discount: 0,
-      importUnit: 'Cái',
-      sellUnit: 'Cái',
-      piecesPerUnit: 1,
-      expiryDate: '',
-      expiryMode: 'date',
+      sellPrice: 0,
+      discountPercent: 0,
+      expiryDate: "",
+      expiryDays: 0,
+      expiryMode: "date",
+      note: "",
+      fromImport: false,
     };
-    setLines(prev => [...prev, newLine]);
-    setSearch('');
-    toast.success(`Đã thêm "${newLine.productName}" vào phiếu`);
+    setLines((prev) => revalidateLines([...prev, nextLine]));
+    setSearch("");
   };
 
   const handleSaveDraft = () => {
     if (lines.length === 0) {
-      toast.error("Chưa có mặt hàng nào");
+      toast.error("Chưa có dòng nào để lưu nháp.");
       return;
     }
-    const number = draftNumber ?? `DRAFT-${receiptDate.replace(/-/g, '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const supplierName = suppliers.find(s => s.id === supplier)?.name ?? '— Chưa chọn NCC —';
+    const supplierName = suppliers.find((item) => item.id === supplier)?.name ?? "— Chưa chọn NCC —";
+    const number = draftNumber ?? `DRAFT-${receiptDate.replace(/-/g, "")}-${String(Math.floor(Math.random() * 900) + 100)}`;
     const saved = draftActions.save({
       id: currentDraftId ?? undefined,
       number,
@@ -199,110 +318,107 @@ export default function AdminGoodsReceiptCreate() {
       shippingFee,
       vat,
       note,
-      lines,
+      lines: lines.map((line) => ({
+        id: line.id,
+        productName: line.productName,
+        variantName: line.variantName,
+        variantCode: line.variantCode || line.productCode,
+        quantity: line.quantity,
+        unitCost: line.unitCost,
+        discount: line.discountPercent,
+        importUnit: line.importUnit,
+        sellUnit: line.sellUnit,
+        piecesPerUnit: line.piecesPerUnit,
+        expiryDate: line.expiryDate,
+        expiryDays: line.expiryDays,
+      })),
     });
     setDraftNumber(saved.number);
     setCurrentDraftId(saved.id);
-    toast.success(`Đã lưu nháp ${saved.number}`);
+    toast.success(`Đã lưu nháp ${saved.number}.`);
   };
 
   const handleSave = () => {
     if (!canSave) {
-      if (futureDateError) toast.error("Ngày nhập không thể ở tương lai");
-      else if (!supplier) toast.error("Vui lòng chọn nhà cung cấp");
-      else toast.error("Chưa có mặt hàng nào");
+      if (futureDateError) toast.error("Ngày nhập không thể ở tương lai.");
+      else if (missingSupplier) toast.error("Vui lòng chọn nhà cung cấp.");
+      else toast.error("Còn lỗi blocking trong danh sách hàng.");
       return;
     }
-    const number = `PN-${receiptDate.replace(/-/g, '')}-${String(Math.floor(Math.random() * 900) + 100)}`;
+    const number = `PN-${receiptDate.replace(/-/g, "")}-${String(Math.floor(Math.random() * 900) + 100)}`;
     setSavedNumber(number);
-    // Remove from drafts if it was a draft
     if (currentDraftId) {
       draftActions.remove(currentDraftId);
       setCurrentDraftId(null);
       setDraftNumber(null);
     }
-    toast.success(`Đã lưu phiếu nhập ${number}`);
+    toast.success(`Đã lưu phiếu nhập ${number}.`);
   };
 
+  const supplierName = suppliers.find((item) => item.id === supplier)?.name ?? "";
+
   return (
-    <div className="admin-dense">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+    <div className="admin-dense space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link to="/admin/goods-receipts" className="flex items-center gap-1 hover:text-foreground"><ArrowLeft className="h-3.5 w-3.5" /> Phiếu nhập</Link>
-        <span>/</span><span className="text-foreground font-medium">{isImportMode ? "Xem lại phiếu nhập từ Excel" : "Tạo phiếu nhập"}</span>
-        {savedNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-success-soft text-success text-xs font-mono">{savedNumber}</span>}
-        {!savedNumber && draftNumber && <span className="ml-2 px-2 py-0.5 rounded-full bg-info-soft text-info text-xs font-mono">Nháp: {draftNumber}</span>}
-        {isImportMode && <span className="ml-2 px-2 py-0.5 rounded-full bg-info-soft text-info text-[11px] flex items-center gap-1"><FileSpreadsheet className="h-3 w-3" /> Chế độ nhập từ Excel</span>}
+        <span>/</span>
+        <span className="font-medium text-foreground">/admin/goods-receipts/create</span>
+        {isImportMode && <span className="inline-flex items-center gap-1 rounded-full bg-info-soft px-2 py-0.5 text-[11px] text-info"><FileSpreadsheet className="h-3 w-3" /> Import mode</span>}
       </div>
 
-      {isImportMode && !savedNumber && (
-        <div className="flex items-start gap-2 p-3 mb-3 bg-info-soft rounded-lg border border-info/20 text-sm text-info">
-          <FileSpreadsheet className="h-4 w-4 shrink-0 mt-0.5" />
+      {isImportMode && (
+        <div className="flex items-start gap-2 rounded-lg border border-info/20 bg-info-soft p-3 text-sm text-info">
+          <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <strong>Đang xem lại {lines.filter(l => l.fromImport).length} dòng từ {importedFilename ?? 'Excel'}.</strong>
-            <span className="ml-1">Hãy chọn nhà cung cấp, kiểm tra/sửa các dòng có cảnh báo hoặc lỗi rồi bấm <em>Lưu phiếu nhập</em>. Phiếu chỉ được tạo sau khi bạn xác nhận tại đây.</span>
+            <strong>Màn create này là workspace review/fix duy nhất cho import phiếu nhập.</strong>
+            <span className="ml-1">{importedFilename ? `Nguồn: ${importedFilename}.` : ""} Sửa metadata, sửa từng dòng, revalidate rồi mới lưu phiếu.</span>
           </div>
         </div>
       )}
 
       {savedNumber && (
-        <div className="flex items-center gap-2 p-3 mb-3 bg-success-soft rounded-lg border border-success/20 text-sm text-success">
-          <Check className="h-4 w-4 shrink-0" />
-          <span>Đã lưu phiếu nhập <strong>{savedNumber}</strong>. Bạn có thể in mã vạch ngay.</span>
-        </div>
-      )}
-
-      {!savedNumber && draftNumber && (
-        <div className="flex items-center gap-2 p-3 mb-3 bg-info-soft rounded-lg border border-info/20 text-sm text-info">
-          <FileText className="h-4 w-4 shrink-0" />
-          <span>Phiếu này đang ở trạng thái <strong>nháp</strong>. Bấm "Lưu phiếu nhập" để xác nhận và cập nhật tồn kho.</span>
+        <div className="flex items-center gap-2 rounded-lg border border-success/20 bg-success-soft p-3 text-sm text-success">
+          <Check className="h-4 w-4 shrink-0" /> Đã lưu phiếu nhập <strong>{savedNumber}</strong>.
         </div>
       )}
 
       {futureDateError && (
-        <div className="flex items-center gap-2 p-3 mb-3 bg-danger-soft rounded-lg border border-danger/20 text-sm text-danger">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>Ngày nhập không thể là ngày tương lai.</span>
+        <div className="flex items-center gap-2 rounded-lg border border-danger/20 bg-danger-soft p-3 text-sm text-danger">
+          <AlertCircle className="h-4 w-4 shrink-0" /> Ngày nhập không thể ở tương lai.
         </div>
       )}
 
       {totalLineErrors > 0 && (
-        <div className="flex items-start gap-2 p-3 mb-3 bg-danger-soft rounded-lg border border-danger/20 text-sm text-danger">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Có <strong>{totalLineErrors} lỗi</strong> ở danh sách mặt hàng{importedWithIssues > 0 ? ` (trong đó ${importedWithIssues} dòng từ Excel)` : ''}. Vui lòng sửa các dòng đánh dấu đỏ trước khi lưu phiếu nhập.
-          </span>
+        <div className="flex items-start gap-2 rounded-lg border border-danger/20 bg-danger-soft p-3 text-sm text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Còn <strong>{totalLineErrors} lỗi blocking</strong> trong dữ liệu import, nên nút lưu phiếu đang bị khóa.</span>
         </div>
       )}
 
       {totalLineWarnings > 0 && totalLineErrors === 0 && (
-        <div className="flex items-start gap-2 p-3 mb-3 bg-warning-soft rounded-lg border border-warning/20 text-sm text-warning">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Có <strong>{totalLineWarnings} cảnh báo</strong> ở danh sách mặt hàng. Bạn vẫn có thể lưu phiếu nhưng nên kiểm tra lại.
-          </span>
-        </div>
-      )}
-
-      {missingExpiryCount > 0 && totalLineErrors === 0 && totalLineWarnings === 0 && (
-        <div className="flex items-center gap-2 p-3 mb-3 bg-warning-soft rounded-lg border border-warning/20 text-sm text-warning">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>{missingExpiryCount} mặt hàng chưa có hạn sử dụng. Hàng cần HSD nên được điền đầy đủ.</span>
+        <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning-soft p-3 text-sm text-warning">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Có <strong>{totalLineWarnings} cảnh báo</strong>; bạn vẫn có thể lưu sau khi kiểm tra.</span>
         </div>
       )}
 
       <div className="lg:grid lg:grid-cols-3 lg:gap-4">
-        {/* Left — Lines */}
-        <div className="lg:col-span-2 space-y-3">
-          {/* Metadata */}
-          <div className="bg-card rounded-lg border p-4">
+        <div className="space-y-3 lg:col-span-2">
+          <div className="rounded-lg border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold">Metadata phiếu nhập</h3>
+                <p className="text-xs text-muted-foreground">Nhà cung cấp và ngày nhập là điều kiện bắt buộc trước khi lưu.</p>
+              </div>
+              <button onClick={handleRevalidate} className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                <RefreshCw className="h-3.5 w-3.5" /> Revalidate
+              </button>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Ngày nhập *</label>
-                <DateInput
-                  value={receiptDate}
-                  onChange={setReceiptDate}
-                  className={cn("mt-1 w-full h-8", futureDateError && "border-danger")}
-                />
+                <DateInput value={receiptDate} onChange={(value) => { setReceiptDate(value); setLines((prev) => revalidateLines(prev)); }} className={cn("mt-1 w-full h-8", futureDateError && "border-danger")} />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Nhà cung cấp *</label>
@@ -310,251 +426,191 @@ export default function AdminGoodsReceiptCreate() {
                   className="mt-1"
                   value={supplier}
                   onChange={setSupplier}
-                  invalid={!supplier}
-                  placeholder="Tìm hoặc tạo NCC..."
-                  options={suppliers.filter(s => s.active).map(s => ({ id: s.id, label: s.name, sub: `${s.code} · ${s.phone}` }))}
-                  onCreateNew={() => setSupplierDrawerOpen(true)}
+                  invalid={missingSupplier}
+                  placeholder="Tìm hoặc tạo NCC"
+                  options={supplierOptions}
+                  onCreateNew={(query) => {
+                    setSupplierSeedName(query);
+                    setSupplierDrawerOpen(true);
+                  }}
                   createLabel="Tạo NCC mới"
                 />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Phí vận chuyển</label>
-                <input type="number" value={shippingFee} onChange={e => setShippingFee(+e.target.value)} className="mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+                <input type="number" value={shippingFee} onChange={(event) => setShippingFee(Number(event.target.value))} className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">VAT (%)</label>
-                <input type="number" value={vat} onChange={e => setVat(+e.target.value)} className="mt-1 w-full h-8 px-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+                <input type="number" value={vat} onChange={(event) => setVat(Number(event.target.value))} className="mt-1 h-8 w-full rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
               </div>
             </div>
+
             <div className="mt-3">
-              <label className="text-xs font-medium text-muted-foreground">Ghi chú</label>
-              <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú phiếu nhập" className="mt-1 w-full h-8 px-3 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+              <label className="text-xs font-medium text-muted-foreground">Ghi chú phiếu</label>
+              <input value={note} onChange={(event) => setNote(event.target.value)} className="mt-1 h-8 w-full rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring" placeholder="Ghi chú chung cho phiếu nhập" />
             </div>
+
+            {missingSupplier && <p className="mt-2 text-[11px] text-danger">Chưa chọn nhà cung cấp.</p>}
+            {!!supplierName && <p className="mt-2 text-[11px] text-muted-foreground">Đang chọn: <strong>{supplierName}</strong></p>}
           </div>
 
-          {/* Add line */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addManualLine()}
-                placeholder="Tìm sản phẩm / mã vạch để thêm... (Enter)"
-                className="w-full h-8 pl-9 pr-3 text-sm bg-card border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && addManualLine()} placeholder="Thêm dòng thủ công bằng mã/tên" className="h-8 w-full rounded-md border bg-card pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
-            <button onClick={addManualLine} disabled={!search.trim()} className="px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted disabled:opacity-50">Thêm</button>
-            <button onClick={() => setImportOpen(true)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border rounded-md hover:bg-muted"><Upload className="h-3.5 w-3.5" /> Nhập Excel</button>
+            <button onClick={addManualLine} disabled={!search.trim()} className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50">Thêm</button>
+            <button onClick={() => setImportOpen(true)} className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted"><Upload className="h-3.5 w-3.5" /> Nhập Excel</button>
           </div>
 
-          {/* Lines table */}
-          <div className="bg-card rounded-lg border overflow-x-auto">
-            <table className="w-full text-sm min-w-[700px]">
+          <div className="overflow-x-auto rounded-lg border bg-card">
+            <table className="min-w-[1450px] w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">#</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Sản phẩm</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">SL</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">ĐV nhập / bán / quy đổi</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Đơn giá</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">CK %</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">HSD / Số ngày</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Thành tiền</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">#</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Mã / tên SP</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Variant</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Danh mục / ĐV SP mới</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">SL</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">ĐV nhập / bán / quy đổi</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Giá nhập / bán</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">CK%</th>
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">HSD</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Validation</th>
                   <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l, i) => {
-                  const lineTotal = l.unitCost * l.quantity * (1 - l.discount / 100);
-                  const issues = lineIssues.get(l.id) ?? { errors: [], warnings: [] };
-                  const hasError = issues.errors.length > 0;
-                  const hasWarn = issues.warnings.length > 0;
+                {lines.map((line, index) => {
+                  const issue = lineIssues.get(line.id) ?? { errors: [], warnings: [] };
+                  const hasError = issue.errors.length > 0;
+                  const hasWarning = !hasError && issue.warnings.length > 0;
                   return (
-                    <>
-                    <tr
-                      key={l.id}
-                      className={cn(
-                        "border-b last:border-0 hover:bg-muted/30",
-                        hasError ? "bg-danger-soft/40" : hasWarn ? "bg-warning-soft/30" : "",
-                        l.fromImport && "border-l-2 border-l-info/60"
-                      )}
-                    >
-                      <td className="px-3 py-2 text-muted-foreground text-xs align-top">
-                        {i + 1}
-                        {l.fromImport && <div className="text-[9px] text-info font-semibold mt-0.5">XLS</div>}
+                    <tr key={line.id} className={cn("border-b last:border-0 align-top", hasError && "bg-danger-soft/30", hasWarning && "bg-warning-soft/20")}>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {index + 1}
+                        {line.sourceRow > 0 && <div className="text-[10px]">Excel #{line.sourceRow}</div>}
                       </td>
-                      <td className="px-3 py-2 align-top">
-                        <p className="font-medium text-xs">{l.productName}</p>
-                        <p className="text-[11px] text-muted-foreground">{l.variantName} · {l.variantCode}</p>
+                      <td className="px-3 py-2">
+                        <input value={line.productCode} onChange={(event) => syncLine(line.id, { productCode: event.target.value.toUpperCase() })} className={cn("mb-1 h-7 w-full rounded border bg-background px-2 text-[11px] font-mono", !line.productCode.trim() && "border-danger")} placeholder="Mã SP" />
+                        <input value={line.productName} onChange={(event) => syncLine(line.id, { productName: event.target.value })} className="h-7 w-full rounded border bg-background px-2 text-[11px]" placeholder="Tên SP" />
                       </td>
-                      <td className="px-3 py-2 text-center align-top">
-                        <input type="number" value={l.quantity} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, quantity: +e.target.value } : x))} className={cn("w-16 h-7 text-center text-xs border rounded bg-background", (!l.quantity || l.quantity <= 0) && "border-danger")} />
+                      <td className="px-3 py-2">
+                        <input value={line.variantCode} onChange={(event) => syncLine(line.id, { variantCode: event.target.value.toUpperCase() })} className="mb-1 h-7 w-full rounded border bg-background px-2 text-[11px] font-mono" placeholder="Mã variant" />
+                        <input value={line.variantName} onChange={(event) => syncLine(line.id, { variantName: event.target.value })} className="h-7 w-full rounded border bg-background px-2 text-[11px]" placeholder="Tên variant" />
                       </td>
-                      <td className="px-3 py-2 text-center text-xs text-muted-foreground align-top">
-                        <div className="font-medium text-foreground">{l.importUnit} → {l.sellUnit || '—'}</div>
-                        <div className="text-[10px]">x{l.piecesPerUnit}</div>
-                        {l.fromImport && !l.sellUnit && (
-                          <div className="text-[10px] text-info mt-0.5">Bổ sung ĐV bán</div>
-                        )}
+                      <td className="px-3 py-2">
+                        <input value={line.category} onChange={(event) => syncLine(line.id, { category: event.target.value })} className={cn("mb-1 h-7 w-full rounded border bg-background px-2 text-[11px]", !line.category.trim() && !seedProducts.some((item) => item.code.toUpperCase() === line.productCode.toUpperCase()) && "border-danger")} placeholder="Danh mục (SP mới)" />
+                        <input value={line.newProductUnit} onChange={(event) => syncLine(line.id, { newProductUnit: event.target.value })} className="h-7 w-full rounded border bg-background px-2 text-[11px]" placeholder="Đơn vị SP mới" />
                       </td>
-                      <td className="px-3 py-2 text-right align-top">
-                        <input type="number" value={l.unitCost} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, unitCost: +e.target.value } : x))} className={cn("w-24 h-7 text-right text-xs border rounded bg-background", (!l.unitCost || l.unitCost <= 0) && "border-danger")} />
+                      <td className="px-3 py-2 text-center">
+                        <input type="number" value={line.quantity} onChange={(event) => syncLine(line.id, { quantity: Number(event.target.value) })} className={cn("h-7 w-20 rounded border bg-background px-2 text-center text-[11px]", line.quantity <= 0 && "border-danger")} />
                       </td>
-                      <td className="px-3 py-2 text-center align-top">
-                        <input type="number" value={l.discount} onChange={e => setLines(prev => prev.map(x => x.id === l.id ? { ...x, discount: +e.target.value } : x))} className="w-14 h-7 text-center text-xs border rounded bg-background" />
+                      <td className="px-3 py-2">
+                        <div className="grid grid-cols-3 gap-1">
+                          <input value={line.importUnit} onChange={(event) => syncLine(line.id, { importUnit: event.target.value })} className={cn("h-7 rounded border bg-background px-2 text-[11px]", !line.importUnit.trim() && "border-danger")} placeholder="ĐV nhập" />
+                          <input value={line.sellUnit} onChange={(event) => syncLine(line.id, { sellUnit: event.target.value })} className={cn("h-7 rounded border bg-background px-2 text-[11px]", !line.sellUnit.trim() && "border-danger")} placeholder="ĐV bán" />
+                          <input type="number" value={line.piecesPerUnit} onChange={(event) => syncLine(line.id, { piecesPerUnit: Number(event.target.value) })} className={cn("h-7 rounded border bg-background px-2 text-center text-[11px]", line.piecesPerUnit <= 0 && "border-danger")} placeholder="Quy đổi" />
+                        </div>
                       </td>
-                      <td className="px-3 py-2 text-center align-top">
+                      <td className="px-3 py-2">
+                        <div className="grid grid-cols-2 gap-1">
+                          <input type="number" value={line.unitCost} onChange={(event) => syncLine(line.id, { unitCost: Number(event.target.value) })} className={cn("h-7 rounded border bg-background px-2 text-right text-[11px]", line.unitCost <= 0 && "border-danger")} placeholder="Giá nhập" />
+                          <input type="number" value={line.sellPrice} onChange={(event) => syncLine(line.id, { sellPrice: Number(event.target.value) })} className="h-7 rounded border bg-background px-2 text-right text-[11px]" placeholder="Giá bán" />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <input type="number" value={line.discountPercent} onChange={(event) => syncLine(line.id, { discountPercent: Number(event.target.value) })} className={cn("h-7 w-16 rounded border bg-background px-2 text-center text-[11px]", (line.discountPercent < 0 || line.discountPercent > 100) && "border-danger")} />
+                      </td>
+                      <td className="px-3 py-2">
                         <div className="flex items-center gap-1">
-                          <select
-                            value={l.expiryMode ?? "date"}
-                            onChange={(e) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryMode: e.target.value as "date" | "days" } : x))}
-                            className="h-7 px-1 text-[11px] border rounded bg-background"
-                            title="Chế độ HSD"
-                          >
+                          <select value={line.expiryMode} onChange={(event) => syncLine(line.id, { expiryMode: event.target.value as "date" | "days" })} className="h-7 rounded border bg-background px-2 text-[11px]">
                             <option value="date">Ngày</option>
                             <option value="days">Số ngày</option>
                           </select>
-                          {(l.expiryMode ?? "date") === "date" ? (
-                            <DateInput allowFuture value={l.expiryDate} onChange={(v) => setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDate: v } : x))} className="h-7" />
+                          {line.expiryMode === "date" ? (
+                            <DateInput allowFuture value={line.expiryDate} onChange={(value) => syncLine(line.id, { expiryDate: value })} className="h-7" />
                           ) : (
-                            <input
-                              type="number"
-                              value={l.expiryDays ?? ""}
-                              placeholder="ngày"
-                              onChange={(e) => {
-                                const days = +e.target.value;
-                                const computed = days > 0 ? new Date(new Date(receiptDate).getTime() + days * 86400000).toISOString().slice(0, 10) : "";
-                                setLines(prev => prev.map(x => x.id === l.id ? { ...x, expiryDays: days, expiryDate: computed } : x));
-                              }}
-                              className="w-16 h-7 text-center text-xs border rounded bg-background"
-                            />
+                            <input type="number" value={line.expiryDays} onChange={(event) => syncLine(line.id, { expiryDays: Number(event.target.value) })} className={cn("h-7 w-20 rounded border bg-background px-2 text-center text-[11px]", line.expiryDays <= 0 && "border-danger")} placeholder="Ngày" />
                           )}
                         </div>
-                        {l.expiryMode === "days" && l.expiryDate && (
-                          <div className="text-[10px] text-muted-foreground mt-0.5">→ {l.expiryDate}</div>
-                        )}
+                        <input value={line.note} onChange={(event) => syncLine(line.id, { note: event.target.value })} className="mt-1 h-7 w-full rounded border bg-background px-2 text-[11px]" placeholder="Ghi chú dòng" />
                       </td>
-                      <td className="px-3 py-2 text-right font-medium text-xs align-top">{formatVND(lineTotal)}</td>
-                      <td className="px-3 py-2 text-center align-top">
-                        <button onClick={() => removeLine(l.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted inline-flex" title="Xóa dòng"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <td className="px-3 py-2 text-[11px]">
+                        <div className="space-y-1">
+                          <div className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5", line.status === "error" && "bg-danger-soft text-danger", line.status === "warning" && "bg-warning-soft text-warning", line.status === "ready" && "bg-success-soft text-success")}>
+                            {line.status === "error" ? <AlertCircle className="h-3 w-3" /> : line.status === "warning" ? <AlertTriangle className="h-3 w-3" /> : <Check className="h-3 w-3" />} {line.outcome}
+                          </div>
+                          {issue.errors.map((message, issueIndex) => <div key={`e-${issueIndex}`} className="flex items-start gap-1 text-danger"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" /> <span>{message}</span></div>)}
+                          {issue.warnings.map((message, issueIndex) => <div key={`w-${issueIndex}`} className="flex items-start gap-1 text-warning"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> <span>{message}</span></div>)}
+                          {line.message && <div className="text-muted-foreground">{line.message}</div>}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <button onClick={() => removeLine(line.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger" title="Xóa dòng"><Trash2 className="h-3.5 w-3.5" /></button>
                       </td>
                     </tr>
-                    {(hasError || hasWarn) && (
-                      <tr key={`${l.id}-issues`} className={cn("border-b last:border-0", hasError ? "bg-danger-soft/30" : "bg-warning-soft/20")}>
-                        <td colSpan={9} className="px-3 py-2">
-                          <ul className="space-y-1 text-[11px]">
-                            {issues.errors.map((msg, k) => (
-                              <li key={`e-${k}`} className="flex items-start gap-1.5 text-danger">
-                                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                                <span><strong>Lỗi:</strong> {msg}</span>
-                              </li>
-                            ))}
-                            {issues.warnings.map((msg, k) => (
-                              <li key={`w-${k}`} className="flex items-start gap-1.5 text-warning">
-                                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                                <span><strong>Cảnh báo:</strong> {msg}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </td>
-                      </tr>
-                    )}
-                    </>
                   );
                 })}
               </tbody>
             </table>
             {lines.length === 0 && (
-              <div className="py-8 text-center text-muted-foreground text-sm">
-                <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-                Chưa có mặt hàng. Tìm sản phẩm để thêm vào phiếu nhập.
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                <Package className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" /> Chưa có dòng nhập nào.
               </div>
             )}
           </div>
         </div>
 
-        {/* Right — Summary */}
         <div className="mt-3 lg:mt-0">
-          <div className="bg-card rounded-lg border p-4 lg:sticky lg:top-20 space-y-3">
-            <h3 className="font-semibold text-sm">Tổng kết phiếu nhập</h3>
+          <div className="space-y-3 rounded-lg border bg-card p-4 lg:sticky lg:top-20">
+            <h3 className="text-sm font-semibold">Tổng kết & hành động</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Mặt hàng</span><span>{lines.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Dòng hàng</span><span>{lines.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Dòng import</span><span>{importedLineCount}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatVND(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Phí vận chuyển</span><span>{formatVND(shippingFee)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Phí ship</span><span>{formatVND(shippingFee)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">VAT ({vat}%)</span><span>{formatVND(vatAmount)}</span></div>
-              <div className="border-t pt-2 flex justify-between font-bold text-base">
-                <span>Tổng cộng</span><span className="text-primary">{formatVND(total)}</span>
-              </div>
+              <div className="flex justify-between border-t pt-2 text-base font-bold"><span>Tổng cộng</span><span className="text-primary">{formatVND(total)}</span></div>
             </div>
 
-            <div className="space-y-2 pt-2">
-              {!savedNumber ? (
-                <>
-                  <button onClick={handleSave} disabled={!canSave} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed">
-                    <Save className="h-4 w-4" /> Lưu phiếu nhập
-                  </button>
-                  <button onClick={handleSaveDraft} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
-                    <FileText className="h-4 w-4" /> {currentDraftId ? 'Cập nhật nháp' : 'Lưu nháp'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => setBarcodeOpen(true)} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover">
-                    <Printer className="h-4 w-4" /> In mã vạch
-                  </button>
-                  <button onClick={() => navigate('/admin/goods-receipts')} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
-                    Về danh sách
-                  </button>
-                </>
-              )}
+            <div className="space-y-2 text-xs">
+              <div className="rounded-md bg-success-soft p-2 text-success">OK: {lines.filter((line) => (lineIssues.get(line.id)?.errors.length ?? 0) === 0 && (lineIssues.get(line.id)?.warnings.length ?? 0) === 0).length}</div>
+              <div className="rounded-md bg-warning-soft p-2 text-warning">Warning: {lines.filter((line) => (lineIssues.get(line.id)?.errors.length ?? 0) === 0 && (lineIssues.get(line.id)?.warnings.length ?? 0) > 0).length}</div>
+              <div className="rounded-md bg-danger-soft p-2 text-danger">Error: {lines.filter((line) => (lineIssues.get(line.id)?.errors.length ?? 0) > 0).length}</div>
             </div>
+
+            {!savedNumber ? (
+              <div className="space-y-2 pt-2">
+                <button onClick={handleSave} disabled={!canSave} className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" /> Lưu phiếu nhập</button>
+                <button onClick={handleSaveDraft} className="flex w-full items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium hover:bg-muted"><FileText className="h-4 w-4" /> {currentDraftId ? "Cập nhật nháp" : "Lưu nháp"}</button>
+                <button onClick={handleRevalidate} className="flex w-full items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium hover:bg-muted"><RefreshCw className="h-4 w-4" /> Revalidate</button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-2">
+                <button onClick={() => setBarcodeOpen(true)} className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"><Printer className="h-4 w-4" /> In mã vạch</button>
+                <button onClick={() => navigate("/admin/goods-receipts")} className="w-full rounded-md border py-2 text-sm font-medium hover:bg-muted">Về danh sách</button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <ReceiptImportPreviewDialog
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        inlineMode
-        onConfirm={(rows) => {
-          const newLines: ReceiptLine[] = rows.map((r, i) => ({
-            id: `imp-${Date.now()}-${i}`,
-            productName: r.productName,
-            variantName: r.variantName || 'Mặc định',
-            variantCode: r.variantCode || r.productCode,
-            quantity: r.quantity,
-            unitCost: r.unitCost,
-            discount: r.discountPercent || 0,
-            importUnit: r.importUnit,
-            sellUnit: r.sellUnit,
-            piecesPerUnit: r.piecesPerUnit,
-            expiryDate: r.expiryDate || (r.expiryDays ? new Date(Date.now() + r.expiryDays * 86400000).toISOString().slice(0, 10) : ''),
-            expiryDays: r.expiryDays,
-            expiryMode: r.expiryDate ? 'date' : (r.expiryDays ? 'days' : 'date'),
-            fromImport: true,
-          }));
-          setLines(prev => [...prev, ...newLines]);
-        }}
-      />
-
-      <SupplierFormDrawer open={supplierDrawerOpen} onClose={() => setSupplierDrawerOpen(false)} />
-
+      <ReceiptImportPreviewDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <SupplierFormDrawer open={supplierDrawerOpen} onClose={() => setSupplierDrawerOpen(false)} supplier={undefined} />
       <BarcodePrintDialog
         open={barcodeOpen}
         onClose={() => setBarcodeOpen(false)}
-        title={`In mã vạch — ${savedNumber ?? 'phiếu nhập'}`}
-        items={lines.map(l => {
-          const known = products.flatMap(p => p.variants).find(v => v.code === l.variantCode);
-          return {
-            productName: l.productName,
-            variantName: l.variantName,
-            code: l.variantCode,
-            price: known?.sellPrice,
-            lot: savedNumber ?? draftNumber ?? receiptDate,
-            defaultQty: l.quantity * l.piecesPerUnit,
-          };
-        })}
+        title={`In mã vạch — ${savedNumber ?? draftNumber ?? "phiếu nhập"}`}
+        items={lines.map((line) => ({
+          productName: line.productName,
+          variantName: line.variantName,
+          code: line.variantCode || line.productCode,
+          price: line.sellPrice,
+          lot: savedNumber ?? draftNumber ?? receiptDate,
+          defaultQty: line.quantity * line.piecesPerUnit,
+        }))}
       />
     </div>
   );
