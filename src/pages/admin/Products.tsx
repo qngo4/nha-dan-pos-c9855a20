@@ -56,36 +56,7 @@ export default function AdminProducts() {
     toast.success(`Đã xóa "${confirmDelete.name}"`);
   };
 
-  const handleImport = (rows: ImportRow[]) => {
-    const newProducts: Product[] = rows.map((r, i) => {
-      const cat = categories.find(c => c.name === r.category) ?? categories[0];
-      return {
-        id: `imp-${Date.now()}-${i}`,
-        code: r.code,
-        name: r.name,
-        categoryId: cat?.id ?? "1",
-        categoryName: cat?.name ?? r.category,
-        image: "",
-        active: true,
-        type: "single",
-        variants: [{
-          id: `impv-${Date.now()}-${i}`,
-          code: `${r.code}-01`,
-          name: r.variantName,
-          sellUnit: "Cái",
-          importUnit: "Thùng",
-          piecesPerImportUnit: 1,
-          sellPrice: r.sellPrice,
-          costPrice: r.costPrice,
-          stock: r.stock,
-          minStock: 10,
-          expiryDays: 0,
-          isDefault: true,
-        }],
-      };
-    });
-    productActions.bulkAdd(newProducts);
-  };
+  // The import dialog now routes to /admin/products/new?mode=import where the user reviews + saves.
 
   return (
     <div className="space-y-4 admin-dense">
@@ -239,7 +210,7 @@ export default function AdminProducts() {
         confirmLabel="Xóa"
       />
 
-      <ImportPreviewDialog open={showImport} onClose={() => setShowImport(false)} onConfirm={handleImport} />
+      <ImportPreviewDialog open={showImport} onClose={() => setShowImport(false)} />
     </div>
   );
 }
