@@ -133,18 +133,18 @@ export async function parseReceiptExcel(file: File): Promise<ReceiptImportRow[]>
       const productName = toStr(pick(row, ["ten sp", "ten san pham", "product name"]));
       const variantName = toStr(pick(row, ["ten variant", "ten phan loai", "variant name", "phan loai"]));
       const category = toStr(pick(row, ["danh muc", "category", "nhom"]));
-      const importUnit = toStr(pick(row, ["don vi nhap", "dvt nhap", "import unit", "dv nhap"])) || "Cái";
-      const sellUnit = toStr(pick(row, ["don vi ban", "dvt ban", "sell unit", "dv ban"])) || importUnit;
+      const importUnit = toStr(pick(row, ["dv nhap kho", "don vi nhap", "dvt nhap", "import unit", "dv nhap", "k dv nhap kho"])) || "Cái";
+      const sellUnit = toStr(pick(row, ["dv ban le", "don vi ban", "dvt ban", "sell unit", "dv ban", "l dv ban le"])) || importUnit;
       const piecesPerUnit = toNum(pick(row, [
-        "quy doi", "so le", "so le tren don vi nhap", "pieces per unit", "quy doi don vi", "so luong tren thung",
+        "so le dv", "so le tren dv", "so le dv nhap", "quy doi", "so le", "pieces per unit", "m so le dv",
       ])) || 1;
-      const quantity = toNum(pick(row, ["so luong", "sl", "quantity", "qty"]));
-      const unitCost = toNum(pick(row, ["don gia nhap", "don gia", "unit cost", "gia nhap"]));
-      const sellPrice = toNum(pick(row, ["gia ban", "sell price"]));
-      const discountPercent = toNum(pick(row, ["chiet khau", "ck", "discount", "discount percent", "phan tram chiet khau"]));
-      const expiryDate = toDate(pick(row, ["hsd", "han su dung", "expiry", "expiry date", "ngay het han"]));
-      const expiryDays = toNum(pick(row, ["so ngay su dung", "shelf life", "expiry days", "han su dung ngay"]));
-      const note = toStr(pick(row, ["ghi chu", "note"]));
+      const quantity = toNum(pick(row, ["so luong", "sl", "quantity", "qty", "d so luong"]));
+      const unitCost = toNum(pick(row, ["gia nhap", "don gia nhap", "don gia", "unit cost", "e gia nhap"]));
+      const sellPrice = toNum(pick(row, ["gia ban", "sell price", "f gia ban"]));
+      const discountPercent = toNum(pick(row, ["chiet khau", "ck", "discount", "discount percent", "g chiet khau"]));
+      const expiryDate = toDate(pick(row, ["ngay hsd ghi de", "ngay hsd", "hsd", "han su dung", "expiry", "expiry date", "n ngay hsd ghi de"]));
+      const expiryDays = toNum(pick(row, ["so ngay hsd", "so ngay su dung", "shelf life", "expiry days", "o so ngay hsd sp moi"]));
+      const note = toStr(pick(row, ["ghi chu dong", "ghi chu", "note", "h ghi chu dong"]));
 
       // Pass-1 simulated business logic (mirrors ReceiptImportPreviewDialog)
       let status: ReceiptImportRow["status"] = "ready";
