@@ -109,7 +109,7 @@ async function readSheet(file: File, requiredAliases: string[]): Promise<Row[]> 
 // Headers commonly seen: Mã SP, Tên SP, Danh mục, Tên phân loại / Variant,
 // Giá bán, Giá nhập, Tồn kho.
 export async function parseProductExcel(file: File): Promise<ImportRow[]> {
-  const rows = await readSheet(file);
+  const rows = await readSheet(file, ["ma sp", "ten sp", "danh muc", "gia von", "gia ban"]);
   const seen = new Set<string>();
   const existingCodes = new Set(seedProducts.map((p) => p.code.toUpperCase()));
 
@@ -159,7 +159,7 @@ export async function parseProductExcel(file: File): Promise<ImportRow[]> {
 // Đơn vị nhập, Đơn vị bán, Quy đổi (số lẻ/đơn vị nhập), Số lượng, Đơn giá,
 // Giá bán, % Chiết khấu, HSD, Số ngày sử dụng, Ghi chú.
 export async function parseReceiptExcel(file: File): Promise<ReceiptImportRow[]> {
-  const rows = await readSheet(file);
+  const rows = await readSheet(file, ["ma sp", "ma variant", "ten sp", "so luong", "gia nhap"]);
   const allVariants = seedProducts.flatMap((p) => p.variants.map((v) => ({ p, v })));
 
   return rows
