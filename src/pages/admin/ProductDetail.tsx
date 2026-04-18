@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ProductImportReview } from "@/components/shared/ProductImportReview";
+import { importStaging } from "@/lib/import-staging";
 import { useStore, productActions } from "@/lib/store";
 import type { ProductVariant } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
@@ -29,7 +31,33 @@ const emptyVariant: VariantForm = {
   isDefault: false,
 };
 
-export default function AdminProductDetail() {
+export default function AdminProductDetailRoute() {
+  const { id } = useParams();
+  const [params] = useSearchParams();
+  const isImportMode = params.get("mode") === "import";
+  const isNew = !id || id === "new";
+  if (isImportMode && isNew) return <ImportRouteWrapper />;
+  return <AdminProductDetail />;
+}
+
+function ImportRouteWrapper() {
+  const navigate = useNavigate();
+  const [stage] = useState(() => importStaging.takeProducts());
+  useEffect(() => {
+    if (!stage) navigate("/admin/products", { replace: true });
+  }, [stage, navigate]);
+  if (!stage) return null;
+  return (
+    <ProductImportReview
+      filename={stage.filename}
+      rows={stage.rows}
+      onCancel={() => navigate("/admin/products")}
+      onSaved={() => { /* handled inside */ }}
+    />
+  );
+}
+
+function AdminProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { products, categories } = useStore();
