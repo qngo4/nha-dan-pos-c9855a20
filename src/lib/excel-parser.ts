@@ -13,6 +13,8 @@ import { products as seedProducts } from "@/lib/mock-data";
 
 type Row = Record<string, unknown>;
 
+type SheetRows = unknown[][];
+
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, " ").trim();
@@ -41,30 +43,66 @@ const toDate = (v: unknown): string => {
   if (v === undefined || v === null || v === "") return "";
   if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
   if (typeof v === "number") {
-    // Excel serial date -> JS Date
     const d = XLSX.SSF.parse_date_code(v);
     if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
   }
   const s = String(v).trim();
-  // dd/mm/yyyy or dd-mm-yyyy
   const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m) {
     const [_, dd, mm, yyyy] = m;
     const y = yyyy.length === 2 ? `20${yyyy}` : yyyy;
     return `${y}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
-  // ISO already
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   const d = new Date(s);
   return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 };
 
-async function readSheet(file: File): Promise<Row[]> {
+async function readSheetRows(file: File): Promise<SheetRows> {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return [];
-  return XLSX.utils.sheet_to_json<Row>(ws, { defval: "", raw: true });
+  return XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "", raw: true });
+}
+
+function detectHeaderRow(rows: SheetRows, requiredAliases: string[]): number {
+  let bestIndex = 0;
+  let bestScore = -1;
+
+  rows.slice(0, 10).forEach((row, index) => {
+    const cells = row.map((cell) => norm(toStr(cell))).filter(Boolean);
+    const score = requiredAliases.reduce((sum, alias) => {
+      const needle = norm(alias);
+      return sum + (cells.some((cell) => cell === needle || cell.includes(needle)) ? 1 : 0);
+    }, 0);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  return bestIndex;
+}
+
+function rowsToObjects(rows: SheetRows, headerRowIndex: number): Row[] {
+  const headers = (rows[headerRowIndex] ?? []).map((cell, index) => {
+    const value = toStr(cell);
+    return value || `__col_${index}`;
+  });
+
+  return rows
+    .slice(headerRowIndex + 1)
+    .filter((row) => row.some((cell) => toStr(cell) !== ""))
+    .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])));
+}
+
+async function readSheet(file: File, requiredAliases: string[]): Promise<Row[]> {
+  const rows = await readSheetRows(file);
+  if (!rows.length) return [];
+  const headerRowIndex = detectHeaderRow(rows, requiredAliases);
+  return rowsToObjects(rows, headerRowIndex);
 }
 
 // =============== PRODUCT TEMPLATE ===============
