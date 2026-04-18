@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
 import { triggerPrint } from "@/lib/print";
 import type { Invoice } from "@/lib/mock-data";
+import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
+import { CameraScanner } from "@/components/pos/CameraScanner";
 
 interface POSLine {
   id: string;
