@@ -31,10 +31,16 @@ export function PromotionFormShell({ promo, onClose, onSave }: Props) {
   const setBase = <K extends keyof Promotion>(key: K, val: Promotion[K]) =>
     setForm((prev) => ({ ...prev, [key]: val }) as Promotion);
 
+  // Only discount-based types use a generic scope selector.
+  // Rule-based types (buy-x-get-y, gift, free-shipping) derive scope from their own structure.
+  const supportsScope = (t: PromotionType) => t === "percent" || t === "fixed";
+
   const switchType = (type: PromotionType) => {
     if (type === form.type) return;
-    // Preserve shared fields, reset type-specific fields.
     const fresh = makeEmptyPromotion(type);
+    // Preserve shared fields. Reset scope to "all" when switching to rule-based types
+    // to avoid leaking irrelevant scope selections into types that don't use them.
+    const nextScope = supportsScope(type) ? form.scope : ({ kind: "all" } as const);
     setForm({
       ...fresh,
       id: form.id,
@@ -43,7 +49,7 @@ export function PromotionFormShell({ promo, onClose, onSave }: Props) {
       active: form.active,
       startDate: form.startDate,
       endDate: form.endDate,
-      scope: form.scope,
+      scope: nextScope,
     });
   };
 
