@@ -213,9 +213,17 @@ export default function AdminPOS() {
                 value={barcodeInput}
                 onChange={e => setBarcodeInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleBarcodeSubmit(); } }}
-                placeholder={scanMode === 'hid' ? 'Sẵn sàng quét...' : scanMode === 'camera' ? 'Camera đang chờ...' : 'Nhập mã vạch + Enter'}
-                readOnly={scanMode === 'camera'}
+                placeholder={
+                  scanMode === 'hid'
+                    ? 'Sẵn sàng quét bằng máy quét HID...'
+                    : scanMode === 'camera'
+                    ? 'Dùng camera bên dưới hoặc gõ tay...'
+                    : 'Nhập mã vạch + Enter'
+                }
+                inputMode={scanMode === 'camera' ? 'none' : 'text'}
                 className="w-full h-9 pl-9 pr-3 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                autoComplete="off"
+                aria-label="Ô nhập mã vạch"
               />
             </div>
             <div className="flex border rounded-md overflow-hidden">
@@ -226,10 +234,7 @@ export default function AdminPOS() {
               ].map(m => (
                 <button
                   key={m.mode}
-                  onClick={() => {
-                    setScanMode(m.mode);
-                    toast(`Chế độ: ${m.title}`);
-                  }}
+                  onClick={() => setScanMode(m.mode)}
                   title={m.title}
                   className={cn("p-1.5 transition-colors", scanMode === m.mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
                 >
@@ -239,12 +244,21 @@ export default function AdminPOS() {
             </div>
           </div>
 
-          {/* Mode hint */}
-          {scanMode === 'camera' && (
-            <div className="flex items-center gap-2 p-2 bg-muted rounded-md text-[11px] text-muted-foreground">
-              <ScanLine className="h-3.5 w-3.5 animate-pulse text-primary" />
-              Đưa mã vạch vào khung camera. Nhấn vào ô để mô phỏng quét.
+          {/* Mode hint / controls */}
+          {scanMode === 'hid' && (
+            <div className="flex items-start gap-2 p-2 bg-muted/60 rounded-md text-[11px] text-muted-foreground">
+              <ScanLine className="h-3.5 w-3.5 mt-0.5 text-primary shrink-0" />
+              <span>
+                Máy quét HID hoạt động như bàn phím. Giữ con trỏ ở ô mã vạch — mã sẽ tự nhập và Enter để hoàn tất.
+              </span>
             </div>
+          )}
+          {scanMode === 'camera' && (
+            <CameraScanner
+              active
+              onDetected={handleScannedCode}
+              onClose={() => setScanMode('hid')}
+            />
           )}
           {scanMode === 'manual' && (
             <button onClick={handleBarcodeSubmit} className="w-full h-7 text-[11px] bg-secondary hover:bg-secondary/80 rounded-md font-medium">
