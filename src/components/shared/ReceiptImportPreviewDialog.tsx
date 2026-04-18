@@ -257,12 +257,13 @@ export function ReceiptImportPreviewDialog({ open, onClose, onConfirm, inlineMod
               <h4 className="font-semibold">Chọn file Excel để xem trước</h4>
               <p className="text-sm text-muted-foreground mt-1">Mỗi dòng = một phân loại (variant). Hệ thống sẽ chạy kiểm tra (pass-1) trước khi tạo phiếu.</p>
               <p className="text-xs text-muted-foreground mt-2">Sau khi xác nhận, hệ thống tạo <strong>một phiếu nhập</strong> ngay tại đây — không chuyển trang.</p>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFileChange} className="hidden" />
               <div className="flex items-center justify-center gap-2 mt-4">
-                <button onClick={handleSelectFile} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
-                  <Upload className="h-4 w-4" /> Chọn file Excel
+                <button onClick={handleSelectFile} disabled={parsing} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-60">
+                  {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} {parsing ? "Đang đọc..." : "Chọn file Excel"}
                 </button>
-                <button onClick={() => toast.info("Đang tải file mẫu...")} className="px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
-                  Tải file mẫu
+                <button onClick={handleSampleData} className="px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+                  Dùng dữ liệu mẫu
                 </button>
               </div>
             </div>
