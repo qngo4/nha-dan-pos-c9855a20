@@ -96,8 +96,12 @@ function validateDraft(draft: DraftProduct, existingCodes: Set<string>, duplicat
   const variants = draft.variants.map<VariantIssue>((variant, index) => {
     const ve: string[] = []; const vw: string[] = [];
     if (!variant.name.trim()) ve.push("Thiếu tên phân loại.");
-    if (variant.sellPrice <= 0) ve.push("Giá bán phải > 0.");
-    if (variant.costPrice <= 0) ve.push("Giá vốn phải > 0.");
+    if (!Number.isFinite(variant.sellPrice)) ve.push("Giá bán không hợp lệ.");
+    else if (variant.sellPrice < 0) ve.push("Giá bán không được âm.");
+    else if (variant.sellPrice === 0) ve.push("Giá bán phải > 0 (VND).");
+    if (!Number.isFinite(variant.costPrice)) ve.push("Giá vốn không hợp lệ.");
+    else if (variant.costPrice < 0) ve.push("Giá vốn không được âm.");
+    else if (variant.costPrice === 0) ve.push("Giá vốn phải > 0 (VND).");
     if (!variant.sellUnit.trim()) ve.push("Thiếu đơn vị bán.");
     if (!variant.importUnit.trim()) vw.push("Thiếu ĐV nhập — sẽ dùng ĐV bán.");
     if (variant.piecesPerImportUnit <= 0) ve.push("Quy đổi phải > 0.");
@@ -521,8 +525,18 @@ export function ProductImportReview({ filename, rows, onCancel, onSaved }: Props
                                   </div>
                                 </td>
                                 <td className="px-2 py-1.5 text-center"><input type="number" value={variant.piecesPerImportUnit} onChange={(e) => updateVariant(draft.key, index, { piecesPerImportUnit: Number(e.target.value) })} className={cn("h-7 w-16 rounded border bg-background px-2 text-center text-[11px]", variant.piecesPerImportUnit <= 0 && "border-danger")} /></td>
-                                <td className="px-2 py-1.5 text-right"><input type="number" value={variant.costPrice} onChange={(e) => updateVariant(draft.key, index, { costPrice: Number(e.target.value) })} className={cn("h-7 w-24 rounded border bg-background px-2 text-right text-[11px]", variant.costPrice <= 0 && "border-danger")} /></td>
-                                <td className="px-2 py-1.5 text-right"><input type="number" value={variant.sellPrice} onChange={(e) => updateVariant(draft.key, index, { sellPrice: Number(e.target.value) })} className={cn("h-7 w-24 rounded border bg-background px-2 text-right text-[11px]", variant.sellPrice <= 0 && "border-danger")} /></td>
+                                <td className="px-2 py-1.5 text-right">
+                                  <div className="relative">
+                                    <input type="number" min={0} step={1000} value={variant.costPrice} onChange={(e) => updateVariant(draft.key, index, { costPrice: Math.max(0, Number(e.target.value)) })} className={cn("h-7 w-28 rounded border bg-background pl-2 pr-8 text-right text-[11px]", variant.costPrice <= 0 && "border-danger")} />
+                                    <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-medium text-muted-foreground">₫</span>
+                                  </div>
+                                </td>
+                                <td className="px-2 py-1.5 text-right">
+                                  <div className="relative">
+                                    <input type="number" min={0} step={1000} value={variant.sellPrice} onChange={(e) => updateVariant(draft.key, index, { sellPrice: Math.max(0, Number(e.target.value)) })} className={cn("h-7 w-28 rounded border bg-background pl-2 pr-8 text-right text-[11px]", variant.sellPrice <= 0 && "border-danger")} />
+                                    <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-medium text-muted-foreground">₫</span>
+                                  </div>
+                                </td>
                                 <td className="px-2 py-1.5 text-center"><input type="number" value={variant.stock} onChange={(e) => updateVariant(draft.key, index, { stock: Number(e.target.value) })} className={cn("h-7 w-16 rounded border bg-background px-2 text-center text-[11px]", variant.stock < 0 && "border-danger")} /></td>
                                 <td className="px-2 py-1.5">
                                   <div className="grid grid-cols-2 gap-1">
