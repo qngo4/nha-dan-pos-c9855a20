@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import {
-  Search,
   ChevronRight,
   Flame,
   Sparkles,
@@ -14,6 +13,7 @@ import { products, combos, categories } from "@/lib/mock-data";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ComboCard } from "@/components/storefront/ComboCard";
 import { HotProductsCarousel } from "@/components/storefront/HotProductsCarousel";
+import { HeroSlider } from "@/components/storefront/HeroSlider";
 import { Reveal } from "@/components/storefront/Reveal";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -35,101 +35,8 @@ export default function StorefrontHome() {
 
   return (
     <div className="storefront-relaxed bg-storefront-bg">
-      {/* === HERO === */}
-      <section className="relative overflow-hidden sf-hero-bg text-storefront-hero-foreground">
-        <div className="absolute inset-0 sf-hero-overlay pointer-events-none" />
-        <div className="absolute -top-24 -right-24 h-80 w-80 rounded-full bg-storefront-accent/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-info/20 blur-3xl pointer-events-none" />
-
-        <div className="relative max-w-7xl mx-auto px-4 py-14 md:py-24 grid md:grid-cols-2 gap-8 items-center">
-          <div className="max-w-xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur text-[11px] font-semibold uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5" /> Mua sắm thông minh mỗi ngày
-            </span>
-            <h1 className="mt-4 text-3xl md:text-5xl font-bold tracking-tight leading-[1.1]">
-              Tạp hóa hiện đại,
-              <br />
-              <span className="text-storefront-accent">giá tốt mỗi ngày.</span>
-            </h1>
-            <p className="mt-4 text-sm md:text-base opacity-90 leading-relaxed">
-              Hàng nghìn sản phẩm thiết yếu — mì gói, đồ uống, sữa, hóa mỹ phẩm — luôn sẵn kho,
-              giao nhanh, giá niêm yết minh bạch.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                to="/products"
-                className="inline-flex items-center gap-2 bg-white text-foreground px-5 py-3 rounded-full text-sm font-semibold hover:bg-white/90 transition-colors shadow-lg"
-              >
-                Mua sắm ngay <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                to="/combos"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold border border-white/30 hover:bg-white/10 transition-colors"
-              >
-                <Sparkles className="h-4 w-4" /> Xem combo ưu đãi
-              </Link>
-            </div>
-
-            {/* Hero search */}
-            <div className="mt-7 relative max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                placeholder="Bạn cần tìm sản phẩm gì?"
-                className="w-full h-12 pl-11 pr-32 text-sm rounded-full bg-white/95 text-foreground placeholder:text-muted-foreground border-0 focus:outline-none focus:ring-2 focus:ring-white/40"
-              />
-              <Link
-                to="/products"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-4 h-9 rounded-full bg-foreground text-background text-xs font-semibold hover:opacity-90"
-              >
-                Tìm
-              </Link>
-            </div>
-
-            <div className="mt-6 flex items-center gap-6 text-xs opacity-90">
-              <div>
-                <p className="text-2xl font-bold">2K+</p>
-                <p>Sản phẩm</p>
-              </div>
-              <div className="h-8 w-px bg-white/20" />
-              <div>
-                <p className="text-2xl font-bold">15K+</p>
-                <p>Khách hàng</p>
-              </div>
-              <div className="h-8 w-px bg-white/20" />
-              <div>
-                <p className="text-2xl font-bold">4.9★</p>
-                <p>Đánh giá</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Hero visual */}
-          <div className="hidden md:block relative">
-            <div className="relative aspect-square max-w-md ml-auto">
-              <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-sm border border-white/20" />
-              <div className="absolute inset-6 rounded-[2rem] bg-white/95 sf-shadow flex items-center justify-center">
-                <div className="grid grid-cols-2 gap-3 p-6 w-full">
-                  {activeProducts.slice(0, 4).map((p, i) => (
-                    <div
-                      key={p.id}
-                      className="aspect-square rounded-xl bg-gradient-to-br from-storefront-soft to-muted flex items-center justify-center text-foreground/60 text-xs font-medium text-center p-2"
-                      style={{ transform: `rotate(${(i % 2 === 0 ? -1 : 1) * 2}deg)` }}
-                    >
-                      {p.name.split(" ").slice(0, 2).join(" ")}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="absolute -top-3 -left-3 px-3 py-1.5 rounded-full bg-storefront-accent text-white text-xs font-bold shadow-lg">
-                -30%
-              </div>
-              <div className="absolute -bottom-3 -right-3 px-3 py-1.5 rounded-full bg-storefront-gold text-white text-xs font-bold shadow-lg">
-                Bán chạy
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* === HERO SLIDER === */}
+      <HeroSlider items={activeProducts.slice(0, 5)} />
 
       {/* === Trust strip === */}
       <section className="border-y bg-storefront-surface">

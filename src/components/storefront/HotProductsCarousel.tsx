@@ -13,38 +13,49 @@ export function HotProductsCarousel({ items }: { items: Product[] }) {
     align: "start",
     slidesToScroll: 1,
     containScroll: "trimSnaps",
+    duration: 24,
   });
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
+  const [selected, setSelected] = useState(0);
+  const [snaps, setSnaps] = useState<number[]>([]);
+  const [isHover, setIsHover] = useState(false);
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
     setCanPrev(emblaApi.canScrollPrev());
     setCanNext(emblaApi.canScrollNext());
+    setSelected(emblaApi.selectedScrollSnap());
   }, [emblaApi]);
 
   useEffect(() => {
     if (!emblaApi) return;
     onSelect();
+    setSnaps(emblaApi.scrollSnapList());
     emblaApi.on("select", onSelect);
-    emblaApi.on("reInit", onSelect);
+    emblaApi.on("reInit", () => {
+      onSelect();
+      setSnaps(emblaApi.scrollSnapList());
+    });
   }, [emblaApi, onSelect]);
 
-  // Auto-play
   useEffect(() => {
     if (!emblaApi) return;
     const id = window.setInterval(() => {
-      if (!emblaApi) return;
-      if (document.hidden) return;
+      if (document.hidden || isHover) return;
       emblaApi.scrollNext();
-    }, 4000);
+    }, 4500);
     return () => window.clearInterval(id);
-  }, [emblaApi]);
+  }, [emblaApi, isHover]);
 
   if (!items.length) return null;
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => setIsHover(true)}
+      onMouseLeave={() => setIsHover(false)}
+    >
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex -ml-3 md:-ml-4">
           {items.map((p) => (
@@ -79,6 +90,23 @@ export function HotProductsCarousel({ items }: { items: Product[] }) {
       >
         <ChevronRight className="h-5 w-5" />
       </button>
+
+      {/* Pagination dots */}
+      {snaps.length > 1 && (
+        <div className="mt-5 flex items-center justify-center gap-1.5">
+          {snaps.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => emblaApi?.scrollTo(i)}
+              aria-label={`Đi tới ${i + 1}`}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === selected ? "w-6 bg-storefront-accent" : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+              )}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
