@@ -180,9 +180,9 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
         <div className="flex items-center justify-between gap-2 px-5 py-3 border-t bg-muted/30 rounded-b-lg">
           <p className="text-[11px] text-muted-foreground">
             {rows && stats.error > 0 ? (
-              <span className="text-danger font-medium">⚠ Còn {stats.error} dòng lỗi — không thể nhập đến khi sửa xong.</span>
+              <span className="text-danger font-medium">⚠ Còn {stats.error} dòng lỗi — sửa file rồi tải lại để tiếp tục.</span>
             ) : rows ? (
-              <>Mỗi sản phẩm sẽ tạo kèm <strong>phân loại mặc định</strong> tự động.</>
+              <>Bước tiếp theo: xem lại + chỉnh sửa trong màn hình tạo sản phẩm. Mỗi sản phẩm sẽ kèm <strong>phân loại mặc định</strong>.</>
             ) : ""}
           </p>
           <div className="flex items-center gap-2">
@@ -190,10 +190,10 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
             <button
               onClick={handleConfirm}
               disabled={!rows || stats.error > 0 || stats.ready + stats.warning === 0}
-              title={stats.error > 0 ? "Còn dòng lỗi — vui lòng sửa trước" : ""}
-              className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              title={stats.error > 0 ? "Còn dòng lỗi — vui lòng sửa trước" : "Tiếp tục sang màn hình tạo sản phẩm"}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Nhập {stats.ready + stats.warning > 0 ? `${stats.ready + stats.warning} dòng (+ phân loại mặc định)` : ""}
+              Tiếp tục xem lại {stats.ready + stats.warning > 0 ? `(${stats.ready + stats.warning} dòng)` : ""} <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
