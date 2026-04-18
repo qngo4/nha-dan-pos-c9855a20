@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { importStaging } from "@/lib/import-staging";
+import { parseProductExcel } from "@/lib/excel-parser";
 
 export interface ImportRow {
   status: "ready" | "warning" | "error";
@@ -37,6 +38,8 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
   const navigate = useNavigate();
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [filename, setFilename] = useState<string>("");
+  const [parsing, setParsing] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => {
     const r = rows ?? [];
@@ -50,10 +53,28 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
 
   if (!open) return null;
 
-  const handleSelectFile = () => {
-    // Simulate parsing an Excel file
-    setRows(SAMPLE_ROWS);
-    setFilename("san-pham-import.xlsx");
+  const handleSelectFile = () => fileRef.current?.click();
+  const handleSampleData = () => { setRows(SAMPLE_ROWS); setFilename("san-pham-mau.xlsx"); };
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setParsing(true);
+      const parsed = await parseProductExcel(file);
+      if (parsed.length === 0) {
+        toast.error("Không đọc được dòng nào — kiểm tra header (Mã SP / Tên SP / Giá bán...)");
+      } else {
+        setRows(parsed);
+        setFilename(file.name);
+        toast.success(`Đã đọc ${parsed.length} dòng từ ${file.name}`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi đọc file Excel — file có thể bị lỗi định dạng.");
+    } finally {
+      setParsing(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   const handleConfirm = () => {
@@ -98,12 +119,13 @@ export function ImportPreviewDialog({ open, onClose, onConfirm }: Props) {
               </div>
               <h4 className="font-semibold">Chọn file Excel để xem trước</h4>
               <p className="text-sm text-muted-foreground mt-1">Hỗ trợ định dạng .xlsx, .xls. Tải mẫu để chuẩn bị dữ liệu đúng cấu trúc.</p>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFileChange} className="hidden" />
               <div className="flex items-center justify-center gap-2 mt-4">
-                <button onClick={handleSelectFile} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
-                  <Upload className="h-4 w-4" /> Chọn file Excel
+                <button onClick={handleSelectFile} disabled={parsing} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-60">
+                  {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} {parsing ? "Đang đọc..." : "Chọn file Excel"}
                 </button>
-                <button onClick={() => toast.info("Đang tải file mẫu...")} className="px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
-                  Tải file mẫu
+                <button onClick={handleSampleData} className="px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+                  Dùng dữ liệu mẫu
                 </button>
               </div>
             </div>
