@@ -6,6 +6,12 @@ export interface ComboOption {
   id: string;
   label: string;
   sub?: string;
+  /** Optional group heading. Options sharing the same group render under one heading. */
+  group?: string;
+  /** If true, option is shown but not selectable (e.g. ineligible promotion). */
+  disabled?: boolean;
+  /** Optional small status badge shown on the right of the option. */
+  badge?: { label: string; tone?: "success" | "warning" | "danger" | "muted" };
 }
 
 interface Props {
@@ -104,22 +110,44 @@ export function SearchableCombobox({
                 Không tìm thấy. {onCreateNew && "Bấm 'Tạo mới' bên dưới."}
               </div>
             ) : (
-              filtered.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => { onChange(o.id); setOpen(false); setQ(""); }}
-                  className={cn(
-                    "w-full px-3 py-1.5 text-xs text-left flex items-center justify-between hover:bg-muted/60 border-b last:border-0",
-                    o.id === value && "bg-muted",
+              groupOptions(filtered).map(([groupName, opts]) => (
+                <div key={groupName || "_"}>
+                  {groupName && (
+                    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30 sticky top-0">
+                      {groupName}
+                    </div>
                   )}
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{o.label}</div>
-                    {o.sub && <div className="text-[10px] text-muted-foreground truncate">{o.sub}</div>}
-                  </div>
-                  {o.id === value && <Check className="h-3 w-3 text-primary shrink-0" />}
-                </button>
+                  {opts.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      disabled={o.disabled}
+                      onClick={() => { if (o.disabled) return; onChange(o.id); setOpen(false); setQ(""); }}
+                      className={cn(
+                        "w-full px-3 py-1.5 text-xs text-left flex items-center justify-between gap-2 hover:bg-muted/60 border-b last:border-0",
+                        o.id === value && "bg-muted",
+                        o.disabled && "opacity-70 cursor-not-allowed hover:bg-transparent",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{o.label}</div>
+                        {o.sub && <div className="text-[10px] text-muted-foreground truncate">{o.sub}</div>}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {o.badge && (
+                          <span className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                            o.badge.tone === "success" && "bg-success-soft text-success",
+                            o.badge.tone === "warning" && "bg-warning-soft text-warning",
+                            o.badge.tone === "danger" && "bg-danger-soft text-danger",
+                            (!o.badge.tone || o.badge.tone === "muted") && "bg-muted text-muted-foreground",
+                          )}>{o.badge.label}</span>
+                        )}
+                        {o.id === value && <Check className="h-3 w-3 text-primary" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               ))
             )}
           </div>
@@ -137,4 +165,15 @@ export function SearchableCombobox({
       )}
     </div>
   );
+}
+
+// Preserve insertion order of groups; "" group renders without heading.
+function groupOptions(opts: ComboOption[]): [string, ComboOption[]][] {
+  const map = new Map<string, ComboOption[]>();
+  for (const o of opts) {
+    const key = o.group ?? "";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(o);
+  }
+  return Array.from(map.entries());
 }
