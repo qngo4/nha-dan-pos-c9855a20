@@ -84,9 +84,11 @@ export async function parseProductExcel(file: File): Promise<ImportRow[]> {
       const variantName = toStr(pick(row, [
         "ten phan loai", "phan loai", "variant", "ten variant", "variant name",
       ])) || "Mặc định";
-      const sellPrice = toNum(pick(row, ["gia ban", "sell price", "price"]));
-      const costPrice = toNum(pick(row, ["gia nhap", "cost price", "gia von"]));
-      const stock = toNum(pick(row, ["ton kho", "ton", "stock", "so luong"]));
+      const sellPrice = toNum(pick(row, ["gia ban", "sell price", "price", "e gia ban"]));
+      const costPrice = toNum(pick(row, ["gia von", "gia nhap", "cost price", "d gia von"]));
+      const stock = toNum(pick(row, ["ton kho", "ton", "stock", "so luong", "f ton kho"]));
+      // Cột G: số ngày HSD (product template) — chỉ giữ làm metadata, không validate
+      void toNum(pick(row, ["han su dung", "so ngay hsd", "shelf life", "g han su dung"]));
 
       let status: ImportRow["status"] = "ready";
       let message: string | undefined;
