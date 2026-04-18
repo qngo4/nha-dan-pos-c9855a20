@@ -88,11 +88,20 @@ export default function AdminProducts() {
           <button onClick={() => setFilterCategory(null)} className={cn("shrink-0 px-2.5 py-1 text-xs font-medium rounded-md border", !filterCategory ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted")}>
             Tất cả
           </button>
-          {categories.filter(c => c.active).map(cat => (
-            <button key={cat.id} onClick={() => setFilterCategory(cat.id)} className={cn("shrink-0 px-2.5 py-1 text-xs font-medium rounded-md border", filterCategory === cat.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted")}>
-              {cat.name}
-            </button>
-          ))}
+          {(() => {
+            const seen = new Set<string>();
+            return categories.filter(c => {
+              if (!c.active) return false;
+              const key = c.name.trim().toLowerCase();
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            }).map(cat => (
+              <button key={cat.id} onClick={() => setFilterCategory(cat.id)} className={cn("shrink-0 px-2.5 py-1 text-xs font-medium rounded-md border", filterCategory === cat.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted")}>
+                {cat.name}
+              </button>
+            ));
+          })()}
         </div>
       </div>
 
