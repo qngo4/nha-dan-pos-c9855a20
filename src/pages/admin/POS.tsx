@@ -468,6 +468,7 @@ export default function AdminPOS() {
     {(lines.length > 0 || lastInvoice) && (
       <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: 'Hóa đơn trống', code: '-', qty: 0, price: 0 }]} />
     )}
+    <CustomerFormDrawer open={customerDrawerOpen} onClose={() => setCustomerDrawerOpen(false)} />
     </>
   );
 }
