@@ -227,3 +227,30 @@ export const userActions = {
   },
 };
 
+
+// ===== Promotions =====
+export const promotionActions = {
+  create(input: Omit<Promotion, "id">) {
+    const p = { ...input, id: uid("promo") } as Promotion;
+    setState((s) => ({ ...s, promotions: [p, ...s.promotions] }));
+    return p;
+  },
+  update(id: string, next: Promotion) {
+    setState((s) => ({ ...s, promotions: s.promotions.map((p) => (p.id === id ? next : p)) }));
+  },
+  upsert(promo: Promotion) {
+    setState((s) => {
+      if (promo.id && s.promotions.some((p) => p.id === promo.id)) {
+        return { ...s, promotions: s.promotions.map((p) => (p.id === promo.id ? promo : p)) };
+      }
+      const withId = promo.id ? promo : { ...promo, id: uid("promo") };
+      return { ...s, promotions: [withId as Promotion, ...s.promotions] };
+    });
+  },
+  toggleActive(id: string) {
+    setState((s) => ({ ...s, promotions: s.promotions.map((p) => (p.id === id ? { ...p, active: !p.active } : p)) }));
+  },
+  remove(id: string) {
+    setState((s) => ({ ...s, promotions: s.promotions.filter((p) => p.id !== id) }));
+  },
+};
