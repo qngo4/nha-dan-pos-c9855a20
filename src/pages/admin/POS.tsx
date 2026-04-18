@@ -361,17 +361,18 @@ export default function AdminPOS() {
         <div className="p-3 border-b space-y-2">
           <div>
             <label className="text-[11px] font-medium text-muted-foreground">Khách hàng</label>
-            <select
+            <SearchableCombobox
+              className="mt-1"
               value={selectedCustomer}
-              onChange={e => setSelectedCustomer(e.target.value)}
+              onChange={setSelectedCustomer}
               disabled={!!lastInvoice}
-              className="mt-1 w-full h-8 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
-            >
-              <option value="">Khách lẻ</option>
-              {customers.filter(c => c.active).map(c => (
-                <option key={c.id} value={c.id}>{c.name} — {c.phone}</option>
-              ))}
-            </select>
+              showEmptyOption
+              emptyOptionLabel="Khách lẻ"
+              placeholder="Tìm SĐT, tên khách..."
+              options={customers.filter(c => c.active).map(c => ({ id: c.id, label: c.name, sub: `${c.code} · ${c.phone}` }))}
+              onCreateNew={() => setCustomerDrawerOpen(true)}
+              createLabel="Tạo khách hàng mới"
+            />
           </div>
           <div>
             <label className="text-[11px] font-medium text-muted-foreground">Ghi chú</label>
