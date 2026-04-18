@@ -64,9 +64,26 @@ export default function AdminPOS() {
   );
   const total = Math.max(0, subtotal - orderDiscount);
 
-  // HID mode keeps focus on barcode input
+  // HID mode: keep barcode input focused. Re-focus when window/tab regains focus,
+  // and when user clicks anywhere outside an editable field.
   useEffect(() => {
-    if (scanMode === 'hid') barcodeRef.current?.focus();
+    if (scanMode !== 'hid') return;
+    const refocus = () => {
+      const ae = document.activeElement as HTMLElement | null;
+      const tag = ae?.tagName;
+      const isEditable =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae?.isContentEditable;
+      if (!isEditable) barcodeRef.current?.focus();
+    };
+    refocus();
+    const onWinFocus = () => barcodeRef.current?.focus();
+    const onClick = () => setTimeout(refocus, 0);
+    window.addEventListener('focus', onWinFocus);
+    document.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('focus', onWinFocus);
+      document.removeEventListener('click', onClick);
+    };
   }, [scanMode]);
 
   const addProductByVariant = (productName: string, variant: typeof products[0]['variants'][0]) => {
@@ -92,24 +109,29 @@ export default function AdminPOS() {
     });
   };
 
-  const handleBarcodeSubmit = () => {
-    const code = barcodeInput.trim();
+  /**
+   * Shared scan result handler used by HID, Camera and Manual modes.
+   * Keeps a single resolution + feedback pipeline so future BE integration
+   * only needs swapping `resolveScannedCode` with an API call.
+   */
+  const handleScannedCode = (rawCode: string) => {
+    const code = normalizeScanCode(rawCode);
     if (!code) return;
-    let found: { product: typeof products[0]; variant: typeof products[0]['variants'][0] } | null = null;
-    for (const p of products) {
-      const v = p.variants.find(v => v.code.toLowerCase() === code.toLowerCase());
-      if (v) { found = { product: p, variant: v }; break; }
-    }
+    const found = resolveScannedCode(code);
     if (found) {
       addProductByVariant(found.product.name, found.variant);
       toast.success(`Đã thêm ${found.product.name} — ${found.variant.name}`);
       setScanFlash('ok');
-      setTimeout(() => setScanFlash(null), 600);
+      setTimeout(() => setScanFlash(null), 500);
     } else {
-      toast.error(`Không tìm thấy mã vạch: ${code}`);
+      toast.error(`Không tìm thấy mã sản phẩm: ${code}`);
       setScanFlash('err');
-      setTimeout(() => setScanFlash(null), 800);
+      setTimeout(() => setScanFlash(null), 700);
     }
+  };
+
+  const handleBarcodeSubmit = () => {
+    handleScannedCode(barcodeInput);
     setBarcodeInput('');
   };
 
