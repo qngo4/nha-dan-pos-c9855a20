@@ -256,6 +256,22 @@ export default function AdminPOS() {
     }));
   }, [activePromotions, lines, shippingFee, productCategory]);
 
+  // Progress hint toward the currently-selected promotion (null when eligible / N/A).
+  const promoProgress = useMemo(() => {
+    if (!selectedPromotion) return null;
+    const billable = lines.filter((l) => !l.reward);
+    const subtotal = billable.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+    const cart: Cart = {
+      lines: billable.map((l) => ({
+        productId: l.productId, variantId: l.variantId, productName: l.productName,
+        unitPrice: l.unitPrice, quantity: l.quantity,
+      })),
+      subtotal,
+      shippingFee,
+    };
+    return getPromotionProgress(cart, selectedPromotion, { productCategory });
+  }, [selectedPromotion, lines, shippingFee, productCategory]);
+
   // ------ Render helpers ------
   const SummaryBreakdown = () => (
     <div className="space-y-1.5 text-sm">
