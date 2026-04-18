@@ -54,9 +54,11 @@ function createLineId(prefix = "line") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function convertImportedRow(row: ReceiptImportRow, receiptDate: string, index: number): ReceiptLineDraft {
-  const expiryMode: "date" | "days" = row.expiryDate ? "date" : row.expiryDays ? "days" : "date";
-  const expiryDate = row.expiryDate || (row.expiryDays ? new Date(new Date(receiptDate).getTime() + row.expiryDays * 86400000).toISOString().slice(0, 10) : "");
+function convertImportedRow(row: ReceiptImportRow, _receiptDate: string, index: number): ReceiptLineDraft {
+  // Preserve the ORIGINAL imported meaning. Do NOT auto-convert shelf-life days into a calendar date.
+  const hasDate = !!row.expiryDate;
+  const hasDays = !!(row.expiryDays && row.expiryDays > 0);
+  const expiryMode: "date" | "days" = hasDate ? "date" : hasDays ? "days" : "date";
   return {
     id: createLineId(`imp-${index}`),
     sourceRow: row.sourceRow,
@@ -76,8 +78,8 @@ function convertImportedRow(row: ReceiptImportRow, receiptDate: string, index: n
     unitCost: row.unitCost,
     sellPrice: row.sellPrice,
     discountPercent: row.discountPercent,
-    expiryDate,
-    expiryDays: row.expiryDays || 0,
+    expiryDate: hasDate ? row.expiryDate : "", // keep empty if Excel only had shelf-life days
+    expiryDays: hasDays ? row.expiryDays! : 0,
     expiryMode,
     note: row.note || "",
     fromImport: true,
@@ -272,12 +274,17 @@ export default function AdminGoodsReceiptCreate() {
     setLines((prev) => revalidateLines(prev.map((l) => {
       if (l.id !== id) return l;
       const merged: ReceiptLineDraft = { ...l, ...patch, edited: true };
-      if (patch.expiryMode === "date") merged.expiryDays = 0;
-      if (patch.expiryMode === "days" && merged.expiryDays > 0) {
-        merged.expiryDate = new Date(new Date(receiptDate).getTime() + merged.expiryDays * 86400000).toISOString().slice(0, 10);
-      }
+      // When switching modes, keep both values intact so user can toggle back without data loss.
+      // Compute a date PREVIEW from shelf-life days but only as a hint, not as the source of truth.
       return merged;
     })));
+  };
+
+  const computePreviewDate = (line: ReceiptLineDraft) => {
+    if (line.expiryMode !== "days" || line.expiryDays <= 0) return "";
+    const base = new Date(receiptDate);
+    if (Number.isNaN(base.getTime())) return "";
+    return new Date(base.getTime() + line.expiryDays * 86400000).toISOString().slice(0, 10);
   };
 
   const handleRevalidate = () => {
@@ -476,8 +483,85 @@ export default function AdminGoodsReceiptCreate() {
             </button>
           </div>
 
-          {/* Lines table */}
-          <div className="overflow-x-auto rounded-lg border bg-card">
+          {/* Mobile/tablet cards (≤md) */}
+          <div className="space-y-2 md:hidden">
+            {filteredLines.map((line, index) => {
+              const issue = lineIssues.get(line.id) ?? { errors: [], warnings: [] };
+              const hasError = issue.errors.length > 0;
+              const hasWarning = !hasError && issue.warnings.length > 0;
+              return (
+                <div key={line.id} ref={(el) => (rowRefs.current[line.id] = el as any)} className={cn(
+                  "rounded-lg border bg-card p-2.5 space-y-2",
+                  hasError && "border-danger/40 bg-danger-soft/20",
+                  hasWarning && "border-warning/40 bg-warning-soft/20",
+                )}>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="font-mono text-muted-foreground">#{index + 1}{line.sourceRow ? `·${line.sourceRow}` : ""}</span>
+                    <span className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]",
+                      line.status === "error" && "bg-danger-soft text-danger",
+                      line.status === "warning" && "bg-warning-soft text-warning",
+                      line.status === "ready" && "bg-success-soft text-success",
+                    )}>
+                      {line.status === "error" ? <AlertCircle className="h-2.5 w-2.5" /> : line.status === "warning" ? <AlertTriangle className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+                      {line.status}
+                    </span>
+                    <button onClick={() => removeLine(line.id)} className="ml-auto rounded p-1 text-muted-foreground hover:text-danger"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input value={line.productCode} onChange={(e) => syncLine(line.id, { productCode: e.target.value.toUpperCase() })} className={cn("h-8 rounded border bg-background px-2 text-xs font-mono", !line.productCode.trim() && "border-danger")} placeholder="Mã SP" />
+                    <input value={line.variantCode} onChange={(e) => syncLine(line.id, { variantCode: e.target.value.toUpperCase() })} className="h-8 rounded border bg-background px-2 text-xs font-mono" placeholder="Mã variant" />
+                    <input value={line.productName} onChange={(e) => syncLine(line.id, { productName: e.target.value })} className="col-span-2 h-8 rounded border bg-background px-2 text-xs" placeholder="Tên SP" />
+                  </div>
+                  <SearchableCombobox
+                    value={line.category}
+                    onChange={(v) => syncLine(line.id, { category: v })}
+                    placeholder="Danh mục"
+                    options={categoryOptions}
+                    onCreateNew={(q) => { const name = q.trim(); if (!name) return; categoryActions.create({ name, description: "Tạo từ phiếu nhập" }); syncLine(line.id, { category: name }); toast.success(`Đã tạo "${name}".`); }}
+                    createLabel="Tạo danh mục mới"
+                  />
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <label className="text-[10px] text-muted-foreground">SL<input type="number" min={0} value={line.quantity} onChange={(e) => syncLine(line.id, { quantity: Math.max(0, Number(e.target.value)) })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", line.quantity <= 0 && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">ĐV nhập<input value={line.importUnit} onChange={(e) => syncLine(line.id, { importUnit: e.target.value })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", !line.importUnit.trim() && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">ĐV bán<input value={line.sellUnit} onChange={(e) => syncLine(line.id, { sellUnit: e.target.value })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", !line.sellUnit.trim() && "border-danger")} /></label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <label className="text-[10px] text-muted-foreground">Quy đổi<input type="number" min={1} value={line.piecesPerUnit} onChange={(e) => syncLine(line.id, { piecesPerUnit: Number(e.target.value) })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-xs", line.piecesPerUnit <= 0 && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">Giá nhập (₫)<input type="number" min={0} value={line.unitCost} onChange={(e) => syncLine(line.id, { unitCost: Math.max(0, Number(e.target.value)) })} className={cn("mt-0.5 h-8 w-full rounded border bg-background px-2 text-right text-xs", line.unitCost <= 0 && "border-danger")} /></label>
+                    <label className="text-[10px] text-muted-foreground">Giá bán (₫)<input type="number" min={0} value={line.sellPrice} onChange={(e) => syncLine(line.id, { sellPrice: Math.max(0, Number(e.target.value)) })} className="mt-0.5 h-8 w-full rounded border bg-background px-2 text-right text-xs" /></label>
+                  </div>
+                  <div>
+                    <div className="mb-1 inline-flex rounded-md border bg-muted/40 p-0.5 text-[10px]">
+                      <button type="button" onClick={() => syncLine(line.id, { expiryMode: "date" })} className={cn("rounded px-2 py-0.5", line.expiryMode === "date" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Ngày HSD</button>
+                      <button type="button" onClick={() => syncLine(line.id, { expiryMode: "days" })} className={cn("rounded px-2 py-0.5", line.expiryMode === "days" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Số ngày SD</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <DateInput allowFuture value={line.expiryDate} onChange={(v) => syncLine(line.id, { expiryDate: v, expiryMode: "date" })} className={cn("h-8 w-full text-xs", line.expiryMode === "date" ? "ring-1 ring-ring/40" : "opacity-70")} />
+                      <input type="number" min={0} value={line.expiryDays} onChange={(e) => syncLine(line.id, { expiryDays: Math.max(0, Number(e.target.value)), expiryMode: "days" })} className={cn("h-8 w-full rounded border bg-card px-2 text-center text-xs", line.expiryMode === "days" && line.expiryDays <= 0 && "border-danger", line.expiryMode === "days" ? "ring-1 ring-ring/40" : "opacity-70")} placeholder="Số ngày" />
+                    </div>
+                    {line.expiryMode === "days" && line.expiryDays > 0 && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">≈ HSD: {computePreviewDate(line) || "—"}</div>
+                    )}
+                  </div>
+                  {(issue.errors.length > 0 || issue.warnings.length > 0) && (
+                    <div className="space-y-0.5 rounded-md bg-muted/30 px-2 py-1.5 text-[11px]">
+                      {issue.errors.map((m, i) => <div key={`e-${i}`} className="flex items-center gap-1 text-danger"><AlertCircle className="h-3 w-3" /> {m}</div>)}
+                      {issue.warnings.map((m, i) => <div key={`w-${i}`} className="flex items-center gap-1 text-warning"><AlertTriangle className="h-3 w-3" /> {m}</div>)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {filteredLines.length === 0 && (
+              <div className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
+                {lines.length === 0 ? "Chưa có dòng nhập nào." : "Không có dòng khớp bộ lọc."}
+              </div>
+            )}
+          </div>
+
+          {/* Lines table — desktop only */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border bg-card">
             <table className="min-w-[1500px] w-full text-xs">
               <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
                 <tr className="border-b text-[10px] uppercase text-muted-foreground">
@@ -487,9 +571,9 @@ export default function AdminGoodsReceiptCreate() {
                   <th className="px-2 py-1.5 text-left font-medium">Danh mục / ĐV SP mới</th>
                   <th className="px-2 py-1.5 text-center font-medium">SL</th>
                   <th className="px-2 py-1.5 text-center font-medium">ĐV nhập / bán / quy đổi</th>
-                  <th className="px-2 py-1.5 text-right font-medium">Giá nhập / bán</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Giá nhập / bán (₫)</th>
                   <th className="px-2 py-1.5 text-center font-medium">CK%</th>
-                  <th className="px-2 py-1.5 text-center font-medium">HSD</th>
+                  <th className="px-2 py-1.5 text-center font-medium w-64">HSD (Ngày · Số ngày)</th>
                   <th className="px-2 py-1.5 text-left font-medium w-56">Trạng thái</th>
                   <th className="w-8" />
                 </tr>
@@ -554,28 +638,40 @@ export default function AdminGoodsReceiptCreate() {
                       </td>
                       <td className="px-2 py-1.5">
                         <div className="grid grid-cols-2 gap-1">
-                          <input type="number" value={line.unitCost} onChange={(e) => syncLine(line.id, { unitCost: Number(e.target.value) })} className={cn("h-7 rounded border bg-background px-2 text-right text-[11px]", line.unitCost <= 0 && "border-danger")} placeholder="Nhập" />
-                          <input type="number" value={line.sellPrice} onChange={(e) => syncLine(line.id, { sellPrice: Number(e.target.value) })} className="h-7 rounded border bg-background px-2 text-right text-[11px]" placeholder="Bán" />
+                          <div className="relative">
+                            <input type="number" min={0} step={1000} value={line.unitCost} onChange={(e) => syncLine(line.id, { unitCost: Math.max(0, Number(e.target.value)) })} className={cn("h-7 w-full rounded border bg-background pl-2 pr-6 text-right text-[11px]", line.unitCost <= 0 && "border-danger")} placeholder="Nhập" />
+                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">₫</span>
+                          </div>
+                          <div className="relative">
+                            <input type="number" min={0} step={1000} value={line.sellPrice} onChange={(e) => syncLine(line.id, { sellPrice: Math.max(0, Number(e.target.value)) })} className="h-7 w-full rounded border bg-background pl-2 pr-6 text-right text-[11px]" placeholder="Bán" />
+                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">₫</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-center">
-                        <input type="number" value={line.discountPercent} onChange={(e) => syncLine(line.id, { discountPercent: Number(e.target.value) })} className={cn("h-7 w-14 rounded border bg-background px-2 text-center text-[11px]", (line.discountPercent < 0 || line.discountPercent > 100) && "border-danger")} />
+                        <input type="number" min={0} max={100} value={line.discountPercent} onChange={(e) => syncLine(line.id, { discountPercent: Number(e.target.value) })} className={cn("h-7 w-14 rounded border bg-background px-2 text-center text-[11px]", (line.discountPercent < 0 || line.discountPercent > 100) && "border-danger")} />
                       </td>
                       <td className="px-2 py-1.5">
-                        <div className="flex items-center gap-1">
-                          <select value={line.expiryMode} onChange={(e) => syncLine(line.id, { expiryMode: e.target.value as "date" | "days" })} className="h-7 rounded border bg-background px-1 text-[10px]">
-                            <option value="date">Ngày</option>
-                            <option value="days">Số ngày</option>
-                          </select>
-                          {line.expiryMode === "date" ? (
-                            <DateInput allowFuture value={line.expiryDate} onChange={(v) => syncLine(line.id, { expiryDate: v })} className="h-7" />
-                          ) : (
-                            <input type="number" value={line.expiryDays} onChange={(e) => syncLine(line.id, { expiryDays: Number(e.target.value) })} className={cn("h-7 w-16 rounded border bg-background px-2 text-center text-[11px]", line.expiryDays <= 0 && "border-danger")} placeholder="ngày" />
+                        {/* Two ALWAYS-VISIBLE inputs preserving the original Excel meaning */}
+                        <div className="space-y-1">
+                          <div className="inline-flex rounded-md border bg-muted/40 p-0.5 text-[10px]">
+                            <button type="button" onClick={() => syncLine(line.id, { expiryMode: "date" })} className={cn("rounded px-1.5 py-0.5", line.expiryMode === "date" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Ngày HSD</button>
+                            <button type="button" onClick={() => syncLine(line.id, { expiryMode: "days" })} className={cn("rounded px-1.5 py-0.5", line.expiryMode === "days" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Số ngày</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1">
+                            <div>
+                              <DateInput allowFuture value={line.expiryDate} onChange={(v) => syncLine(line.id, { expiryDate: v, expiryMode: "date" })} className={cn("h-7 w-full", line.expiryMode === "date" ? "ring-1 ring-ring/40" : "opacity-70")} />
+                              <div className="text-[9px] text-muted-foreground">Ngày HSD</div>
+                            </div>
+                            <div>
+                              <input type="number" min={0} value={line.expiryDays} onChange={(e) => syncLine(line.id, { expiryDays: Math.max(0, Number(e.target.value)), expiryMode: "days" })} className={cn("h-7 w-full rounded border bg-card px-2 text-center text-[11px]", line.expiryMode === "days" && line.expiryDays <= 0 && "border-danger", line.expiryMode === "days" ? "ring-1 ring-ring/40" : "opacity-70")} placeholder="ngày" />
+                              <div className="text-[9px] text-muted-foreground">Số ngày SD</div>
+                            </div>
+                          </div>
+                          {line.expiryMode === "days" && line.expiryDays > 0 && (
+                            <div className="text-[10px] text-muted-foreground">≈ HSD: {computePreviewDate(line) || "—"}</div>
                           )}
                         </div>
-                        {line.expiryMode === "days" && line.expiryDate && (
-                          <div className="mt-0.5 text-[10px] text-muted-foreground">→ {line.expiryDate}</div>
-                        )}
                         <input value={line.note} onChange={(e) => syncLine(line.id, { note: e.target.value })} className="mt-1 h-6 w-full rounded border bg-background px-2 text-[10px]" placeholder="Ghi chú" />
                       </td>
                       <td className="px-2 py-1.5 text-[10px]">
