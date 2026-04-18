@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import {
-  Search,
   ChevronRight,
   Flame,
   Sparkles,
@@ -14,6 +13,7 @@ import { products, combos, categories } from "@/lib/mock-data";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ComboCard } from "@/components/storefront/ComboCard";
 import { HotProductsCarousel } from "@/components/storefront/HotProductsCarousel";
+import { HeroSlider } from "@/components/storefront/HeroSlider";
 import { Reveal } from "@/components/storefront/Reveal";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
