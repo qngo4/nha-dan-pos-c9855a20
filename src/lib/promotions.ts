@@ -292,6 +292,7 @@ export interface PromotionApplication {
   promotionId: string;
   promotionName: string;
   type: PromotionType;
+  status: "eligible" | "ineligible" | "unavailable";
   discount: number;          // amount off subtotal (VND)
   shippingDiscount: number;  // amount off shipping
   freeItems: { productId: string; productName: string; quantity: number }[];
@@ -317,60 +318,99 @@ function scopedSubtotal(cart: Cart, p: Promotion, productCategory?: Record<strin
   return cart.lines.filter((l) => ids.has(productCategory[l.productId])).reduce((s, l) => s + l.unitPrice * l.quantity, 0);
 }
 
+function hasCartItems(cart: Cart): boolean {
+  return cart.lines.some((line) => line.quantity > 0);
+}
+
+function hasScopedItems(cart: Cart, p: Promotion, productCategory?: Record<string, string>): boolean {
+  if (p.scope.kind === "all") return hasCartItems(cart);
+  if (p.scope.kind === "products") {
+    const ids = new Set(p.scope.productIds);
+    return cart.lines.some((line) => ids.has(line.productId) && line.quantity > 0);
+  }
+  if (!productCategory) return false;
+  const ids = new Set(p.scope.categoryIds);
+  return cart.lines.some((line) => ids.has(productCategory[line.productId]) && line.quantity > 0);
+}
+
+function scopeMismatchReason(p: Promotion): string {
+  return p.scope.kind === "all" ? "Chưa có sản phẩm áp dụng" : "Không đúng phạm vi áp dụng";
+}
+
 export function applyPromotionToCart(
   cart: Cart,
   p: Promotion,
   ctx?: { productCategory?: Record<string, string> }
 ): PromotionApplication {
-  const skip = (reason: string): PromotionApplication => ({
-    promotionId: p.id, promotionName: p.name, type: p.type,
+  const skip = (reason: string, status: PromotionApplication["status"] = "ineligible"): PromotionApplication => ({
+    promotionId: p.id, promotionName: p.name, type: p.type, status,
     discount: 0, shippingDiscount: 0, freeItems: [], reason: formatPromotionSummary(p),
     applied: false, skipReason: reason,
   });
 
-  if (!isWithinDate(p)) return skip("Ngoài thời gian áp dụng");
+  if (!isWithinDate(p)) return skip("Ngoài thời gian áp dụng", "unavailable");
 
   const eligibleSubtotal = scopedSubtotal(cart, p, ctx?.productCategory);
+  const cartHasItems = hasCartItems(cart);
+  const matchesScope = hasScopedItems(cart, p, ctx?.productCategory);
 
   switch (p.type) {
     case "percent": {
+      if (!cartHasItems) return skip(p.minOrder && p.minOrder > 0 ? "Chưa đạt đơn tối thiểu" : scopeMismatchReason(p));
+      if (!matchesScope || eligibleSubtotal <= 0) return skip(scopeMismatchReason(p));
       if (p.minOrder && cart.subtotal < p.minOrder) return skip("Chưa đạt đơn tối thiểu");
       let discount = Math.floor((eligibleSubtotal * p.percent) / 100);
       if (p.maxDiscount && p.maxDiscount > 0) discount = Math.min(discount, p.maxDiscount);
-      return { ...skip(""), discount, shippingDiscount: 0, applied: discount > 0, skipReason: undefined };
+      if (discount <= 0) return skip("Chưa có giá trị giảm hợp lệ");
+      return { ...skip("", "eligible"), discount, shippingDiscount: 0, applied: true, skipReason: undefined };
     }
     case "fixed": {
+      if (!cartHasItems) return skip(p.minOrder && p.minOrder > 0 ? "Chưa đạt đơn tối thiểu" : scopeMismatchReason(p));
+      if (!matchesScope || eligibleSubtotal <= 0) return skip(scopeMismatchReason(p));
       if (p.minOrder && cart.subtotal < p.minOrder) return skip("Chưa đạt đơn tối thiểu");
       const discount = Math.min(p.amount, eligibleSubtotal);
-      return { ...skip(""), discount, shippingDiscount: 0, applied: discount > 0, skipReason: undefined };
+      if (discount <= 0) return skip("Chưa có giá trị giảm hợp lệ");
+      return { ...skip("", "eligible"), discount, shippingDiscount: 0, applied: true, skipReason: undefined };
     }
     case "free-shipping": {
       if (p.minOrder && cart.subtotal < p.minOrder) return skip("Chưa đạt đơn tối thiểu");
       const ship = cart.shippingFee ?? 0;
+      if (ship <= 0) return skip("Chưa có phí ship để áp dụng");
       const cap = p.maxShippingDiscount ?? ship;
       const shippingDiscount = Math.min(ship, cap);
-      return { ...skip(""), shippingDiscount, applied: shippingDiscount > 0, skipReason: undefined };
+      if (shippingDiscount <= 0) return skip("Chưa có phí ship để áp dụng");
+      return { ...skip("", "eligible"), shippingDiscount, applied: true, skipReason: undefined };
     }
     case "buy-x-get-y": {
+      if (p.buyItems.length === 0 || p.getItems.length === 0) return skip("Khuyến mãi cấu hình chưa đầy đủ", "unavailable");
       // Count how many "sets" of buyItems exist in the cart.
       const qtyOf = (id: string) => cart.lines.filter((l) => l.productId === id).reduce((s, l) => s + l.quantity, 0);
       const sets = Math.min(...p.buyItems.map((b) => Math.floor(qtyOf(b.productId) / b.quantity)));
       const times = p.repeatable ? sets : sets > 0 ? 1 : 0;
-      if (times <= 0) return skip("Chưa đủ điều kiện mua");
+      if (times <= 0) return skip("Chưa đủ số lượng sản phẩm điều kiện");
       const freeItems = p.getItems.map((g) => ({ productId: g.productId, productName: g.productName, quantity: g.quantity * times }));
-      return { ...skip(""), freeItems, applied: true, skipReason: undefined };
+      return { ...skip("", "eligible"), freeItems, applied: true, skipReason: undefined };
     }
     case "gift": {
+      if (p.giftItems.length === 0) return skip("Khuyến mãi cấu hình chưa đầy đủ", "unavailable");
       let triggered = false;
       if (p.triggerType === "min-order") triggered = cart.subtotal >= p.triggerValue;
-      else if (p.triggerType === "buy-product") triggered = !!cart.lines.find((l) => l.productId === p.triggerProductId);
+      else if (p.triggerType === "buy-product") {
+        if (!p.triggerProductId) return skip("Khuyến mãi cấu hình chưa đầy đủ", "unavailable");
+        triggered = !!cart.lines.find((l) => l.productId === p.triggerProductId && l.quantity > 0);
+      }
       else if (p.triggerType === "buy-quantity") {
+        if (!p.triggerProductId) return skip("Khuyến mãi cấu hình chưa đầy đủ", "unavailable");
         const qty = cart.lines.filter((l) => l.productId === p.triggerProductId).reduce((s, l) => s + l.quantity, 0);
         triggered = qty >= p.triggerValue;
       }
-      if (!triggered) return skip("Chưa đạt điều kiện tặng");
+      if (!triggered) {
+        if (p.triggerType === "min-order") return skip("Chưa đạt đơn tối thiểu");
+        if (p.triggerType === "buy-product") return skip("Chưa có sản phẩm điều kiện");
+        return skip("Chưa đủ số lượng sản phẩm điều kiện");
+      }
       const freeItems = p.giftItems.map((g) => ({ productId: g.productId, productName: g.productName, quantity: g.quantity }));
-      return { ...skip(""), freeItems, applied: true, skipReason: undefined };
+      return { ...skip("", "eligible"), freeItems, applied: true, skipReason: undefined };
     }
   }
 }

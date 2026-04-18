@@ -241,20 +241,18 @@ export default function AdminPOS() {
       shippingFee,
     };
     const evaluated = activePromotions.map((p) => ({ p, app: applyPromotionToCart(cart, p, { productCategory }) }));
-    // Eligible first, then alphabetical within each group.
     evaluated.sort((a, b) => {
-      if (a.app.applied !== b.app.applied) return a.app.applied ? -1 : 1;
+      if (a.app.status !== b.app.status) return a.app.status === "eligible" ? -1 : 1;
       return a.p.name.localeCompare(b.p.name);
     });
     return evaluated.map(({ p, app }) => ({
       id: p.id,
       label: p.name,
-      sub: `${PROMOTION_TYPE_LABELS[p.type]} · ${formatPromotionSummary(p)}${!app.applied && app.skipReason ? ` — ${app.skipReason}` : ""}`,
-      group: app.applied ? "Đủ điều kiện" : "Chưa đủ điều kiện",
-      badge: app.applied
+      sub: `${PROMOTION_TYPE_LABELS[p.type]} · ${formatPromotionSummary(p)}${app.status !== "eligible" && app.skipReason ? ` — ${app.skipReason}` : ""}`,
+      group: app.status === "eligible" ? "Đủ điều kiện" : "Chưa đủ điều kiện",
+      badge: app.status === "eligible"
         ? { label: "Đủ điều kiện", tone: "success" as const }
-        : { label: app.skipReason || "Chưa đủ điều kiện", tone: "warning" as const },
-      // Keep ineligible selectable so cashier sees warning state and can plan.
+        : { label: app.status === "unavailable" ? "Không áp dụng" : "Chưa đủ điều kiện", tone: "warning" as const },
     }));
   }, [activePromotions, lines, shippingFee, productCategory]);
 
