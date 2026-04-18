@@ -13,7 +13,9 @@ export function HotProductsCarousel({ items }: { items: Product[] }) {
     align: "start",
     slidesToScroll: 1,
     containScroll: "trimSnaps",
-    duration: 24,
+    duration: 28,
+    dragFree: false,
+    skipSnaps: false,
   });
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
