@@ -332,6 +332,17 @@ export default function AdminPOS() {
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
+          {!totals.promoEligible && promoProgress && (
+            <div className="mt-2">
+              <div className="h-1.5 w-full rounded-full bg-warning/20 overflow-hidden">
+                <div
+                  className="h-full bg-warning transition-all"
+                  style={{ width: `${Math.round(promoProgress.ratio * 100)}%` }}
+                />
+              </div>
+              <div className="mt-1 text-warning">{promoProgress.message}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
