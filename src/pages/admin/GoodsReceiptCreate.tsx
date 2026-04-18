@@ -561,28 +561,40 @@ export default function AdminGoodsReceiptCreate() {
                       </td>
                       <td className="px-2 py-1.5">
                         <div className="grid grid-cols-2 gap-1">
-                          <input type="number" value={line.unitCost} onChange={(e) => syncLine(line.id, { unitCost: Number(e.target.value) })} className={cn("h-7 rounded border bg-background px-2 text-right text-[11px]", line.unitCost <= 0 && "border-danger")} placeholder="Nhập" />
-                          <input type="number" value={line.sellPrice} onChange={(e) => syncLine(line.id, { sellPrice: Number(e.target.value) })} className="h-7 rounded border bg-background px-2 text-right text-[11px]" placeholder="Bán" />
+                          <div className="relative">
+                            <input type="number" min={0} step={1000} value={line.unitCost} onChange={(e) => syncLine(line.id, { unitCost: Math.max(0, Number(e.target.value)) })} className={cn("h-7 w-full rounded border bg-background pl-2 pr-6 text-right text-[11px]", line.unitCost <= 0 && "border-danger")} placeholder="Nhập" />
+                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">₫</span>
+                          </div>
+                          <div className="relative">
+                            <input type="number" min={0} step={1000} value={line.sellPrice} onChange={(e) => syncLine(line.id, { sellPrice: Math.max(0, Number(e.target.value)) })} className="h-7 w-full rounded border bg-background pl-2 pr-6 text-right text-[11px]" placeholder="Bán" />
+                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground">₫</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-2 py-1.5 text-center">
-                        <input type="number" value={line.discountPercent} onChange={(e) => syncLine(line.id, { discountPercent: Number(e.target.value) })} className={cn("h-7 w-14 rounded border bg-background px-2 text-center text-[11px]", (line.discountPercent < 0 || line.discountPercent > 100) && "border-danger")} />
+                        <input type="number" min={0} max={100} value={line.discountPercent} onChange={(e) => syncLine(line.id, { discountPercent: Number(e.target.value) })} className={cn("h-7 w-14 rounded border bg-background px-2 text-center text-[11px]", (line.discountPercent < 0 || line.discountPercent > 100) && "border-danger")} />
                       </td>
                       <td className="px-2 py-1.5">
-                        <div className="flex items-center gap-1">
-                          <select value={line.expiryMode} onChange={(e) => syncLine(line.id, { expiryMode: e.target.value as "date" | "days" })} className="h-7 rounded border bg-background px-1 text-[10px]">
-                            <option value="date">Ngày</option>
-                            <option value="days">Số ngày</option>
-                          </select>
-                          {line.expiryMode === "date" ? (
-                            <DateInput allowFuture value={line.expiryDate} onChange={(v) => syncLine(line.id, { expiryDate: v })} className="h-7" />
-                          ) : (
-                            <input type="number" value={line.expiryDays} onChange={(e) => syncLine(line.id, { expiryDays: Number(e.target.value) })} className={cn("h-7 w-16 rounded border bg-background px-2 text-center text-[11px]", line.expiryDays <= 0 && "border-danger")} placeholder="ngày" />
+                        {/* Two ALWAYS-VISIBLE inputs preserving the original Excel meaning */}
+                        <div className="space-y-1">
+                          <div className="inline-flex rounded-md border bg-muted/40 p-0.5 text-[10px]">
+                            <button type="button" onClick={() => syncLine(line.id, { expiryMode: "date" })} className={cn("rounded px-1.5 py-0.5", line.expiryMode === "date" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Ngày HSD</button>
+                            <button type="button" onClick={() => syncLine(line.id, { expiryMode: "days" })} className={cn("rounded px-1.5 py-0.5", line.expiryMode === "days" ? "bg-card font-semibold shadow-sm" : "text-muted-foreground")}>Số ngày</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1">
+                            <div>
+                              <DateInput allowFuture value={line.expiryDate} onChange={(v) => syncLine(line.id, { expiryDate: v, expiryMode: "date" })} className={cn("h-7 w-full", line.expiryMode === "date" ? "ring-1 ring-ring/40" : "opacity-70")} />
+                              <div className="text-[9px] text-muted-foreground">Ngày HSD</div>
+                            </div>
+                            <div>
+                              <input type="number" min={0} value={line.expiryDays} onChange={(e) => syncLine(line.id, { expiryDays: Math.max(0, Number(e.target.value)), expiryMode: "days" })} className={cn("h-7 w-full rounded border bg-card px-2 text-center text-[11px]", line.expiryMode === "days" && line.expiryDays <= 0 && "border-danger", line.expiryMode === "days" ? "ring-1 ring-ring/40" : "opacity-70")} placeholder="ngày" />
+                              <div className="text-[9px] text-muted-foreground">Số ngày SD</div>
+                            </div>
+                          </div>
+                          {line.expiryMode === "days" && line.expiryDays > 0 && (
+                            <div className="text-[10px] text-muted-foreground">≈ HSD: {computePreviewDate(line) || "—"}</div>
                           )}
                         </div>
-                        {line.expiryMode === "days" && line.expiryDate && (
-                          <div className="mt-0.5 text-[10px] text-muted-foreground">→ {line.expiryDate}</div>
-                        )}
                         <input value={line.note} onChange={(e) => syncLine(line.id, { note: e.target.value })} className="mt-1 h-6 w-full rounded border bg-background px-2 text-[10px]" placeholder="Ghi chú" />
                       </td>
                       <td className="px-2 py-1.5 text-[10px]">
