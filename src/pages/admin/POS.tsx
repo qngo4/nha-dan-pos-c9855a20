@@ -19,7 +19,7 @@ import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
-import { applyPromotionToCart, formatPromotionSummary, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
+import { applyPromotionToCart, formatPromotionSummary, getPromotionProgress, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
 
 type ScanMode = "hid" | "camera" | "manual";
 
