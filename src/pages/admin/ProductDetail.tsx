@@ -114,10 +114,30 @@ function AdminProductDetail() {
   const openAddVariant = () => setVariantForm({ ...emptyVariant, isDefault: !product || product.variants.length === 0 });
   const openEditVariant = (v: ProductVariant) => setVariantForm({ ...v });
 
+  const variantErrors = (() => {
+    const e: Record<string, string> = {};
+    if (!variantForm) return e;
+    if (!variantForm.code.trim()) e.code = "Bắt buộc";
+    if (!variantForm.name.trim()) e.name = "Bắt buộc";
+    const numericFields: Array<[keyof VariantForm, string]> = [
+      ["sellPrice", "Giá bán"], ["costPrice", "Giá nhập"],
+      ["piecesPerImportUnit", "Số lượng/ĐV nhập"], ["stock", "Tồn kho hiện tại"],
+      ["minStock", "Tồn kho tối thiểu"], ["expiryDays", "Số ngày hết hạn"],
+    ];
+    for (const [k, label] of numericFields) {
+      const v = Number((variantForm as any)[k]);
+      if (Number.isNaN(v)) e[k as string] = `${label} không hợp lệ`;
+      else if (v < 0) e[k as string] = `${label} không được âm`;
+    }
+    if (!e.sellPrice && variantForm.sellPrice <= 0) e.sellPrice = "Giá bán phải > 0";
+    if (!e.piecesPerImportUnit && variantForm.piecesPerImportUnit <= 0) e.piecesPerImportUnit = "Phải > 0";
+    return e;
+  })();
+  const variantHasErrors = Object.keys(variantErrors).length > 0;
+
   const handleSaveVariant = () => {
     if (!product || !variantForm) return;
-    if (!variantForm.code.trim() || !variantForm.name.trim()) { toast.error("Nhập mã và tên phân loại"); return; }
-    if (variantForm.sellPrice <= 0) { toast.error("Giá bán phải lớn hơn 0"); return; }
+    if (variantHasErrors) { toast.error("Vui lòng sửa các trường không hợp lệ"); return; }
     if (variantForm.id) {
       productActions.updateVariant(product.id, variantForm.id, variantForm);
       toast.success("Đã cập nhật phân loại");
