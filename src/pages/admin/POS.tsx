@@ -19,7 +19,7 @@ import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
-import { formatPromotionSummary, PROMOTION_TYPE_LABELS, type Promotion } from "@/lib/promotions";
+import { applyPromotionToCart, formatPromotionSummary, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
 
 type ScanMode = "hid" | "camera" | "manual";
 
@@ -57,14 +57,15 @@ export default function AdminPOS() {
     [storeProducts],
   );
 
-  // Eligible promotions: active + within date range
-  const today = new Date().toISOString().slice(0, 10);
-  const eligiblePromos = useMemo(
-    () => promotions.filter((p) => p.active && today >= p.startDate && today <= p.endDate),
-    [promotions, today],
+  // All active promotions (date window enforced inside applyPromotionToCart).
+  // We keep BOTH eligible and ineligible promotions visible in the selector,
+  // grouped by eligibility so cashiers see options even when cart isn't yet qualifying.
+  const activePromotions = useMemo(
+    () => promotions.filter((p) => p.active),
+    [promotions],
   );
   const selectedPromotion: Promotion | null =
-    eligiblePromos.find((p) => p.id === promotionId) ?? null;
+    activePromotions.find((p) => p.id === promotionId) ?? null;
 
   // Compute totals
   const totals = useMemo(
