@@ -147,52 +147,65 @@ export function PromotionFormShell({ promo, onClose, onSave }: Props) {
             </div>
           </Section>
 
-          {/* Section 5: Scope */}
-          <Section title="Phạm vi áp dụng">
-            <div className="flex gap-2">
-              {([
-                { v: "all", l: "Toàn bộ" },
-                { v: "categories", l: "Danh mục" },
-                { v: "products", l: "Sản phẩm" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.v}
-                  type="button"
-                  onClick={() => setScopeKind(opt.v)}
-                  className={`flex-1 h-9 text-xs font-medium rounded-md border ${form.scope.kind === opt.v ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}
-                >
-                  {opt.l}
-                </button>
-              ))}
-            </div>
-            {form.scope.kind === "all" && (
-              <p className="text-[11px] text-muted-foreground mt-2">Áp dụng cho tất cả sản phẩm.</p>
-            )}
-            {form.scope.kind === "categories" && (
-              <div className="mt-2 rounded-md border bg-muted/30 p-2">
-                <MultiPicker
-                  options={categories.map((c) => ({ id: c.id, label: c.name, sub: `${c.productCount} SP` }))}
-                  selectedIds={form.scope.categoryIds}
-                  onToggle={toggleScopeId}
-                  onClear={clearScopeIds}
-                  placeholder="Tìm danh mục..."
-                />
-                {e.scope && <p className="text-[11px] text-danger mt-1">{e.scope}</p>}
+          {/* Section 5: Scope — only for discount-based types */}
+          {supportsScope(form.type) ? (
+            <Section title="Phạm vi áp dụng">
+              <div className="flex gap-2">
+                {([
+                  { v: "all", l: "Toàn bộ" },
+                  { v: "categories", l: "Danh mục" },
+                  { v: "products", l: "Sản phẩm" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => setScopeKind(opt.v)}
+                    className={`flex-1 h-9 text-xs font-medium rounded-md border ${form.scope.kind === opt.v ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}
+                  >
+                    {opt.l}
+                  </button>
+                ))}
               </div>
-            )}
-            {form.scope.kind === "products" && (
-              <div className="mt-2 rounded-md border bg-muted/30 p-2">
-                <MultiPicker
-                  options={products.map((p) => ({ id: p.id, label: p.name, sub: p.code }))}
-                  selectedIds={form.scope.productIds}
-                  onToggle={toggleScopeId}
-                  onClear={clearScopeIds}
-                  placeholder="Tìm sản phẩm hoặc mã SP..."
-                />
-                {e.scope && <p className="text-[11px] text-danger mt-1">{e.scope}</p>}
+              {form.scope.kind === "all" && (
+                <p className="text-[11px] text-muted-foreground mt-2">Áp dụng cho tất cả sản phẩm.</p>
+              )}
+              {form.scope.kind === "categories" && (
+                <div className="mt-2 rounded-md border bg-muted/30 p-2">
+                  <MultiPicker
+                    options={categories.map((c) => ({ id: c.id, label: c.name, sub: `${c.productCount} SP` }))}
+                    selectedIds={form.scope.categoryIds}
+                    onToggle={toggleScopeId}
+                    onClear={clearScopeIds}
+                    placeholder="Tìm danh mục..."
+                  />
+                  {e.scope && <p className="text-[11px] text-danger mt-1">{e.scope}</p>}
+                </div>
+              )}
+              {form.scope.kind === "products" && (
+                <div className="mt-2 rounded-md border bg-muted/30 p-2">
+                  <MultiPicker
+                    options={products.map((p) => ({ id: p.id, label: p.name, sub: p.code }))}
+                    selectedIds={form.scope.productIds}
+                    onToggle={toggleScopeId}
+                    onClear={clearScopeIds}
+                    placeholder="Tìm sản phẩm hoặc mã SP..."
+                  />
+                  {e.scope && <p className="text-[11px] text-danger mt-1">{e.scope}</p>}
+                </div>
+              )}
+            </Section>
+          ) : (
+            <Section title="Phạm vi áp dụng">
+              <div className="rounded-md border bg-muted/30 p-2.5 text-[11px] text-muted-foreground leading-relaxed">
+                {form.type === "buy-x-get-y" &&
+                  "Phạm vi được xác định bởi sản phẩm điều kiện (mua) và sản phẩm tặng ở phần Cấu hình."}
+                {form.type === "gift" &&
+                  "Phạm vi được xác định bởi điều kiện kích hoạt (đơn tối thiểu / sản phẩm chỉ định / số lượng) ở phần Cấu hình."}
+                {form.type === "free-shipping" &&
+                  "Áp dụng cho phí vận chuyển toàn đơn. Điều kiện cấu hình ở phần phía trên."}
               </div>
-            )}
-          </Section>
+            </Section>
+          )}
 
           {/* Section 6: Status */}
           <Section title="Trạng thái">
