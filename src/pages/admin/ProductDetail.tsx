@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ProductImportReview } from "@/components/shared/ProductImportReview";
+import { importStaging } from "@/lib/import-staging";
 import { useStore, productActions } from "@/lib/store";
 import type { ProductVariant } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
@@ -32,9 +34,29 @@ const emptyVariant: VariantForm = {
 export default function AdminProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const isImportMode = params.get("mode") === "import";
   const { products, categories } = useStore();
   const isNew = !id || id === "new";
   const product = isNew ? null : products.find(p => p.id === id);
+
+  // Pull staged import rows once when entering import mode
+  const [importStage] = useState(() => (isImportMode && isNew ? importStaging.takeProducts() : null));
+
+  if (isImportMode && isNew && importStage) {
+    return (
+      <ProductImportReview
+        filename={importStage.filename}
+        rows={importStage.rows}
+        onCancel={() => navigate("/admin/products")}
+        onSaved={() => { /* navigate handled inside */ }}
+      />
+    );
+  }
+  if (isImportMode && isNew && !importStage) {
+    // Came in directly without staged data — bounce back
+    navigate("/admin/products", { replace: true });
+  }
 
   const [activeTab, setActiveTab] = useState<"general" | "variants" | "images">("general");
   const [variantForm, setVariantForm] = useState<VariantForm | null>(null);
