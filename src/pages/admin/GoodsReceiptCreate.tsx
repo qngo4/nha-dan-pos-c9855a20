@@ -54,9 +54,11 @@ function createLineId(prefix = "line") {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function convertImportedRow(row: ReceiptImportRow, receiptDate: string, index: number): ReceiptLineDraft {
-  const expiryMode: "date" | "days" = row.expiryDate ? "date" : row.expiryDays ? "days" : "date";
-  const expiryDate = row.expiryDate || (row.expiryDays ? new Date(new Date(receiptDate).getTime() + row.expiryDays * 86400000).toISOString().slice(0, 10) : "");
+function convertImportedRow(row: ReceiptImportRow, _receiptDate: string, index: number): ReceiptLineDraft {
+  // Preserve the ORIGINAL imported meaning. Do NOT auto-convert shelf-life days into a calendar date.
+  const hasDate = !!row.expiryDate;
+  const hasDays = !!(row.expiryDays && row.expiryDays > 0);
+  const expiryMode: "date" | "days" = hasDate ? "date" : hasDays ? "days" : "date";
   return {
     id: createLineId(`imp-${index}`),
     sourceRow: row.sourceRow,
@@ -76,8 +78,8 @@ function convertImportedRow(row: ReceiptImportRow, receiptDate: string, index: n
     unitCost: row.unitCost,
     sellPrice: row.sellPrice,
     discountPercent: row.discountPercent,
-    expiryDate,
-    expiryDays: row.expiryDays || 0,
+    expiryDate: hasDate ? row.expiryDate : "", // keep empty if Excel only had shelf-life days
+    expiryDays: hasDays ? row.expiryDays! : 0,
     expiryMode,
     note: row.note || "",
     fromImport: true,
