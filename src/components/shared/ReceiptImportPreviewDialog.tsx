@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle, Sparkles, RefreshCw, PackagePlus, Layers } from "lucide-react";
+import { Upload, X, FileSpreadsheet, AlertTriangle, CheckCircle2, AlertCircle, Sparkles, RefreshCw, PackagePlus, Layers, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { products } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
+import { importStaging } from "@/lib/import-staging";
 
 export type ReceiptImportOutcome =
   | "create-product-and-variant"
@@ -37,7 +39,10 @@ export interface ReceiptImportRow {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onConfirm: (rows: ReceiptImportRow[], meta: { supplierName: string; filename: string; receiptDate: string }) => void;
+  /** Optional. New default flow stages rows + navigates to /admin/goods-receipts/create?mode=import. */
+  onConfirm?: (rows: ReceiptImportRow[], meta: { supplierName: string; filename: string; receiptDate: string }) => void;
+  /** When true, the modal still calls onConfirm (used inside the create screen itself to merge into current draft). */
+  inlineMode?: boolean;
 }
 
 // Pass-1 simulated rules using existing in-memory products as the "database"
@@ -140,7 +145,8 @@ const outcomeLabels: Record<ReceiptImportOutcome, { label: string; icon: typeof 
   "ok": { label: "Sẵn sàng nhập", icon: CheckCircle2, cls: "bg-success-soft text-success" },
 };
 
-export function ReceiptImportPreviewDialog({ open, onClose, onConfirm }: Props) {
+export function ReceiptImportPreviewDialog({ open, onClose, onConfirm, inlineMode }: Props) {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ReceiptImportRow[] | null>(null);
   const [filename, setFilename] = useState<string>("");
   const [supplierName, setSupplierName] = useState<string>("Nhập từ Excel");
@@ -188,8 +194,17 @@ export function ReceiptImportPreviewDialog({ open, onClose, onConfirm }: Props) 
 
   const handleConfirm = () => {
     if (!rows || stats.error > 0) return;
-    onConfirm(rows, { supplierName: supplierName || "Nhập từ Excel", filename, receiptDate });
-    toast.success(`Đã tạo phiếu nhập từ ${rows.length} dòng`);
+    const meta = { supplierName: supplierName || "Nhập từ Excel", filename, receiptDate };
+    if (inlineMode && onConfirm) {
+      onConfirm(rows, meta);
+      toast.success(`Đã thêm ${rows.length} dòng từ Excel vào phiếu`);
+    } else {
+      // Stage and route to dedicated create screen for review/fix/save
+      importStaging.setReceipt({ filename, rows, meta: { supplierName: meta.supplierName, receiptDate }, createdAt: Date.now() });
+      onConfirm?.(rows, meta);
+      toast.success(`Đã chuyển ${rows.length} dòng sang màn hình tạo phiếu nhập để xem lại`);
+      navigate("/admin/goods-receipts/create?mode=import");
+    }
     setRows(null); setFilename(""); onClose();
   };
 
@@ -339,7 +354,9 @@ export function ReceiptImportPreviewDialog({ open, onClose, onConfirm }: Props) 
           <p className="text-[11px] text-muted-foreground">
             {rows && (blocked
               ? "Sửa hết lỗi để tiếp tục."
-              : `${stats.ready + stats.warning} dòng sẽ được nhập · Tổng ước tính ${formatVND(stats.cost)}`)}
+              : inlineMode
+                ? `${stats.ready + stats.warning} dòng sẽ được thêm vào phiếu hiện tại · Tổng ${formatVND(stats.cost)}`
+                : `${stats.ready + stats.warning} dòng sẽ được chuyển sang màn hình tạo phiếu để xem lại · Tổng ${formatVND(stats.cost)}`)}
           </p>
           <div className="flex items-center gap-2">
             <button onClick={handleCancel} className="px-3 py-1.5 text-sm font-medium border rounded-md hover:bg-muted">Hủy</button>
@@ -347,9 +364,11 @@ export function ReceiptImportPreviewDialog({ open, onClose, onConfirm }: Props) 
               onClick={handleConfirm}
               disabled={!rows || blocked || rows.length === 0}
               title={blocked ? `Còn ${stats.error} lỗi cần sửa` : undefined}
-              className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Tạo phiếu nhập {rows && !blocked ? `(${rows.length} dòng)` : ""}
+              {inlineMode ? "Thêm vào phiếu" : "Tiếp tục xem lại"}
+              {rows && !blocked ? ` (${rows.length} dòng)` : ""}
+              {!inlineMode && <ArrowRight className="h-3.5 w-3.5" />}
             </button>
           </div>
         </div>
