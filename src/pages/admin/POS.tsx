@@ -224,11 +224,39 @@ export default function AdminPOS() {
     p.active && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const promoOptions = eligiblePromos.map((p) => ({
-    id: p.id,
-    label: p.name,
-    sub: `${PROMOTION_TYPE_LABELS[p.type]} · ${formatPromotionSummary(p)}`,
-  }));
+  // Build promotion options with per-promo eligibility evaluation.
+  // Eligible promos appear in group "Đủ điều kiện" first, ineligible (with reason) below.
+  const promoOptions = useMemo(() => {
+    const billable = lines.filter((l) => !l.reward);
+    const subtotal = billable.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+    const cart: Cart = {
+      lines: billable.map((l) => ({
+        productId: l.productId,
+        variantId: l.variantId,
+        productName: l.productName,
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+      })),
+      subtotal,
+      shippingFee,
+    };
+    const evaluated = activePromotions.map((p) => ({ p, app: applyPromotionToCart(cart, p, { productCategory }) }));
+    // Eligible first, then alphabetical within each group.
+    evaluated.sort((a, b) => {
+      if (a.app.applied !== b.app.applied) return a.app.applied ? -1 : 1;
+      return a.p.name.localeCompare(b.p.name);
+    });
+    return evaluated.map(({ p, app }) => ({
+      id: p.id,
+      label: p.name,
+      sub: `${PROMOTION_TYPE_LABELS[p.type]} · ${formatPromotionSummary(p)}${!app.applied && app.skipReason ? ` — ${app.skipReason}` : ""}`,
+      group: app.applied ? "Đủ điều kiện" : "Chưa đủ điều kiện",
+      badge: app.applied
+        ? { label: "Đủ điều kiện", tone: "success" as const }
+        : { label: app.skipReason || "Chưa đủ điều kiện", tone: "warning" as const },
+      // Keep ineligible selectable so cashier sees warning state and can plan.
+    }));
+  }, [activePromotions, lines, shippingFee, productCategory]);
 
   // ------ Render helpers ------
   const SummaryBreakdown = () => (
