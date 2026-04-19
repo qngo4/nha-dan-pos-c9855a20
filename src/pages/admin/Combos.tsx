@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, comboActions, computeDerivedStock } from "@/lib/store";
 import type { Combo, ComboItem } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
