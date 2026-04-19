@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, comboActions, computeDerivedStock } from "@/lib/store";
 import type { Combo, ComboItem } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
@@ -25,9 +28,25 @@ export default function AdminCombos() {
   const [form, setForm] = useState<ComboForm | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Combo | null>(null);
 
-  const filtered = combos.filter(c =>
+  const filtered = useMemo(() => combos.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
-  );
+  ), [combos, search]);
+
+  type SortKey = "name" | "code" | "components" | "stock" | "price" | "status";
+  const tc = useTableControls<Combo, SortKey>({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "name", dir: "asc" },
+    sortAccessors: {
+      name: (c) => c.name,
+      code: (c) => c.code,
+      components: (c) => c.components.length,
+      stock: (c) => c.derivedStock,
+      price: (c) => c.price,
+      status: (c) => (c.active ? 1 : 0),
+    },
+    resetToken: search,
+  });
 
   const openCreate = () => setForm({ ...emptyForm });
   const openEdit = (c: Combo) => setForm({ id: c.id, code: c.code, name: c.name, price: c.price, active: c.active, components: [...c.components] });
@@ -222,17 +241,17 @@ export default function AdminCombos() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Combo</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Mã</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Thành phần</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Tồn kho</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Giá combo</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
+                  <SortableTh label="Combo" sortKey="name" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Mã" sortKey="code" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Thành phần" sortKey="components" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+                  <SortableTh label="Tồn kho" sortKey="stock" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+                  <SortableTh label="Giá combo" sortKey="price" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                  <SortableTh label="Trạng thái" sortKey="status" sort={tc.sort} onSort={tc.toggleSort} align="center" />
                   <th className="w-32" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(combo => {
+                {tc.pageRows.map(combo => {
                   const hasLowComponent = combo.components.some(c => c.stock < 10);
                   return (
                     <tr key={combo.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", combo.derivedStock === 0 && "bg-danger-soft/30")}>
@@ -276,7 +295,7 @@ export default function AdminCombos() {
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
-            {filtered.map(combo => (
+            {tc.pageRows.map(combo => (
               <div key={combo.id} className="bg-card rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -307,6 +326,17 @@ export default function AdminCombos() {
               </div>
             ))}
           </div>
+
+          <TablePagination
+            page={tc.page}
+            totalPages={tc.totalPages}
+            pageSize={tc.pageSize}
+            onPageChange={tc.setPage}
+            onPageSizeChange={tc.setPageSize}
+            rangeStart={tc.rangeStart}
+            rangeEnd={tc.rangeEnd}
+            total={tc.total}
+          />
         </>
       )}
 

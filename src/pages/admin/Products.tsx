@@ -2,10 +2,13 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ImportPreviewDialog } from "@/components/shared/ImportPreviewDialog";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, productActions } from "@/lib/store";
 import type { Product } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Search, Plus, Package, MoreHorizontal, Upload, Pencil, Trash2, Power, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -38,10 +41,30 @@ export default function AdminProducts() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const filtered = products.filter(p => {
+  const filtered = useMemo(() => products.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.code.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory && p.categoryId !== filterCategory) return false;
     return true;
+  }), [products, search, filterCategory]);
+
+  type SortKey = "name" | "code" | "category" | "variants" | "stock" | "status" | "price";
+  const tc = useTableControls<Product, SortKey>({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "name", dir: "asc" },
+    sortAccessors: {
+      name: (p) => p.name,
+      code: (p) => p.code,
+      category: (p) => p.categoryName ?? "",
+      variants: (p) => p.variants.length,
+      stock: (p) => p.variants.reduce((s, v) => s + v.stock, 0),
+      status: (p) => (p.active ? 1 : 0),
+      price: (p) => {
+        const dv = p.variants.find(v => v.isDefault) || p.variants[0];
+        return dv?.sellPrice ?? 0;
+      },
+    },
+    resetToken: `${search}|${filterCategory ?? ""}`,
   });
 
   const handleToggleActive = (p: Product) => {
@@ -110,18 +133,18 @@ export default function AdminProducts() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Sản phẩm</th>
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Mã</th>
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Danh mục</th>
-              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Phân loại</th>
-              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Tồn kho</th>
-              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
-              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Giá bán</th>
+              <SortableTh label="Sản phẩm" sortKey="name" sort={tc.sort} onSort={tc.toggleSort} />
+              <SortableTh label="Mã" sortKey="code" sort={tc.sort} onSort={tc.toggleSort} />
+              <SortableTh label="Danh mục" sortKey="category" sort={tc.sort} onSort={tc.toggleSort} />
+              <SortableTh label="Phân loại" sortKey="variants" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+              <SortableTh label="Tồn kho" sortKey="stock" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+              <SortableTh label="Trạng thái" sortKey="status" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+              <SortableTh label="Giá bán" sortKey="price" sort={tc.sort} onSort={tc.toggleSort} align="right" />
               <th className="w-10" />
             </tr>
           </thead>
           <tbody>
-            {filtered.map(product => {
+            {tc.pageRows.map(product => {
               const stockSignal = getStockSignal(product);
               const dv = product.variants.find(v => v.isDefault) || product.variants[0];
               const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
@@ -179,7 +202,7 @@ export default function AdminProducts() {
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
-        {filtered.map(product => {
+        {tc.pageRows.map(product => {
           const stockSignal = getStockSignal(product);
           const dv = product.variants.find(v => v.isDefault) || product.variants[0];
           const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
@@ -208,6 +231,17 @@ export default function AdminProducts() {
           );
         })}
       </div>
+
+      <TablePagination
+        page={tc.page}
+        totalPages={tc.totalPages}
+        pageSize={tc.pageSize}
+        onPageChange={tc.setPage}
+        onPageSizeChange={tc.setPageSize}
+        rangeStart={tc.rangeStart}
+        rangeEnd={tc.rangeEnd}
+        total={tc.total}
+      />
 
       <ConfirmDialog
         open={!!confirmDelete}
