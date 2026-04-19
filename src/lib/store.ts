@@ -11,6 +11,7 @@ import {
   suppliers as initialSuppliers,
   userAccounts as initialUsers,
   promotions as initialPromotionsRaw,
+  invoices as initialInvoices,
   type Category,
   type Product,
   type ProductVariant,
@@ -19,6 +20,7 @@ import {
   type Customer,
   type Supplier,
   type UserAccount,
+  type Invoice,
 } from "./mock-data";
 import { migratePromotion, type Promotion } from "./promotions";
 
@@ -30,6 +32,7 @@ interface State {
   suppliers: Supplier[];
   users: UserAccount[];
   promotions: Promotion[];
+  invoices: Invoice[];
 }
 
 let state: State = {
@@ -40,6 +43,7 @@ let state: State = {
   suppliers: [...initialSuppliers],
   users: [...initialUsers],
   promotions: (initialPromotionsRaw as any[]).map((p) => migratePromotion({ ...p, id: p.id })),
+  invoices: [...initialInvoices],
 };
 
 const listeners = new Set<() => void>();
