@@ -28,9 +28,25 @@ export default function AdminCombos() {
   const [form, setForm] = useState<ComboForm | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Combo | null>(null);
 
-  const filtered = combos.filter(c =>
+  const filtered = useMemo(() => combos.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
-  );
+  ), [combos, search]);
+
+  type SortKey = "name" | "code" | "components" | "stock" | "price" | "status";
+  const tc = useTableControls<Combo, SortKey>({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "name", dir: "asc" },
+    sortAccessors: {
+      name: (c) => c.name,
+      code: (c) => c.code,
+      components: (c) => c.components.length,
+      stock: (c) => c.derivedStock,
+      price: (c) => c.price,
+      status: (c) => (c.active ? 1 : 0),
+    },
+    resetToken: search,
+  });
 
   const openCreate = () => setForm({ ...emptyForm });
   const openEdit = (c: Combo) => setForm({ id: c.id, code: c.code, name: c.name, price: c.price, active: c.active, components: [...c.components] });
