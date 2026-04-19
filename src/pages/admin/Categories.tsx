@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, categoryActions } from "@/lib/store";
 import type { Category } from "@/lib/mock-data";
 import { Plus, Pencil, Trash2, FolderTree, Check, Power } from "lucide-react";
@@ -18,7 +21,22 @@ export default function AdminCategories() {
   const [form, setForm] = useState<FormState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Category | null>(null);
 
-  const filtered = categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = useMemo(
+    () => categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())),
+    [categories, search],
+  );
+
+  const tc = useTableControls<Category, "name" | "products" | "status">({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "name", dir: "asc" },
+    sortAccessors: {
+      name: (c) => c.name,
+      products: (c) => c.productCount,
+      status: (c) => (c.active ? 1 : 0),
+    },
+    resetToken: search,
+  });
 
   const openCreate = () => setForm({ ...empty });
   const openEdit = (c: Category) => setForm({ id: c.id, name: c.name, description: c.description });
@@ -98,15 +116,15 @@ export default function AdminCategories() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Tên danh mục</th>
+                <SortableTh label="Tên danh mục" sortKey="name" sort={tc.sort} onSort={tc.toggleSort} />
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden sm:table-cell">Mô tả</th>
-                <th className="text-center px-3 py-2 font-medium text-muted-foreground">Sản phẩm</th>
-                <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
+                <SortableTh label="Sản phẩm" sortKey="products" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+                <SortableTh label="Trạng thái" sortKey="status" sort={tc.sort} onSort={tc.toggleSort} align="center" />
                 <th className="w-32" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map(cat => (
+              {tc.pageRows.map(cat => (
                 <tr key={cat.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-3 py-2.5 font-medium">{cat.name}</td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{cat.description}</td>
@@ -131,6 +149,13 @@ export default function AdminCategories() {
               ))}
             </tbody>
           </table>
+          <div className="p-2 border-t">
+            <TablePagination
+              page={tc.page} totalPages={tc.totalPages} total={tc.total}
+              rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd}
+              pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize}
+            />
+          </div>
         </div>
       )}
 

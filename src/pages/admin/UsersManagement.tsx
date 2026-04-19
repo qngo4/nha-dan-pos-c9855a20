@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { UserFormDrawer } from "@/components/shared/UserFormDrawer";
 import { RowActions } from "@/components/shared/RowActions";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, userActions } from "@/lib/store";
 import { formatDateTime } from "@/lib/format";
 import { Plus, UserCog, Pencil, Shield, Trash2, KeyRound, Power, PowerOff } from "lucide-react";
@@ -22,6 +24,15 @@ export default function AdminUsers() {
   const filtered = useMemo(() => users.filter(u =>
     !search || u.username.toLowerCase().includes(search.toLowerCase()) || u.fullName.toLowerCase().includes(search.toLowerCase())
   ), [users, search]);
+
+  const tc = useTableControls<UserAccount, "name" | "username" | "role" | "lastLogin">({
+    data: filtered, pageSize: 20, initialSort: { key: "name", dir: "asc" },
+    sortAccessors: {
+      name: (u) => u.fullName, username: (u) => u.username, role: (u) => u.role,
+      lastLogin: (u) => (u.lastLogin ? new Date(u.lastLogin) : new Date(0)),
+    },
+    resetToken: search,
+  });
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
   const openEdit = (u: UserAccount) => { setEditing(u); setDrawerOpen(true); };
@@ -54,7 +65,7 @@ export default function AdminUsers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(u => (
+                {tc.pageRows.map(u => (
                   <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
@@ -110,7 +121,7 @@ export default function AdminUsers() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(u => (
+            {tc.pageRows.map(u => (
               <div key={u.id} className="bg-card rounded-lg border p-3" onClick={() => openEdit(u)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -131,6 +142,7 @@ export default function AdminUsers() {
               </div>
             ))}
           </div>
+          <TablePagination page={tc.page} totalPages={tc.totalPages} total={tc.total} rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd} pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize} />
         </>
       )}
 

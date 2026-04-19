@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -6,6 +6,8 @@ import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolb
 import { EmptyState } from "@/components/shared/EmptyState";
 import { stockAdjustments, type StockAdjustment } from "@/lib/mock-data";
 import { StockAdjustmentDetailDrawer } from "@/components/shared/StockAdjustmentDetailDrawer";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { formatDate } from "@/lib/format";
 import { Plus, ClipboardCheck, Eye, Pencil, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,10 +17,18 @@ export default function AdminStockAdjustments() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [detail, setDetail] = useState<StockAdjustment | null>(null);
 
-  const filtered = stockAdjustments.filter(a => {
+  const filtered = useMemo(() => stockAdjustments.filter(a => {
     if (search && !a.code.toLowerCase().includes(search.toLowerCase()) && !a.reason.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus && a.status !== filterStatus) return false;
     return true;
+  }), [search, filterStatus]);
+
+  const tc = useTableControls<StockAdjustment, "code" | "date" | "items">({
+    data: filtered, pageSize: 20, initialSort: { key: "date", dir: "desc" },
+    sortAccessors: {
+      code: (a) => a.code, date: (a) => new Date(a.createdDate), items: (a) => a.itemCount,
+    },
+    resetToken: `${search}|${filterStatus}`,
   });
 
   return (
@@ -62,7 +72,7 @@ export default function AdminStockAdjustments() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(a => (
+                {tc.pageRows.map(a => (
                   <tr key={a.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", a.status === 'draft' && "bg-info-soft/30")}>
                     <td className="px-3 py-2.5 font-mono text-xs font-medium">
                       <button onClick={() => setDetail(a)} className="hover:text-primary hover:underline">{a.code}</button>
@@ -91,7 +101,7 @@ export default function AdminStockAdjustments() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(a => (
+            {tc.pageRows.map(a => (
               <div key={a.id} onClick={() => setDetail(a)} className={cn("bg-card rounded-lg border p-3 cursor-pointer", a.status === 'draft' && "border-info/30")}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -107,6 +117,7 @@ export default function AdminStockAdjustments() {
               </div>
             ))}
           </div>
+          <TablePagination page={tc.page} totalPages={tc.totalPages} total={tc.total} rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd} pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize} />
         </>
       )}
 

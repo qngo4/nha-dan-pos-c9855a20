@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolbar";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { InvoiceDetailDrawer } from "@/components/shared/InvoiceDetailDrawer";
-import { invoices as initialInvoices, type Invoice } from "@/lib/mock-data";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { PeriodFilter, matchesPeriod, type PeriodValue } from "@/components/shared/PeriodFilter";
+import { useStore, invoiceActions } from "@/lib/store";
+import type { Invoice } from "@/lib/mock-data";
 import { formatVND, formatDateTime } from "@/lib/format";
+import { useTableControls } from "@/hooks/useTableControls";
 import { Receipt, Printer, XCircle, Trash2, Eye, ShieldAlert, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -16,35 +21,52 @@ const today = '2025-04-15';
 // Deterministic mock margin per invoice — keeps numbers stable per id.
 function profitFor(inv: Invoice) {
   if (inv.status === 'cancelled') return 0;
-  // Margin between 18% and 32%, deterministic per id length+number suffix
   const seed = inv.number.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
-  const margin = 0.18 + ((seed % 15) / 100); // 0.18 - 0.32
+  const margin = 0.18 + ((seed % 15) / 100);
   return Math.round(inv.total * margin);
 }
 
+type SortKey = "number" | "date" | "customer" | "total" | "profit" | "status";
+
 export default function AdminInvoices() {
-  const [invoiceList, setInvoiceList] = useState<Invoice[]>(initialInvoices);
+  const { invoices: invoiceList } = useStore();
   const initialQ = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('q') ?? '' : '';
   const [search, setSearch] = useState(initialQ);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [period, setPeriod] = useState<PeriodValue>({ preset: "all" });
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
 
-  const filtered = invoiceList.filter(inv => {
+  const filtered = useMemo(() => invoiceList.filter(inv => {
     if (search && !inv.number.toLowerCase().includes(search.toLowerCase()) && !inv.customerName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus && inv.status !== filterStatus) return false;
+    if (!matchesPeriod(inv.date, period)) return false;
     return true;
+  }), [invoiceList, search, filterStatus, period]);
+
+  const tc = useTableControls<Invoice, SortKey>({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "date", dir: "desc" },
+    sortAccessors: {
+      number: (i) => i.number,
+      date: (i) => new Date(i.date),
+      customer: (i) => i.customerName,
+      total: (i) => i.total,
+      profit: (i) => profitFor(i),
+      status: (i) => i.status,
+    },
+    resetToken: `${search}|${filterStatus}|${period.preset}|${period.from}|${period.to}`,
   });
 
   const totalProfit = filtered.reduce((s, i) => s + profitFor(i), 0);
-
   const canDeleteInvoice = (inv: Invoice) => inv.date.startsWith(today);
 
   const handleCancel = () => {
     if (!cancelTarget) return;
     const inv = invoiceList.find(i => i.id === cancelTarget);
-    setInvoiceList(prev => prev.map(i => i.id === cancelTarget ? { ...i, status: 'cancelled' } : i));
+    invoiceActions.update(cancelTarget, { status: 'cancelled' });
     toast.success(`Đã hủy hóa đơn ${inv?.number ?? ''}`);
     setCancelTarget(null);
   };
@@ -52,12 +74,11 @@ export default function AdminInvoices() {
   const handleDelete = () => {
     if (!deleteTarget) return;
     const inv = invoiceList.find(i => i.id === deleteTarget);
-    setInvoiceList(prev => prev.filter(i => i.id !== deleteTarget));
+    invoiceActions.remove(deleteTarget);
     toast.success(`Đã xóa hóa đơn ${inv?.number ?? ''}`);
     setDeleteTarget(null);
   };
 
-  // Open the printable detail drawer (drawer triggers proper print isolation)
   const handlePrint = (inv: Invoice) => setDetailInvoice(inv);
 
   return (
@@ -84,6 +105,8 @@ export default function AdminInvoices() {
         </>}
       />
 
+      <PeriodFilter value={period} onChange={setPeriod} />
+
       {filtered.length === 0 ? (
         <EmptyState icon={Receipt} title="Không tìm thấy hóa đơn" />
       ) : (
@@ -92,19 +115,19 @@ export default function AdminInvoices() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Số hóa đơn</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Thời gian</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Khách hàng</th>
+                  <SortableTh label="Số hóa đơn" sortKey="number" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Thời gian" sortKey="date" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Khách hàng" sortKey="customer" sort={tc.sort} onSort={tc.toggleSort} />
                   <th className="text-center px-3 py-2 font-medium text-muted-foreground">Thanh toán</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tổng</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Lợi nhuận</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
+                  <SortableTh label="Tổng" sortKey="total" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                  <SortableTh label="Lợi nhuận" sortKey="profit" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                  <SortableTh label="Trạng thái" sortKey="status" sort={tc.sort} onSort={tc.toggleSort} align="center" />
                   <th className="text-left px-3 py-2 font-medium text-muted-foreground hidden lg:table-cell">Người tạo</th>
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[120px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(inv => {
+                {tc.pageRows.map(inv => {
                   const profit = profitFor(inv);
                   const margin = inv.total ? profit / inv.total : 0;
                   return (
@@ -140,11 +163,9 @@ export default function AdminInvoices() {
                         {canDeleteInvoice(inv) ? (
                           <button onClick={() => setDeleteTarget(inv.id)} className="p-1 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Xóa"><Trash2 className="h-3.5 w-3.5" /></button>
                         ) : (
-                          <button
-                            disabled
-                            title="Chỉ được xóa hóa đơn trong ngày tạo"
-                            className="p-1 text-muted-foreground/40 cursor-not-allowed"
-                          ><ShieldAlert className="h-3.5 w-3.5" /></button>
+                          <button disabled title="Chỉ được xóa hóa đơn trong ngày tạo" className="p-1 text-muted-foreground/40 cursor-not-allowed">
+                            <ShieldAlert className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -155,7 +176,7 @@ export default function AdminInvoices() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(inv => {
+            {tc.pageRows.map(inv => {
               const profit = profitFor(inv);
               return (
               <div key={inv.id} className={cn("bg-card rounded-lg border p-3", inv.status === 'cancelled' && "opacity-60")}>
@@ -190,6 +211,12 @@ export default function AdminInvoices() {
               </div>
             );})}
           </div>
+
+          <TablePagination
+            page={tc.page} totalPages={tc.totalPages} total={tc.total}
+            rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd}
+            pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize}
+          />
         </>
       )}
 

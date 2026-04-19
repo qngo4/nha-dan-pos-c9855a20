@@ -11,6 +11,7 @@ import {
   suppliers as initialSuppliers,
   userAccounts as initialUsers,
   promotions as initialPromotionsRaw,
+  invoices as initialInvoices,
   type Category,
   type Product,
   type ProductVariant,
@@ -19,6 +20,7 @@ import {
   type Customer,
   type Supplier,
   type UserAccount,
+  type Invoice,
 } from "./mock-data";
 import { migratePromotion, type Promotion } from "./promotions";
 
@@ -30,6 +32,7 @@ interface State {
   suppliers: Supplier[];
   users: UserAccount[];
   promotions: Promotion[];
+  invoices: Invoice[];
 }
 
 let state: State = {
@@ -40,6 +43,7 @@ let state: State = {
   suppliers: [...initialSuppliers],
   users: [...initialUsers],
   promotions: (initialPromotionsRaw as any[]).map((p) => migratePromotion({ ...p, id: p.id })),
+  invoices: [...initialInvoices],
 };
 
 const listeners = new Set<() => void>();
@@ -254,3 +258,19 @@ export const promotionActions = {
     setState((s) => ({ ...s, promotions: s.promotions.filter((p) => p.id !== id) }));
   },
 };
+
+// ===== Invoices (POS-generated) =====
+export const invoiceActions = {
+  create(input: Omit<Invoice, "id">): Invoice {
+    const inv: Invoice = { ...input, id: uid("inv") };
+    setState((s) => ({ ...s, invoices: [inv, ...s.invoices] }));
+    return inv;
+  },
+  update(id: string, patch: Partial<Invoice>) {
+    setState((s) => ({ ...s, invoices: s.invoices.map((i) => (i.id === id ? { ...i, ...patch } : i)) }));
+  },
+  remove(id: string) {
+    setState((s) => ({ ...s, invoices: s.invoices.filter((i) => i.id !== id) }));
+  },
+};
+

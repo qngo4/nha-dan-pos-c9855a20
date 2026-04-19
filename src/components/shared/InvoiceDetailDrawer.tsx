@@ -1,7 +1,7 @@
-import { X, Printer, Receipt, User, Calendar, CreditCard } from "lucide-react";
+import { X, Printer, Receipt, User, Calendar, CreditCard, Gift, Tag, Truck, Percent } from "lucide-react";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import type { Invoice } from "@/lib/mock-data";
+import type { Invoice, InvoiceLine } from "@/lib/mock-data";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
 import { triggerPrint } from "@/lib/print";
 
@@ -10,9 +10,9 @@ interface Props {
   onClose: () => void;
 }
 
-// Mock line items (since invoices in mock don't carry items)
-function getMockLines(inv: Invoice) {
-  const sample = [
+// Fallback mock lines for legacy invoices (without snapshot lines)
+function getMockLines(inv: Invoice): InvoiceLine[] {
+  const sample: InvoiceLine[] = [
     { name: 'Mì Hảo Hảo - Tôm chua cay', code: 'SP001-01', qty: 5, price: 5000 },
     { name: 'Coca-Cola - Lon 330ml', code: 'SP002-01', qty: 3, price: 10000 },
     { name: 'Sữa Vinamilk - Hộp 180ml', code: 'SP003-01', qty: 2, price: 8000 },
@@ -23,8 +23,28 @@ function getMockLines(inv: Invoice) {
 
 export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
   if (!invoice) return null;
-  const lines = getMockLines(invoice);
-  const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
+
+  // Use snapshot when present (POS-generated). Fallback to mock for legacy.
+  const lines: InvoiceLine[] = invoice.lines && invoice.lines.length > 0 ? invoice.lines : getMockLines(invoice);
+  const billable = lines.filter((l) => !l.reward);
+  const rewards = lines.filter((l) => l.reward);
+  const computedSubtotal = billable.reduce((s, l) => s + l.qty * l.price, 0);
+
+  // Source-of-truth: stored breakdown from POS. Fallback derives a minimal one from totals.
+  const b = invoice.breakdown ?? {
+    subtotal: computedSubtotal,
+    manualDiscount: 0,
+    promoDiscount: Math.max(0, computedSubtotal - invoice.total),
+    promoName: undefined,
+    shippingFee: 0,
+    shippingDiscount: 0,
+    shippingPayable: 0,
+    vatPercent: 0,
+    vatBase: invoice.total,
+    vatAmount: 0,
+    total: invoice.total,
+    freeItems: [],
+  };
 
   const handlePrint = () => triggerPrint(`hóa đơn ${invoice.number}`);
 
@@ -52,12 +72,13 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
               <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> {formatDateTime(invoice.date)}</div>
               <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> {invoice.customerName}</div>
               <div className="flex items-center gap-2 text-muted-foreground"><CreditCard className="h-3.5 w-3.5" /> Người tạo: {invoice.createdBy}</div>
+              {invoice.note && <div className="text-xs text-muted-foreground italic">Ghi chú: {invoice.note}</div>}
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sản phẩm ({invoice.itemCount})</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sản phẩm ({billable.length})</h3>
               <div className="border rounded-lg divide-y">
-                {lines.map((l, i) => (
+                {billable.map((l, i) => (
                   <div key={i} className="p-3 flex items-center justify-between text-sm">
                     <div className="min-w-0">
                       <p className="font-medium truncate">{l.name}</p>
@@ -69,12 +90,62 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
               </div>
             </div>
 
+            {rewards.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-warning uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <Gift className="h-3 w-3" /> Quà tặng / Khuyến mãi ({rewards.length})
+                </h3>
+                <div className="border border-warning/30 bg-warning-soft/30 rounded-lg divide-y divide-warning/20">
+                  {rewards.map((l, i) => (
+                    <div key={i} className="p-3 flex items-center justify-between text-sm">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{l.name}</p>
+                        <p className="text-xs text-muted-foreground">{l.code} · SL {l.qty}{l.rewardSource ? ` · từ "${l.rewardSource}"` : ""}</p>
+                      </div>
+                      <span className="text-xs font-medium text-warning shrink-0">Miễn phí</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-muted/40 rounded-lg p-3 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatVND(subtotal)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Giảm giá</span><span>-{formatVND(Math.max(0, subtotal - invoice.total))}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatVND(b.subtotal)}</span></div>
+              {b.manualDiscount > 0 && (
+                <div className="flex justify-between text-danger">
+                  <span className="flex items-center gap-1"><Percent className="h-3 w-3" /> Chiết khấu thủ công</span>
+                  <span>-{formatVND(b.manualDiscount)}</span>
+                </div>
+              )}
+              {b.promoDiscount > 0 && (
+                <div className="flex justify-between text-danger">
+                  <span className="flex items-center gap-1"><Tag className="h-3 w-3" /> Khuyến mãi{b.promoName ? ` (${b.promoName})` : ""}</span>
+                  <span>-{formatVND(b.promoDiscount)}</span>
+                </div>
+              )}
+              {(b.shippingFee > 0 || b.shippingDiscount > 0) && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> Phí ship</span>
+                    <span>{formatVND(b.shippingFee)}</span>
+                  </div>
+                  {b.shippingDiscount > 0 && (
+                    <div className="flex justify-between text-success">
+                      <span className="flex items-center gap-1"><Truck className="h-3 w-3" /> Ưu đãi ship</span>
+                      <span>-{formatVND(b.shippingDiscount)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {b.vatAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">VAT ({b.vatPercent}%)</span>
+                  <span>+{formatVND(b.vatAmount)}</span>
+                </div>
+              )}
               <div className="border-t pt-1.5 flex justify-between font-bold text-base">
                 <span>Tổng cộng</span>
-                <span className="text-primary">{formatVND(invoice.total)}</span>
+                <span className="text-primary">{formatVND(b.total)}</span>
               </div>
             </div>
           </div>

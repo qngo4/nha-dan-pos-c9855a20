@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { SupplierFormDrawer } from "@/components/shared/SupplierFormDrawer";
 import { RowActions } from "@/components/shared/RowActions";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, supplierActions } from "@/lib/store";
 import { Plus, Truck, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
@@ -21,6 +23,12 @@ export default function AdminSuppliers() {
   const filtered = useMemo(() => suppliers.filter(s =>
     !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.code.toLowerCase().includes(search.toLowerCase()) || s.phone.includes(search)
   ), [suppliers, search]);
+
+  const tc = useTableControls<Supplier, "name" | "code">({
+    data: filtered, pageSize: 20, initialSort: { key: "name", dir: "asc" },
+    sortAccessors: { name: (s) => s.name, code: (s) => s.code },
+    resetToken: search,
+  });
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
   const openEdit = (s: Supplier) => { setEditing(s); setDrawerOpen(true); };
@@ -53,7 +61,7 @@ export default function AdminSuppliers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(s => (
+                {tc.pageRows.map(s => (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2.5">
                       <div>
@@ -91,7 +99,7 @@ export default function AdminSuppliers() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(s => (
+            {tc.pageRows.map(s => (
               <div key={s.id} className="bg-card rounded-lg border p-3" onClick={() => openEdit(s)}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -105,6 +113,7 @@ export default function AdminSuppliers() {
               </div>
             ))}
           </div>
+          <TablePagination page={tc.page} totalPages={tc.totalPages} total={tc.total} rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd} pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize} />
         </>
       )}
 

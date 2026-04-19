@@ -15,6 +15,8 @@ import {
   formatScope,
 } from "@/lib/promotions";
 import { PromotionFormShell } from "@/components/promotions/PromotionFormShell";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { Plus, Tags, Calendar, Pencil, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +45,12 @@ export default function AdminPromotions() {
     if (filterStatus === "inactive" && p.active) return false;
     if (filterType && p.type !== filterType) return false;
     return true;
+  });
+
+  const tc = useTableControls<typeof filtered[number], "name" | "type" | "start">({
+    data: filtered, pageSize: 20, initialSort: { key: "start", dir: "desc" },
+    sortAccessors: { name: (p) => p.name, type: (p) => p.type, start: (p) => new Date(p.startDate) },
+    resetToken: `${search}|${filterStatus}|${filterType}`,
   });
 
   const handleSave = (promo: Promotion) => {
@@ -113,7 +121,7 @@ export default function AdminPromotions() {
         />
       ) : (
         <div className="space-y-2">
-          {filtered.map((p) => {
+          {tc.pageRows.map((p) => {
             const summary = formatPromotionSummary(p);
             const scopeText = formatScope(p, { categoryNames, productNames });
             return (
@@ -153,6 +161,7 @@ export default function AdminPromotions() {
               </div>
             );
           })}
+          <TablePagination page={tc.page} totalPages={tc.totalPages} total={tc.total} rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd} pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize} />
         </div>
       )}
 
