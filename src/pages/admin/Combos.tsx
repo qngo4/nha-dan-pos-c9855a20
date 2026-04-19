@@ -241,17 +241,17 @@ export default function AdminCombos() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Combo</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Mã</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Thành phần</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Tồn kho</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Giá combo</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
+                  <SortableTh label="Combo" sortKey="name" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Mã" sortKey="code" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Thành phần" sortKey="components" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+                  <SortableTh label="Tồn kho" sortKey="stock" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+                  <SortableTh label="Giá combo" sortKey="price" sort={tc.sort} onSort={tc.toggleSort} align="right" />
+                  <SortableTh label="Trạng thái" sortKey="status" sort={tc.sort} onSort={tc.toggleSort} align="center" />
                   <th className="w-32" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(combo => {
+                {tc.pageRows.map(combo => {
                   const hasLowComponent = combo.components.some(c => c.stock < 10);
                   return (
                     <tr key={combo.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", combo.derivedStock === 0 && "bg-danger-soft/30")}>
