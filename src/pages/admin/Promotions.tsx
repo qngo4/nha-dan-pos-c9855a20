@@ -47,6 +47,12 @@ export default function AdminPromotions() {
     return true;
   });
 
+  const tc = useTableControls<typeof filtered[number], "name" | "type" | "start">({
+    data: filtered, pageSize: 20, initialSort: { key: "start", dir: "desc" },
+    sortAccessors: { name: (p) => p.name, type: (p) => p.type, start: (p) => new Date(p.startDate) },
+    resetToken: `${search}|${filterStatus}|${filterType}`,
+  });
+
   const handleSave = (promo: Promotion) => {
     promotionActions.upsert(promo);
     toast.success(promo.id ? `Đã cập nhật "${promo.name}"` : `Đã tạo "${promo.name}"`);
