@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, categoryActions } from "@/lib/store";
 import type { Category } from "@/lib/mock-data";
 import { Plus, Pencil, Trash2, FolderTree, Check, Power } from "lucide-react";
