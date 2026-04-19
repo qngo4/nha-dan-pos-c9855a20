@@ -202,7 +202,7 @@ export default function AdminProducts() {
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
-        {filtered.map(product => {
+        {tc.pageRows.map(product => {
           const stockSignal = getStockSignal(product);
           const dv = product.variants.find(v => v.isDefault) || product.variants[0];
           const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
@@ -231,6 +231,17 @@ export default function AdminProducts() {
           );
         })}
       </div>
+
+      <TablePagination
+        page={tc.page}
+        totalPages={tc.totalPages}
+        pageSize={tc.pageSize}
+        onPageChange={tc.setPage}
+        onPageSizeChange={tc.setPageSize}
+        rangeStart={tc.rangeStart}
+        rangeEnd={tc.rangeEnd}
+        total={tc.total}
+      />
 
       <ConfirmDialog
         open={!!confirmDelete}
