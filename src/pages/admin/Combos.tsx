@@ -295,7 +295,7 @@ export default function AdminCombos() {
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
-            {filtered.map(combo => (
+            {tc.pageRows.map(combo => (
               <div key={combo.id} className="bg-card rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
