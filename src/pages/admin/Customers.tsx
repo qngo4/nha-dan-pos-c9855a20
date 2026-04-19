@@ -147,6 +147,7 @@ export default function AdminCustomers() {
               </div>
             ))}
           </div>
+          <TablePagination page={tc.page} totalPages={tc.totalPages} total={tc.total} rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd} pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize} />
         </>
       )}
 
