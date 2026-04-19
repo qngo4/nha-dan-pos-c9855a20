@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Printer, Barcode as BarcodeIcon, Minus, Plus } from "lucide-react";
 import { triggerPrint } from "@/lib/print";
 import { formatVND } from "@/lib/format";
+import { Barcode } from "@/components/shared/Barcode";
 
 export interface BarcodeItem {
   productName: string;
@@ -148,9 +149,16 @@ function LabelPreview({ item, forPrint }: { item: BarcodeItem; forPrint?: boolea
         <div style={{ color: "#444" }}>{item.variantName}</div>
       )}
       <div style={{ display: "flex", justifyContent: "center", margin: "4px 0" }}>
-        <BarcodeBars code={item.code} />
+        <Barcode
+          value={item.code}
+          format="CODE128"
+          height={forPrint ? 44 : 50}
+          width={forPrint ? 1.4 : 1.5}
+          fontSize={forPrint ? 9 : 10}
+          margin={4}
+          displayValue
+        />
       </div>
-      <div style={{ fontFamily: "monospace" }}>{item.code}</div>
       {item.price != null && (
         <div style={{ fontWeight: "bold", marginTop: 2 }}>{formatVND(item.price)}</div>
       )}
