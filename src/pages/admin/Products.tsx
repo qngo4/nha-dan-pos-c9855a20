@@ -41,10 +41,30 @@ export default function AdminProducts() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const filtered = products.filter(p => {
+  const filtered = useMemo(() => products.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.code.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory && p.categoryId !== filterCategory) return false;
     return true;
+  }), [products, search, filterCategory]);
+
+  type SortKey = "name" | "code" | "category" | "variants" | "stock" | "status" | "price";
+  const tc = useTableControls<Product, SortKey>({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "name", dir: "asc" },
+    sortAccessors: {
+      name: (p) => p.name,
+      code: (p) => p.code,
+      category: (p) => p.categoryName ?? "",
+      variants: (p) => p.variants.length,
+      stock: (p) => p.variants.reduce((s, v) => s + v.stock, 0),
+      status: (p) => (p.active ? 1 : 0),
+      price: (p) => {
+        const dv = p.variants.find(v => v.isDefault) || p.variants[0];
+        return dv?.sellPrice ?? 0;
+      },
+    },
+    resetToken: `${search}|${filterCategory ?? ""}`,
   });
 
   const handleToggleActive = (p: Product) => {
