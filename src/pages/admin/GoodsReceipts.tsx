@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTableToolbar } from "@/components/shared/DataTableToolbar";
@@ -8,24 +8,47 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ReceiptImportPreviewDialog } from "@/components/shared/ReceiptImportPreviewDialog";
 import { GoodsReceiptDetailDrawer } from "@/components/shared/GoodsReceiptDetailDrawer";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { PeriodFilter, matchesPeriod, type PeriodValue } from "@/components/shared/PeriodFilter";
 import { goodsReceipts as initialReceipts, type GoodsReceipt } from "@/lib/mock-data";
 import { formatVND, formatDate } from "@/lib/format";
 import { useDrafts, draftActions } from "@/lib/drafts";
+import { useTableControls } from "@/hooks/useTableControls";
 import { Plus, FileInput, Eye, Trash2, Printer, ShieldAlert, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
+
+type SortKey = "number" | "date" | "supplier" | "items" | "total";
 
 export default function AdminGoodsReceipts() {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>(initialReceipts);
   const [search, setSearch] = useState('');
+  const [period, setPeriod] = useState<PeriodValue>({ preset: "all" });
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleteDraft, setDeleteDraft] = useState<string | null>(null);
   const [detail, setDetail] = useState<GoodsReceipt | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const drafts = useDrafts();
 
-  const filtered = receipts.filter(r =>
-    !search || r.number.toLowerCase().includes(search.toLowerCase()) || r.supplierName.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => receipts.filter(r => {
+    if (search && !r.number.toLowerCase().includes(search.toLowerCase()) && !r.supplierName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (!matchesPeriod(r.date, period)) return false;
+    return true;
+  }), [receipts, search, period]);
+
+  const tc = useTableControls<GoodsReceipt, SortKey>({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "date", dir: "desc" },
+    sortAccessors: {
+      number: (r) => r.number,
+      date: (r) => new Date(r.date),
+      supplier: (r) => r.supplierName,
+      items: (r) => r.itemCount,
+      total: (r) => r.totalCost + r.shippingFee + r.vat,
+    },
+    resetToken: `${search}|${period.preset}|${period.from}|${period.to}`,
+  });
 
   const filteredDrafts = drafts.filter(d =>
     !search || d.number.toLowerCase().includes(search.toLowerCase()) || d.supplierName.toLowerCase().includes(search.toLowerCase())
@@ -63,8 +86,8 @@ export default function AdminGoodsReceipts() {
       />
 
       <DataTableToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tìm số phiếu, NCC..." />
+      <PeriodFilter value={period} onChange={setPeriod} />
 
-      {/* Drafts section */}
       {filteredDrafts.length > 0 && (
         <div className="bg-info-soft/40 border border-info/20 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
@@ -103,16 +126,16 @@ export default function AdminGoodsReceipts() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Số phiếu</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Ngày nhập</th>
-                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Nhà cung cấp</th>
-                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Mặt hàng</th>
-                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tổng tiền</th>
+                  <SortableTh label="Số phiếu" sortKey="number" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Ngày nhập" sortKey="date" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Nhà cung cấp" sortKey="supplier" sort={tc.sort} onSort={tc.toggleSort} />
+                  <SortableTh label="Mặt hàng" sortKey="items" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+                  <SortableTh label="Tổng tiền" sortKey="total" sort={tc.sort} onSort={tc.toggleSort} align="right" />
                   <th className="text-right px-3 py-2 font-medium text-muted-foreground w-[110px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(r => (
+                {tc.pageRows.map(r => (
                   <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2.5 font-mono text-xs font-medium">
                       <button onClick={() => setDetail(r)} className="hover:text-primary hover:underline">{r.number}</button>
@@ -128,11 +151,7 @@ export default function AdminGoodsReceipts() {
                         {r.canDelete ? (
                           <button onClick={() => setDeleteTarget(r.id)} className="p-1.5 text-muted-foreground hover:text-danger rounded hover:bg-muted" title="Xóa"><Trash2 className="h-3.5 w-3.5" /></button>
                         ) : (
-                          <button
-                            onClick={() => toast.error("Không thể xóa — hàng từ phiếu này đã được bán")}
-                            className="p-1.5 text-muted-foreground/50 cursor-help"
-                            title="Không thể xóa — hàng đã bán"
-                          >
+                          <button onClick={() => toast.error("Không thể xóa — hàng từ phiếu này đã được bán")} className="p-1.5 text-muted-foreground/50 cursor-help" title="Không thể xóa — hàng đã bán">
                             <ShieldAlert className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -145,7 +164,7 @@ export default function AdminGoodsReceipts() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(r => (
+            {tc.pageRows.map(r => (
               <div key={r.id} className="bg-card rounded-lg border p-3" onClick={() => setDetail(r)}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
@@ -164,36 +183,24 @@ export default function AdminGoodsReceipts() {
               </div>
             ))}
           </div>
+
+          <TablePagination
+            page={tc.page} totalPages={tc.totalPages} total={tc.total}
+            rangeStart={tc.rangeStart} rangeEnd={tc.rangeEnd}
+            pageSize={tc.pageSize} onPageChange={tc.setPage} onPageSizeChange={tc.setPageSize}
+          />
         </>
       )}
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Xóa phiếu nhập?"
-        description="Thao tác này không thể hoàn tác. Tồn kho sẽ được điều chỉnh lại."
-        confirmLabel="Xóa phiếu nhập"
-        variant="danger"
-      />
-
-      <ConfirmDialog
-        open={!!deleteDraft}
-        onClose={() => setDeleteDraft(null)}
-        onConfirm={handleDeleteDraft}
-        title="Xóa phiếu nháp?"
-        description="Phiếu nháp sẽ bị xóa khỏi danh sách."
-        confirmLabel="Xóa nháp"
-        variant="danger"
-      />
+      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
+        title="Xóa phiếu nhập?" description="Thao tác này không thể hoàn tác. Tồn kho sẽ được điều chỉnh lại."
+        confirmLabel="Xóa phiếu nhập" variant="danger" />
+      <ConfirmDialog open={!!deleteDraft} onClose={() => setDeleteDraft(null)} onConfirm={handleDeleteDraft}
+        title="Xóa phiếu nháp?" description="Phiếu nháp sẽ bị xóa khỏi danh sách."
+        confirmLabel="Xóa nháp" variant="danger" />
 
       <GoodsReceiptDetailDrawer receipt={detail} onClose={() => setDetail(null)} />
-
-      <ReceiptImportPreviewDialog
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-      />
-      {/* After review on /admin/goods-receipts/create, the new receipt is appended to this list via shared state. */}
+      <ReceiptImportPreviewDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
