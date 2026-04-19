@@ -133,18 +133,18 @@ export default function AdminProducts() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Sản phẩm</th>
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Mã</th>
-              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Danh mục</th>
-              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Phân loại</th>
-              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Tồn kho</th>
-              <th className="text-center px-3 py-2 font-medium text-muted-foreground">Trạng thái</th>
-              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Giá bán</th>
+              <SortableTh label="Sản phẩm" sortKey="name" sort={tc.sort} onSort={tc.toggleSort} />
+              <SortableTh label="Mã" sortKey="code" sort={tc.sort} onSort={tc.toggleSort} />
+              <SortableTh label="Danh mục" sortKey="category" sort={tc.sort} onSort={tc.toggleSort} />
+              <SortableTh label="Phân loại" sortKey="variants" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+              <SortableTh label="Tồn kho" sortKey="stock" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+              <SortableTh label="Trạng thái" sortKey="status" sort={tc.sort} onSort={tc.toggleSort} align="center" />
+              <SortableTh label="Giá bán" sortKey="price" sort={tc.sort} onSort={tc.toggleSort} align="right" />
               <th className="w-10" />
             </tr>
           </thead>
           <tbody>
-            {filtered.map(product => {
+            {tc.pageRows.map(product => {
               const stockSignal = getStockSignal(product);
               const dv = product.variants.find(v => v.isDefault) || product.variants[0];
               const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
