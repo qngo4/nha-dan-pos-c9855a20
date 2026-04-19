@@ -61,7 +61,7 @@ export default function AdminSuppliers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(s => (
+                {tc.pageRows.map(s => (
                   <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2.5">
                       <div>
@@ -99,7 +99,7 @@ export default function AdminSuppliers() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(s => (
+            {tc.pageRows.map(s => (
               <div key={s.id} className="bg-card rounded-lg border p-3" onClick={() => openEdit(s)}>
                 <div className="flex items-start justify-between gap-2">
                   <div>

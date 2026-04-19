@@ -115,7 +115,7 @@ export default function AdminPromotions() {
         />
       ) : (
         <div className="space-y-2">
-          {filtered.map((p) => {
+          {tc.pageRows.map((p) => {
             const summary = formatPromotionSummary(p);
             const scopeText = formatScope(p, { categoryNames, productNames });
             return (

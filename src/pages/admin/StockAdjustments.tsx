@@ -72,7 +72,7 @@ export default function AdminStockAdjustments() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(a => (
+                {tc.pageRows.map(a => (
                   <tr key={a.id} className={cn("border-b last:border-0 hover:bg-muted/30 transition-colors", a.status === 'draft' && "bg-info-soft/30")}>
                     <td className="px-3 py-2.5 font-mono text-xs font-medium">
                       <button onClick={() => setDetail(a)} className="hover:text-primary hover:underline">{a.code}</button>
@@ -101,7 +101,7 @@ export default function AdminStockAdjustments() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(a => (
+            {tc.pageRows.map(a => (
               <div key={a.id} onClick={() => setDetail(a)} className={cn("bg-card rounded-lg border p-3 cursor-pointer", a.status === 'draft' && "border-info/30")}>
                 <div className="flex items-start justify-between gap-2">
                   <div>

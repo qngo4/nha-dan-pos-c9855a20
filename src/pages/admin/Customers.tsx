@@ -86,7 +86,7 @@ export default function AdminCustomers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(c => (
+                {tc.pageRows.map(c => (
                   <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export default function AdminCustomers() {
           </div>
 
           <div className="md:hidden space-y-2">
-            {filtered.map(c => (
+            {tc.pageRows.map(c => (
               <div key={c.id} className="bg-card rounded-lg border p-3" onClick={() => openEdit(c)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
