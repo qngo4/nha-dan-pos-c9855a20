@@ -5,7 +5,7 @@ import { SearchableCombobox } from "@/components/shared/SearchableCombobox";
 import { CustomerFormDrawer } from "@/components/shared/CustomerFormDrawer";
 import { formatVND } from "@/lib/format";
 import { products } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import { useStore, invoiceActions } from "@/lib/store";
 import {
   Search, Barcode, Camera, Keyboard, ShoppingCart, Receipt,
   AlertTriangle, Printer, X, Check, CheckCircle2, ScanLine,
@@ -190,6 +190,39 @@ export default function AdminPOS() {
   const handleCheckout = () => {
     if (checkoutDisabledReason) { toast.error(checkoutDisabledReason); return; }
     const number = `HD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`;
+    const snapshotLines = lines.map((l) => ({
+      name: `${l.productName} - ${l.variantName}${l.reward ? " (Quà tặng)" : ""}`,
+      code: l.variantCode, qty: l.quantity, price: l.unitPrice,
+      reward: l.reward, rewardSource: l.rewardSource,
+    }));
+    const breakdown = {
+      subtotal: totals.subtotal,
+      manualDiscount: totals.manualDiscount,
+      promoDiscount: totals.promoDiscount,
+      promoName: selectedPromotion?.name,
+      shippingFee: totals.shippingFee,
+      shippingDiscount: totals.shippingDiscount,
+      shippingPayable: totals.shippingPayable,
+      vatPercent,
+      vatBase: totals.vatBase,
+      vatAmount: totals.vatAmount,
+      total: totals.total,
+      freeItems: totals.freeItems.map((g) => ({ productName: g.productName, quantity: g.quantity })),
+    };
+    invoiceActions.create({
+      number,
+      date: new Date().toISOString(),
+      customerId: selectedCustomer || "",
+      customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
+      total: totals.total,
+      paymentType: "cash",
+      status: "active",
+      createdBy: "admin",
+      itemCount: totalItems,
+      breakdown,
+      lines: snapshotLines,
+      note,
+    });
     setLastInvoice({ number, total: totals.total });
     toast.success(`Đã tạo hóa đơn ${number}`);
   };
