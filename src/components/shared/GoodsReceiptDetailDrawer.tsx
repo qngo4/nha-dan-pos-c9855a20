@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X, Printer, FileInput, Calendar, Truck, Barcode } from "lucide-react";
 import { formatVND, formatDate } from "@/lib/format";
 import { BlockedActionBanner } from "@/components/shared/BlockedActionBanner";
-import type { GoodsReceipt } from "@/lib/mock-data";
-import { mockReceiptLines } from "@/lib/mock-data";
+import type { GoodsReceipt, GoodsReceiptLine } from "@/lib/mock-data";
+import { mockReceiptLines, products as allProducts } from "@/lib/mock-data";
 import { PrintableReceipt } from "@/components/shared/PrintableReceipt";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
 import { triggerPrint } from "@/lib/print";
@@ -13,11 +13,92 @@ interface Props {
   onClose: () => void;
 }
 
+interface CostRow {
+  line: GoodsReceiptLine;
+  unitGross: number;       // Đơn giá gốc
+  afterDiscount: number;   // Sau chiết khấu (line total)
+  shippingAlloc: number;   // + Ship
+  vatAlloc: number;        // + VAT
+  finalUnitCost: number;   // Giá vốn cuối / 1 importUnit
+  finalLineCost: number;   // afterDiscount + ship + vat
+}
+
+/** Build cost breakdown from BE fields when present, else allocate proportionally
+ *  using afterDiscount as the basis. Guarantees column totals equal footer totals. */
+function buildCostRows(receipt: GoodsReceipt, lines: GoodsReceiptLine[]): CostRow[] {
+  const subtotals = lines.map((l) =>
+    l.afterDiscount ?? l.quantity * l.unitCost * (1 - l.discount / 100)
+  );
+  const basisTotal = subtotals.reduce((s, v) => s + v, 0) || 1;
+
+  // Allocate, then fix rounding drift on the last row
+  const shipAllocs: number[] = [];
+  const vatAllocs: number[] = [];
+  let shipUsed = 0;
+  let vatUsed = 0;
+  lines.forEach((l, i) => {
+    const isLast = i === lines.length - 1;
+    if (l.shippingAlloc != null) {
+      shipAllocs.push(l.shippingAlloc);
+      shipUsed += l.shippingAlloc;
+    } else if (isLast) {
+      shipAllocs.push(receipt.shippingFee - shipUsed);
+    } else {
+      const a = Math.round((subtotals[i] / basisTotal) * receipt.shippingFee);
+      shipAllocs.push(a);
+      shipUsed += a;
+    }
+    if (l.vatAlloc != null) {
+      vatAllocs.push(l.vatAlloc);
+      vatUsed += l.vatAlloc;
+    } else if (isLast) {
+      vatAllocs.push(receipt.vat - vatUsed);
+    } else {
+      const a = Math.round((subtotals[i] / basisTotal) * receipt.vat);
+      vatAllocs.push(a);
+      vatUsed += a;
+    }
+  });
+
+  return lines.map((l, i) => {
+    const afterDiscount = subtotals[i];
+    const ship = shipAllocs[i];
+    const vat = vatAllocs[i];
+    const finalLineCost = afterDiscount + ship + vat;
+    const finalUnitCost = l.finalUnitCost ?? (l.quantity > 0 ? finalLineCost / l.quantity : 0);
+    return {
+      line: l,
+      unitGross: l.unitCost,
+      afterDiscount,
+      shippingAlloc: ship,
+      vatAlloc: vat,
+      finalUnitCost,
+      finalLineCost,
+    };
+  });
+}
+
+/** Look up retail sell price (per sell-unit) for a variant code from product catalog. */
+function lookupSellPrice(variantCode: string): number | undefined {
+  for (const p of allProducts) {
+    const v = p.variants.find((x) => x.code === variantCode);
+    if (v) return v.sellPrice;
+  }
+  return undefined;
+}
+
 export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
   const [barcodeOpen, setBarcodeOpen] = useState(false);
+  const lines = useMemo(
+    () => (receipt ? mockReceiptLines.slice(0, Math.max(1, Math.min(receipt.itemCount, mockReceiptLines.length))) : []),
+    [receipt]
+  );
+  const rows = useMemo(() => (receipt ? buildCostRows(receipt, lines) : []), [receipt, lines]);
+
   if (!receipt) return null;
-  const lines = mockReceiptLines.slice(0, Math.max(1, Math.min(receipt.itemCount, mockReceiptLines.length)));
-  const subtotal = lines.reduce((s, l) => s + l.quantity * l.unitCost * (1 - l.discount / 100), 0);
+
+  const subtotal = rows.reduce((s, r) => s + r.afterDiscount, 0);
+  const grandTotal = subtotal + receipt.shippingFee + receipt.vat;
 
   const handlePrint = () => triggerPrint(`phiếu nhập ${receipt.number}`);
 
@@ -25,7 +106,7 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
     <>
       <div className="fixed inset-0 z-50 flex justify-end no-print">
         <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative w-full max-w-md bg-card border-l shadow-xl flex flex-col animate-slide-in-right">
+        <div className="relative w-full max-w-3xl bg-card border-l shadow-xl flex flex-col animate-slide-in-right">
           <div className="p-4 border-b flex items-start justify-between gap-2">
             <div>
               <div className="flex items-center gap-2">
@@ -49,35 +130,56 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
             )}
 
             <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Mặt hàng ({receipt.itemCount})</h3>
-              <div className="border rounded-lg divide-y">
-                {lines.map((l, i) => (
-                  <div key={i} className="p-3 text-sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{l.productName}</p>
-                        <p className="text-xs text-muted-foreground">{l.variantName} · {l.variantCode}</p>
-                      </div>
-                      <span className="font-medium shrink-0">{formatVND(l.quantity * l.unitCost * (1 - l.discount / 100))}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span>SL: {l.quantity} {l.importUnit}</span>
-                      <span>Giá: {formatVND(l.unitCost)}</span>
-                      {l.discount > 0 && <span>CK {l.discount}%</span>}
-                      {l.expiryDate && <span>HSD: {formatDate(l.expiryDate)}</span>}
-                    </div>
-                  </div>
-                ))}
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Mặt hàng ({receipt.itemCount}) — phân bổ chi phí từ phiếu nhập
+              </h3>
+              <div className="border rounded-lg overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/40 text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="p-2 font-medium">Sản phẩm</th>
+                      <th className="p-2 font-medium text-center">SL</th>
+                      <th className="p-2 font-medium text-right">Đơn giá gốc</th>
+                      <th className="p-2 font-medium text-right">Sau CK</th>
+                      <th className="p-2 font-medium text-right">+ Ship</th>
+                      <th className="p-2 font-medium text-right">+ VAT</th>
+                      <th className="p-2 font-medium text-right">Giá vốn cuối</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {rows.map((r) => (
+                      <tr key={r.line.id} className="align-top">
+                        <td className="p-2">
+                          <p className="font-medium">{r.line.productName}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {r.line.variantName} · <span className="font-mono">{r.line.variantCode}</span>
+                            {r.line.discount > 0 && <> · CK {r.line.discount}%</>}
+                            {r.line.expiryDate && <> · HSD {formatDate(r.line.expiryDate)}</>}
+                          </p>
+                        </td>
+                        <td className="p-2 text-center whitespace-nowrap">{r.line.quantity} {r.line.importUnit}</td>
+                        <td className="p-2 text-right whitespace-nowrap">{formatVND(r.unitGross)}</td>
+                        <td className="p-2 text-right whitespace-nowrap">{formatVND(r.afterDiscount)}</td>
+                        <td className="p-2 text-right whitespace-nowrap text-muted-foreground">{formatVND(r.shippingAlloc)}</td>
+                        <td className="p-2 text-right whitespace-nowrap text-muted-foreground">{formatVND(r.vatAlloc)}</td>
+                        <td className="p-2 text-right whitespace-nowrap font-semibold text-primary">
+                          {formatVND(r.finalUnitCost)}
+                          <span className="block text-[10px] font-normal text-muted-foreground">/ {r.line.importUnit}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
             <div className="bg-muted/40 rounded-lg p-3 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatVND(subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính (sau CK)</span><span>{formatVND(subtotal)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Phí vận chuyển</span><span>{formatVND(receipt.shippingFee)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatVND(receipt.vat)}</span></div>
               <div className="border-t pt-1.5 flex justify-between font-bold text-base">
                 <span>Tổng cộng</span>
-                <span className="text-primary">{formatVND(receipt.totalCost + receipt.shippingFee + receipt.vat)}</span>
+                <span className="text-primary">{formatVND(grandTotal)}</span>
               </div>
             </div>
           </div>
@@ -100,14 +202,19 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
         open={barcodeOpen}
         onClose={() => setBarcodeOpen(false)}
         title={`In mã vạch — ${receipt.number}`}
-        items={lines.map(l => ({
-          productName: l.productName,
-          variantName: l.variantName,
-          code: l.variantCode,
-          price: l.unitCost,
-          lot: receipt.number,
-          defaultQty: l.quantity,
-        }))}
+        items={lines.map((l) => {
+          const sellPrice = lookupSellPrice(l.variantCode);
+          return {
+            productName: l.productName,
+            variantName: l.variantName,
+            code: l.variantCode,
+            // Tem mã vạch luôn dùng GIÁ BÁN LẺ / 1 đơn vị bán, KHÔNG dùng giá nhập
+            price: sellPrice,
+            lot: receipt.number,
+            // Số tem mặc định = số lượng theo đơn vị bán (qty * piecesPerUnit)
+            defaultQty: Math.max(1, l.quantity * (l.piecesPerUnit || 1)),
+          };
+        })}
       />
     </>
   );
