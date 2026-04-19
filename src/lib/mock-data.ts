@@ -128,11 +128,19 @@ export interface GoodsReceiptLine {
   variantName: string;
   variantCode: string;
   quantity: number;
+  /** Đơn giá gốc theo importUnit, trước chiết khấu (nguồn từ BE) */
   unitCost: number;
+  /** % chiết khấu áp dụng trên unitCost (nguồn từ BE) */
   discount: number;
   importUnit: string;
   piecesPerUnit: number;
   expiryDate?: string;
+  /** BE-allocated breakdown (source of truth for cost columns) */
+  lineSubtotal?: number;       // quantity * unitCost
+  afterDiscount?: number;      // lineSubtotal * (1 - discount/100)
+  shippingAlloc?: number;      // tỉ lệ phân bổ phí vận chuyển
+  vatAlloc?: number;           // tỉ lệ phân bổ VAT
+  finalUnitCost?: number;      // giá vốn cuối / 1 importUnit (đã gồm CK + ship + VAT)
 }
 
 export interface StockAdjustment {
