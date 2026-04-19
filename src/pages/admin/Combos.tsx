@@ -326,6 +326,17 @@ export default function AdminCombos() {
               </div>
             ))}
           </div>
+
+          <TablePagination
+            page={tc.page}
+            totalPages={tc.totalPages}
+            pageSize={tc.pageSize}
+            onPageChange={tc.setPage}
+            onPageSizeChange={tc.setPageSize}
+            rangeStart={tc.rangeStart}
+            rangeEnd={tc.rangeEnd}
+            total={tc.total}
+          />
         </>
       )}
 
