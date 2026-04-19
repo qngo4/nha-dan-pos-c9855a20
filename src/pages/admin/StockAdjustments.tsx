@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -6,6 +6,8 @@ import { DataTableToolbar, FilterChip } from "@/components/shared/DataTableToolb
 import { EmptyState } from "@/components/shared/EmptyState";
 import { stockAdjustments, type StockAdjustment } from "@/lib/mock-data";
 import { StockAdjustmentDetailDrawer } from "@/components/shared/StockAdjustmentDetailDrawer";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { formatDate } from "@/lib/format";
 import { Plus, ClipboardCheck, Eye, Pencil, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,10 +17,18 @@ export default function AdminStockAdjustments() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [detail, setDetail] = useState<StockAdjustment | null>(null);
 
-  const filtered = stockAdjustments.filter(a => {
+  const filtered = useMemo(() => stockAdjustments.filter(a => {
     if (search && !a.code.toLowerCase().includes(search.toLowerCase()) && !a.reason.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus && a.status !== filterStatus) return false;
     return true;
+  }), [search, filterStatus]);
+
+  const tc = useTableControls<StockAdjustment, "code" | "date" | "items">({
+    data: filtered, pageSize: 20, initialSort: { key: "date", dir: "desc" },
+    sortAccessors: {
+      code: (a) => a.code, date: (a) => new Date(a.createdDate), items: (a) => a.itemCount,
+    },
+    resetToken: `${search}|${filterStatus}`,
   });
 
   return (

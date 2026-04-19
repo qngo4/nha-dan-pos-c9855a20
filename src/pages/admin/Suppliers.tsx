@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { SupplierFormDrawer } from "@/components/shared/SupplierFormDrawer";
 import { RowActions } from "@/components/shared/RowActions";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, supplierActions } from "@/lib/store";
 import { Plus, Truck, Pencil, Trash2, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
@@ -21,6 +23,12 @@ export default function AdminSuppliers() {
   const filtered = useMemo(() => suppliers.filter(s =>
     !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.code.toLowerCase().includes(search.toLowerCase()) || s.phone.includes(search)
   ), [suppliers, search]);
+
+  const tc = useTableControls<Supplier, "name" | "code">({
+    data: filtered, pageSize: 20, initialSort: { key: "name", dir: "asc" },
+    sortAccessors: { name: (s) => s.name, code: (s) => s.code },
+    resetToken: search,
+  });
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
   const openEdit = (s: Supplier) => { setEditing(s); setDrawerOpen(true); };

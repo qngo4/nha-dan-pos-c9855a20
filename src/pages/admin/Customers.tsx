@@ -6,6 +6,9 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { CustomerFormDrawer } from "@/components/shared/CustomerFormDrawer";
 import { RowActions } from "@/components/shared/RowActions";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { SortableTh } from "@/components/shared/SortableTh";
+import { useTableControls } from "@/hooks/useTableControls";
 import { useStore, customerActions } from "@/lib/store";
 import { formatVND } from "@/lib/format";
 import { Plus, Users, Pencil, Trash2, Power, PowerOff } from "lucide-react";
@@ -26,6 +29,22 @@ export default function AdminCustomers() {
     if (filterGroup && c.group !== filterGroup) return false;
     return true;
   }), [customers, search, filterGroup]);
+
+  const tc = useTableControls<Customer, "name" | "code" | "phone" | "group" | "total" | "orders" | "status">({
+    data: filtered,
+    pageSize: 20,
+    initialSort: { key: "total", dir: "desc" },
+    sortAccessors: {
+      name: (c) => c.name,
+      code: (c) => c.code,
+      phone: (c) => c.phone,
+      group: (c) => c.group,
+      total: (c) => c.totalPurchases,
+      orders: (c) => c.orderCount,
+      status: (c) => (c.active ? 1 : 0),
+    },
+    resetToken: `${search}|${filterGroup}`,
+  });
 
   const openAdd = () => { setEditing(null); setDrawerOpen(true); };
   const openEdit = (c: Customer) => { setEditing(c); setDrawerOpen(true); };

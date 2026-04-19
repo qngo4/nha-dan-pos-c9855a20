@@ -15,6 +15,8 @@ import {
   formatScope,
 } from "@/lib/promotions";
 import { PromotionFormShell } from "@/components/promotions/PromotionFormShell";
+import { TablePagination } from "@/components/shared/TablePagination";
+import { useTableControls } from "@/hooks/useTableControls";
 import { Plus, Tags, Calendar, Pencil, Trash2, Power } from "lucide-react";
 import { toast } from "sonner";
 
