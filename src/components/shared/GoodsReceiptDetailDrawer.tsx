@@ -6,6 +6,7 @@ import type { GoodsReceipt, GoodsReceiptLine } from "@/lib/mock-data";
 import { mockReceiptLines, products as allProducts } from "@/lib/mock-data";
 import { PrintableReceipt } from "@/components/shared/PrintableReceipt";
 import { Printable58Receipt } from "@/components/shared/Printable58Receipt";
+import { Printable80Receipt } from "@/components/shared/Printable80Receipt";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
 import { triggerPrint } from "@/lib/print";
 

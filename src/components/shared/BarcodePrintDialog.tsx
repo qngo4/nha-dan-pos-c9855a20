@@ -54,7 +54,7 @@ export function BarcodePrintDialog({ open, onClose, items, title = "In mã vạc
   );
   const totalLabels = labels.length;
 
-  const doPrint = () => triggerPrint(`${totalLabels} tem mã vạch`);
+  const doPrint = () => triggerPrint(`${totalLabels} tem mã vạch`, "a4", { targetId: "print-area-barcodes" });
 
   return (
     <>

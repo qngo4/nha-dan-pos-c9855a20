@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Invoice, InvoiceLine } from "@/lib/mock-data";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
 import { Printable58Invoice } from "@/components/shared/Printable58Invoice";
+import { Printable80Invoice } from "@/components/shared/Printable80Invoice";
 import { triggerPrint } from "@/lib/print";
 import { useStore } from "@/lib/store";
 import { PROMOTION_TYPE_LABELS, formatPromotionSummary, formatScope, type Promotion } from "@/lib/promotions";
