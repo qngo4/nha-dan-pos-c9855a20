@@ -1,10 +1,13 @@
-import { X, Printer, Receipt, User, Calendar, CreditCard, Gift, Tag, Truck, Percent } from "lucide-react";
+import { X, Printer, Receipt, User, Calendar, CreditCard, Gift, Tag, Truck, Percent, Sparkles } from "lucide-react";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import type { Invoice, InvoiceLine } from "@/lib/mock-data";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
 import { Printable58Invoice } from "@/components/shared/Printable58Invoice";
 import { triggerPrint } from "@/lib/print";
+import { useStore } from "@/lib/store";
+import { PROMOTION_TYPE_LABELS, formatPromotionSummary, formatScope, type Promotion } from "@/lib/promotions";
 
 interface Props {
   invoice: Invoice | null;
