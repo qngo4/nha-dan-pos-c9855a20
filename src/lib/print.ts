@@ -46,7 +46,9 @@ function buildPrintStyles(mode: PrintMode) {
 
   // Use the printer's safe printable width as the @page width so browser
   // does not scale content into an area larger than the print head can print.
-  const paperWidth = mode === "pos58" ? "48mm" : "72mm";
+  // POS58: tightened to 44mm to absolutely guarantee the right edge never clips
+  // on real thermal printers (mechanical printable area is often <48mm).
+  const paperWidth = mode === "pos58" ? "44mm" : "72mm";
   return `
     @page { size: ${paperWidth} auto; margin: 0; }
     html, body {

@@ -14,16 +14,16 @@ const THERMAL_FONT = "Arial, Helvetica, system-ui, sans-serif";
 export function PrintableThermalReceipt({ receipt, lines, paper, rootId }: Props) {
   const is58 = paper === "pos58";
   const paperWidth = is58 ? 58 : 80;
-  const innerWidth = is58 ? "48mm" : "72mm";
-  const sidePad = "1mm";
+  const innerWidth = is58 ? "41mm" : "70mm";
+  const sidePad = is58 ? "1.5mm" : "1mm";
   const baseFont = is58 ? 10 : 11;
   const metaFont = is58 ? 10 : 11;
   const moneyFont = is58 ? 10.5 : 11.5;
   const totalFont = is58 ? 12 : 14;
   const titleFont = is58 ? 12 : 14;
   const shopFont = is58 ? 13 : 15;
-  const amountColWidth = is58 ? "24mm" : "32mm";
-  const metaColWidth = is58 ? "30mm" : "42mm";
+  const amountColWidth = is58 ? "21mm" : "30mm";
+  const metaColWidth = is58 ? "26mm" : "40mm";
 
   const subtotal = lines.reduce(
     (s, l) => s + (l.afterDiscount ?? l.quantity * l.unitCost * (1 - l.discount / 100)),

@@ -54,7 +54,7 @@ export function BarcodePrintDialog({ open, onClose, items, title = "In mã vạc
   );
   const totalLabels = labels.length;
 
-  const doPrint = () => triggerPrint(`${totalLabels} tem mã vạch`, "a4", { targetId: "print-area-barcodes" });
+  const doPrint = () => triggerPrint(`${totalLabels} tem mã vạch (POS58)`, "pos58", { targetId: "print-area-barcodes" });
 
   return (
     <>
@@ -111,15 +111,29 @@ export function BarcodePrintDialog({ open, onClose, items, title = "In mã vạc
           <div className="p-4 border-t flex gap-2">
             <button onClick={onClose} className="flex-1 px-3 py-2 text-sm border rounded-md hover:bg-muted">Đóng</button>
             <button onClick={doPrint} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
-              <Printer className="h-4 w-4" /> In {totalLabels} tem
+              <Printer className="h-4 w-4" /> In POS58 — {totalLabels} tem
             </button>
           </div>
         </div>
       </div>
 
-      {/* Hidden print area — only this prints */}
-      <div className="print-area" id="print-area-barcodes">
-        <div style={{ padding: 8, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+      {/* Hidden print area — POS58 thermal-safe single-column labels */}
+      <div className="print-area print-root" id="print-area-barcodes">
+        <div
+          data-thermal-root
+          style={{
+            width: "41mm",
+            maxWidth: "41mm",
+            paddingLeft: "1.5mm",
+            paddingRight: "1.5mm",
+            paddingTop: "1mm",
+            paddingBottom: "1mm",
+            margin: 0,
+            background: "#fff",
+            color: "#000",
+            fontFamily: "Arial, Helvetica, system-ui, sans-serif",
+          }}
+        >
           {labels.map((l, i) => (
             <LabelPreview key={i} item={l} forPrint />
           ))}
@@ -133,37 +147,40 @@ function LabelPreview({ item, forPrint }: { item: BarcodeItem; forPrint?: boolea
   return (
     <div
       style={{
-        border: "1px solid #000",
-        padding: 6,
+        border: forPrint ? "none" : "1px solid #000",
+        borderBottom: forPrint ? "1px dashed #000" : "1px solid #000",
+        padding: forPrint ? "2mm 0" : 6,
         background: "white",
         color: "#000",
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "Arial, Helvetica, system-ui, sans-serif",
         fontSize: forPrint ? "8pt" : "10px",
         textAlign: "center",
         lineHeight: 1.2,
+        pageBreakInside: "avoid",
+        breakInside: "avoid",
       }}
     >
-      <div style={{ fontWeight: "bold", fontSize: forPrint ? "7pt" : "9px" }}>Nhã Đan Shop</div>
-      <div style={{ fontWeight: "bold", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.productName}</div>
+      <div style={{ fontWeight: 700, fontSize: forPrint ? "7pt" : "9px", color: "#000" }}>Nhã Đan Shop</div>
+      <div style={{ fontWeight: 700, color: "#000", wordBreak: "break-word" }}>{item.productName}</div>
       {item.variantName && (
-        <div style={{ color: "#444" }}>{item.variantName}</div>
+        <div style={{ color: "#000", fontWeight: 500 }}>{item.variantName}</div>
       )}
-      <div style={{ display: "flex", justifyContent: "center", margin: "4px 0" }}>
+      <div style={{ display: "flex", justifyContent: "center", margin: "3px 0" }}>
         <Barcode
           value={item.code}
           format="CODE128"
-          height={forPrint ? 44 : 50}
-          width={forPrint ? 1.4 : 1.5}
-          fontSize={forPrint ? 9 : 10}
-          margin={4}
+          height={forPrint ? 38 : 50}
+          width={forPrint ? 1.2 : 1.5}
+          fontSize={forPrint ? 8 : 10}
+          margin={2}
           displayValue
         />
       </div>
       {item.price != null && (
-        <div style={{ fontWeight: "bold", marginTop: 2 }}>{formatVND(item.price)}</div>
+        <div style={{ fontWeight: 700, marginTop: 2, color: "#000" }}>{formatVND(item.price)}</div>
       )}
       {item.lot && (
-        <div style={{ color: "#555", marginTop: 2, fontSize: forPrint ? "7pt" : "9px" }}>Lô: {item.lot}</div>
+        <div style={{ color: "#000", marginTop: 1, fontSize: forPrint ? "7pt" : "9px", fontWeight: 500 }}>Lô: {item.lot}</div>
       )}
     </div>
   );

@@ -13,9 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
 import { Printable58Invoice } from "@/components/shared/Printable58Invoice";
-import { Printable80Invoice } from "@/components/shared/Printable80Invoice";
 import { triggerPrint } from "@/lib/print";
 import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
@@ -239,10 +237,6 @@ export default function AdminPOS() {
   const handlePrint = () => {
     if (!lastInvoice && lines.length === 0) { toast.error("Chưa có hóa đơn để in"); return; }
     triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos58", { targetId: "print-root-invoice-pos58" });
-  };
-  const handlePrint80 = () => {
-    if (!lastInvoice && lines.length === 0) { toast.error("Chưa có hóa đơn để in"); return; }
-    triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos80", { targetId: "print-root-invoice-pos80" });
   };
 
   const printableInvoice: Invoice = {
@@ -517,9 +511,6 @@ export default function AdminPOS() {
                   <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-md hover:bg-muted">
                     <Printer className="h-4 w-4" /> In POS58
                   </button>
-                  <button onClick={handlePrint80} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-md hover:bg-muted">
-                    <Printer className="h-4 w-4" /> In POS80
-                  </button>
                   <button onClick={handleNewInvoice} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
                     <Receipt className="h-4 w-4" /> Hóa đơn mới
                   </button>
@@ -676,14 +667,9 @@ export default function AdminPOS() {
           <div className="p-3 border-t space-y-2">
             {lastInvoice ? (
               <>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={handlePrint} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover">
-                    <Printer className="h-4 w-4" /> In POS58
-                  </button>
-                  <button onClick={handlePrint80} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold border hover:bg-muted">
-                    <Printer className="h-4 w-4" /> In POS80
-                  </button>
-                </div>
+                <button onClick={handlePrint} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover">
+                  <Printer className="h-4 w-4" /> In POS58
+                </button>
                 <button onClick={handleNewInvoice} className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted">
                   <Receipt className="h-4 w-4" /> Hóa đơn mới
                 </button>
@@ -697,16 +683,10 @@ export default function AdminPOS() {
                   Tạo hóa đơn — {formatVND(totals.total)}
                 </button>
                 {checkoutDisabledReason && <p className="text-[10px] text-center text-muted-foreground">{checkoutDisabledReason}</p>}
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={handlePrint} disabled={lines.length === 0}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted transition-colors disabled:opacity-50">
-                    <Printer className="h-4 w-4" /> In tạm 58
-                  </button>
-                  <button onClick={handlePrint80} disabled={lines.length === 0}
-                    className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted transition-colors disabled:opacity-50">
-                    <Printer className="h-4 w-4" /> In tạm 80
-                  </button>
-                </div>
+                <button onClick={handlePrint} disabled={lines.length === 0}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium border hover:bg-muted transition-colors disabled:opacity-50">
+                  <Printer className="h-4 w-4" /> In tạm POS58
+                </button>
               </>
             )}
           </div>
@@ -766,11 +746,7 @@ export default function AdminPOS() {
       </div>
 
       {(lines.length > 0 || lastInvoice) && (
-        <>
-          <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
-          <Printable58Invoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
-          <Printable80Invoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
-        </>
+        <Printable58Invoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
       )}
       <CustomerFormDrawer open={customerDrawerOpen} onClose={() => setCustomerDrawerOpen(false)} />
     </>

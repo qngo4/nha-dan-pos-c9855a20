@@ -34,19 +34,21 @@ export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props
   };
 
   const is58 = paper === "pos58";
-  // Ultra-conservative inner width — many thermal drivers print only ~48mm/72mm safely.
+  // Ultra-conservative inner width — printable area on POS58 thermal heads is
+  // often <48mm. Tighten to 41mm with extra side padding so the right edge
+  // never clips on real paper.
   const paperWidth = is58 ? 58 : 80;
-  const innerWidth = is58 ? "48mm" : "72mm";
-  const sidePad = "1mm";
+  const innerWidth = is58 ? "41mm" : "70mm";
+  const sidePad = is58 ? "1.5mm" : "1mm";
   const baseFont = is58 ? 10 : 11;
   const metaFont = is58 ? 10 : 11;
   const moneyFont = is58 ? 10.5 : 11.5;
   const totalFont = is58 ? 12 : 14;
   const titleFont = is58 ? 12 : 14;
   const shopFont = is58 ? 13 : 15;
-  // Right (amount) column gets generous fixed width so values never clip.
-  const amountColWidth = is58 ? "24mm" : "32mm";
-  const metaColWidth = is58 ? "30mm" : "42mm";
+  // Right (amount) column fixed width — keeps values fully inside printable area.
+  const amountColWidth = is58 ? "21mm" : "30mm";
+  const metaColWidth = is58 ? "26mm" : "40mm";
 
   // Safe 2-column row: fixed-width right column, left wraps inside its cell.
   const Row = (props: {
