@@ -102,8 +102,9 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
   const subtotal = rows.reduce((s, r) => s + r.afterDiscount, 0);
   const grandTotal = subtotal + receipt.shippingFee + receipt.vat;
 
-  const handlePrint = () => triggerPrint(`phiếu nhập ${receipt.number}`, "a4");
-  const handlePrint58 = () => triggerPrint(`phiếu nhập ${receipt.number} (POS58)`, "pos58");
+  const handlePrint = () => triggerPrint(`phiếu nhập ${receipt.number}`, "a4", { targetId: "print-area-receipt" });
+  const handlePrint58 = () => triggerPrint(`phiếu nhập ${receipt.number} (POS58)`, "pos58", { targetId: "print-root-receipt-pos58" });
+  const handlePrint80 = () => triggerPrint(`phiếu nhập ${receipt.number} (POS80)`, "pos80", { targetId: "print-root-receipt-pos80" });
 
   return (
     <>
@@ -191,8 +192,11 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
             <button onClick={() => setBarcodeOpen(true)} className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
               <Barcode className="h-4 w-4" /> Mã vạch
             </button>
-            <button onClick={handlePrint58} className="flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+            <button onClick={handlePrint58} className="flex-1 min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
               <Printer className="h-4 w-4" /> POS58
+            </button>
+            <button onClick={handlePrint80} className="flex-1 min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+              <Printer className="h-4 w-4" /> POS80
             </button>
             <button onClick={handlePrint} className="flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
               <Printer className="h-4 w-4" /> In A4
@@ -201,9 +205,9 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
         </div>
       </div>
 
-      {/* Print areas — both A4 + 58mm mounted; CSS reveals the active one */}
       <PrintableReceipt receipt={receipt} lines={lines} />
       <Printable58Receipt receipt={receipt} lines={lines} />
+      <Printable80Receipt receipt={receipt} lines={lines} />
 
       <BarcodePrintDialog
         open={barcodeOpen}
