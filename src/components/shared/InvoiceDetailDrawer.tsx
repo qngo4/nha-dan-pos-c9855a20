@@ -3,6 +3,7 @@ import { formatVND, formatDateTime } from "@/lib/format";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Invoice, InvoiceLine } from "@/lib/mock-data";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
+import { Printable58Invoice } from "@/components/shared/Printable58Invoice";
 import { triggerPrint } from "@/lib/print";
 
 interface Props {
@@ -46,7 +47,8 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
     freeItems: [],
   };
 
-  const handlePrint = () => triggerPrint(`hóa đơn ${invoice.number}`);
+  const handlePrint = () => triggerPrint(`hóa đơn ${invoice.number}`, "a4");
+  const handlePrint58 = () => triggerPrint(`hóa đơn ${invoice.number} (POS58)`, "pos58");
 
   return (
     <>
@@ -150,17 +152,21 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
             </div>
           </div>
 
-          <div className="p-4 border-t flex gap-2">
-            <button onClick={onClose} className="flex-1 px-3 py-2 text-sm border rounded-md hover:bg-muted">Đóng</button>
-            <button onClick={handlePrint} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
-              <Printer className="h-4 w-4" /> In hóa đơn
+          <div className="p-4 border-t flex flex-wrap gap-2">
+            <button onClick={onClose} className="flex-1 min-w-[80px] px-3 py-2 text-sm border rounded-md hover:bg-muted">Đóng</button>
+            <button onClick={handlePrint58} className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+              <Printer className="h-4 w-4" /> POS58
+            </button>
+            <button onClick={handlePrint} className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
+              <Printer className="h-4 w-4" /> In A4
             </button>
           </div>
         </div>
       </div>
 
-      {/* Print-only content */}
+      {/* Print-only content — both variants mounted; CSS reveals the active one */}
       <PrintableInvoice invoice={invoice} lines={lines} />
+      <Printable58Invoice invoice={invoice} lines={lines} />
     </>
   );
 }

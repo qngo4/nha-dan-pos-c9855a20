@@ -5,6 +5,7 @@ import { BlockedActionBanner } from "@/components/shared/BlockedActionBanner";
 import type { GoodsReceipt, GoodsReceiptLine } from "@/lib/mock-data";
 import { mockReceiptLines, products as allProducts } from "@/lib/mock-data";
 import { PrintableReceipt } from "@/components/shared/PrintableReceipt";
+import { Printable58Receipt } from "@/components/shared/Printable58Receipt";
 import { BarcodePrintDialog } from "@/components/shared/BarcodePrintDialog";
 import { triggerPrint } from "@/lib/print";
 
@@ -100,7 +101,8 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
   const subtotal = rows.reduce((s, r) => s + r.afterDiscount, 0);
   const grandTotal = subtotal + receipt.shippingFee + receipt.vat;
 
-  const handlePrint = () => triggerPrint(`phiếu nhập ${receipt.number}`);
+  const handlePrint = () => triggerPrint(`phiếu nhập ${receipt.number}`, "a4");
+  const handlePrint58 = () => triggerPrint(`phiếu nhập ${receipt.number} (POS58)`, "pos58");
 
   return (
     <>
@@ -184,19 +186,23 @@ export function GoodsReceiptDetailDrawer({ receipt, onClose }: Props) {
             </div>
           </div>
 
-          <div className="p-4 border-t flex gap-2">
-            <button onClick={() => setBarcodeOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
-              <Barcode className="h-4 w-4" /> In mã vạch
+          <div className="p-4 border-t flex flex-wrap gap-2">
+            <button onClick={() => setBarcodeOpen(true)} className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+              <Barcode className="h-4 w-4" /> Mã vạch
             </button>
-            <button onClick={handlePrint} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
-              <Printer className="h-4 w-4" /> In phiếu
+            <button onClick={handlePrint58} className="flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+              <Printer className="h-4 w-4" /> POS58
+            </button>
+            <button onClick={handlePrint} className="flex-1 min-w-[100px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
+              <Printer className="h-4 w-4" /> In A4
             </button>
           </div>
         </div>
       </div>
 
-      {/* Print area */}
+      {/* Print areas — both A4 + 58mm mounted; CSS reveals the active one */}
       <PrintableReceipt receipt={receipt} lines={lines} />
+      <Printable58Receipt receipt={receipt} lines={lines} />
 
       <BarcodePrintDialog
         open={barcodeOpen}
