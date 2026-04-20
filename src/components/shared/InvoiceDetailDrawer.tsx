@@ -26,6 +26,8 @@ function getMockLines(inv: Invoice): InvoiceLine[] {
 }
 
 export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
+  const { promotions, categories, products } = useStore();
+
   if (!invoice) return null;
 
   // Use snapshot when present (POS-generated). Fallback to mock for legacy.
@@ -49,6 +51,41 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
     total: invoice.total,
     freeItems: [],
   };
+
+  // Resolve full promotion record by name (best-effort) for richer detail panel.
+  const promo: Promotion | undefined = b.promoName
+    ? promotions.find((p) => p.name === b.promoName)
+    : undefined;
+
+  const hasManual = b.manualDiscount > 0;
+  const hasPromoDiscount = b.promoDiscount > 0;
+  const hasShipDiscount = b.shippingDiscount > 0;
+  const hasFreeItems = (b.freeItems?.length ?? 0) > 0 || rewards.length > 0;
+  const hasAnyPromotion = !!b.promoName || hasManual || hasPromoDiscount || hasShipDiscount || hasFreeItems;
+
+  const totalPromoImpact = b.manualDiscount + b.promoDiscount + b.shippingDiscount;
+
+  // Build per-item impact rows (eligible qty + gift qty), keyed by display name.
+  const eligibleByName = new Map<string, { qty: number; price: number }>();
+  for (const l of billable) {
+    const cur = eligibleByName.get(l.name);
+    if (cur) { cur.qty += l.qty; } else { eligibleByName.set(l.name, { qty: l.qty, price: l.price }); }
+  }
+  const giftByName = new Map<string, number>();
+  for (const r of rewards) giftByName.set(r.name, (giftByName.get(r.name) ?? 0) + r.qty);
+  for (const fi of b.freeItems ?? []) {
+    const key = fi.productName;
+    if (!giftByName.has(key)) giftByName.set(key, fi.quantity);
+  }
+
+  // Promotion rule text + scope text
+  const ruleText = promo ? formatPromotionSummary(promo) : (b.promoName ? "Khuyến mãi áp dụng từ POS" : "");
+  const scopeText = promo
+    ? formatScope(promo, {
+        categoryNames: Object.fromEntries(categories.map((c) => [c.id, c.name])),
+        productNames: Object.fromEntries(products.map((p) => [p.id, p.name])),
+      })
+    : "";
 
   const handlePrint = () => triggerPrint(`hóa đơn ${invoice.number}`, "a4");
   const handlePrint58 = () => triggerPrint(`hóa đơn ${invoice.number} (POS58)`, "pos58");
