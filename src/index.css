@@ -282,21 +282,8 @@
   }
   body.print-pos58 .print-area:not(.print-58) { display: none !important; }
 
-  /* Override @page size when POS58 mode is active. The latter @page wins
-     because of cascade order; browsers that support named pages may ignore
-     this, but most modern browsers honor the last @page rule. */
-  @media print {
-    body.print-pos58 {
-      /* No-op selector to scope, real rule below */
-    }
-  }
-}
-
-/* POS58: dedicated @page block — separate so it overrides A4 @page when active.
-   Browsers do not support body-conditional @page, so we always emit this and
-   rely on the visibility/display rules above to render only the correct template.
-   When the user prints with POS58 mode, they should also pick "58mm" or
-   "Custom 58mm" in their browser print dialog if their thermal driver requires it. */
-@media print {
-  body.print-pos58 @page { size: 58mm auto; margin: 0; }
+  /* @page rules cannot be nested under selectors. Default A4 @page is declared
+     above. POS58 @page (size: 58mm auto; margin: 0) is injected dynamically by
+     triggerPrint() via a <style id="pos58-page-style"> tag, then removed after
+     printing — this is the only reliable cross-browser way to switch paper. */
 }
