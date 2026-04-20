@@ -151,6 +151,137 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
               </div>
             )}
 
+            {hasAnyPromotion && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-primary/5 border-b flex items-center justify-between gap-2 flex-wrap">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    Chi tiết khuyến mãi
+                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    {promo && (
+                      <Badge variant="outline" className="text-[10px] h-5">
+                        {PROMOTION_TYPE_LABELS[promo.type]}
+                      </Badge>
+                    )}
+                    {promo ? (
+                      <Badge variant={promo.active ? "default" : "secondary"} className="text-[10px] h-5">
+                        {promo.active ? "Đang chạy" : "Tạm dừng"}
+                      </Badge>
+                    ) : b.promoName ? (
+                      <Badge variant="secondary" className="text-[10px] h-5">Đã áp dụng</Badge>
+                    ) : null}
+                  </div>
+                </div>
+
+                {(b.promoName || ruleText) && (
+                  <div className="px-3 py-2.5 border-b space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground">Tên chương trình</div>
+                        <div className="text-sm font-medium truncate">{b.promoName ?? "—"}</div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] h-5 shrink-0 text-success border-success/40">
+                        Đã áp dụng
+                      </Badge>
+                    </div>
+                    {ruleText && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground/80">Quy tắc: </span>{ruleText}
+                      </div>
+                    )}
+                    {scopeText && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground/80">Phạm vi: </span>{scopeText}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="px-3 py-2.5 border-b space-y-1 text-sm">
+                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                    Tác động tài chính
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="flex items-center gap-1 text-muted-foreground"><Percent className="h-3 w-3" /> Chiết khấu thủ công</span>
+                    <span className={hasManual ? "text-danger" : "text-muted-foreground"}>{hasManual ? `-${formatVND(b.manualDiscount)}` : "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="flex items-center gap-1 text-muted-foreground"><Tag className="h-3 w-3" /> Giảm từ khuyến mãi</span>
+                    <span className={hasPromoDiscount ? "text-danger" : "text-muted-foreground"}>{hasPromoDiscount ? `-${formatVND(b.promoDiscount)}` : "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="flex items-center gap-1 text-muted-foreground"><Truck className="h-3 w-3" /> Ưu đãi ship</span>
+                    <span className={hasShipDiscount ? "text-success" : "text-muted-foreground"}>{hasShipDiscount ? `-${formatVND(b.shippingDiscount)}` : "—"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">VAT ({b.vatPercent || 0}%)</span>
+                    <span className={b.vatAmount > 0 ? "" : "text-muted-foreground"}>{b.vatAmount > 0 ? `+${formatVND(b.vatAmount)}` : "—"}</span>
+                  </div>
+                  <div className="border-t pt-1.5 mt-1 flex justify-between font-semibold">
+                    <span>Tổng tác động khuyến mãi</span>
+                    <span className="text-primary">-{formatVND(totalPromoImpact)}</span>
+                  </div>
+                </div>
+
+                {(eligibleByName.size > 0 || giftByName.size > 0) && (
+                  <div className="px-3 py-2.5 border-b">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      Tác động lên sản phẩm
+                    </div>
+                    <div className="rounded-md border divide-y">
+                      {Array.from(new Set([...eligibleByName.keys(), ...giftByName.keys()])).map((name) => {
+                        const elig = eligibleByName.get(name);
+                        const giftQty = giftByName.get(name) ?? 0;
+                        const isGift = !elig && giftQty > 0;
+                        return (
+                          <div key={name} className={`p-2 grid grid-cols-12 gap-2 text-xs items-center ${isGift ? "bg-warning-soft/30" : ""}`}>
+                            <div className="col-span-6 min-w-0">
+                              <p className="font-medium truncate">{name}</p>
+                              {isGift && (
+                                <p className="text-[10px] text-warning truncate">
+                                  Tặng từ khuyến mãi {b.promoName ? `"${b.promoName}"` : ""}
+                                </p>
+                              )}
+                            </div>
+                            <div className="col-span-3 text-muted-foreground">
+                              {isGift ? (
+                                <Badge variant="outline" className="text-[10px] h-4 px-1 border-warning/50 text-warning">
+                                  <Gift className="h-2.5 w-2.5 mr-0.5" /> Quà tặng
+                                </Badge>
+                              ) : giftQty > 0 ? "Đủ điều kiện + tặng" : "Đủ điều kiện"}
+                            </div>
+                            <div className="col-span-3 text-right">
+                              {elig && <span className="text-muted-foreground">SL {elig.qty}</span>}
+                              {giftQty > 0 && (
+                                <span className={`ml-1 font-medium ${isGift ? "text-warning" : "text-success"}`}>
+                                  {elig ? `+${giftQty} tặng` : `×${giftQty}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {(b.shippingFee > 0 || hasShipDiscount) && (
+                  <div className="px-3 py-2.5 space-y-1 text-sm">
+                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                      <Truck className="h-3 w-3" /> Vận chuyển
+                    </div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Phí ship gốc</span><span>{formatVND(b.shippingFee)}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Ưu đãi ship</span>
+                      <span className={hasShipDiscount ? "text-success" : "text-muted-foreground"}>{hasShipDiscount ? `-${formatVND(b.shippingDiscount)}` : "—"}</span>
+                    </div>
+                    <div className="border-t pt-1.5 flex justify-between font-medium"><span>Phí ship sau ưu đãi</span><span>{formatVND(b.shippingPayable)}</span></div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="bg-muted/40 rounded-lg p-3 space-y-1.5 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatVND(b.subtotal)}</span></div>
               {b.manualDiscount > 0 && (
