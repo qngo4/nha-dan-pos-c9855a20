@@ -238,7 +238,7 @@ export default function AdminPOS() {
   const handlePrint = () => {
     if (!lastInvoice && lines.length === 0) { toast.error("Chưa có hóa đơn để in"); return; }
     // POS workflow defaults to 58mm thermal printer (POS58).
-    triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos58");
+    triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos58", { targetId: "print-root-invoice-pos58" });
   };
 
   const printableInvoice: Invoice = {
