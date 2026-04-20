@@ -34,20 +34,19 @@ export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props
   };
 
   const is58 = paper === "pos58";
-  // Conservative inner width: leave ~6mm safety on POS58, ~10mm on POS80
-  // so right-side values are never clipped by the printer's printable area.
+  // Ultra-conservative inner width — many thermal drivers print only ~48mm/72mm safely.
   const paperWidth = is58 ? 58 : 80;
-  const innerWidth = is58 ? "50mm" : "70mm";
-  const sidePad = is58 ? "3mm" : "4mm";
-  const baseFont = is58 ? 11 : 12;
-  const metaFont = is58 ? 11 : 12;
-  const moneyFont = is58 ? 11.5 : 12.5;
-  const totalFont = is58 ? 13 : 15;
-  const titleFont = is58 ? 13 : 15;
-  const shopFont = is58 ? 14 : 16;
-  // Fixed safe width for the right (amount) column. Critical for thermal safety.
-  const amountColWidth = is58 ? "20mm" : "26mm";
-  const metaColWidth = is58 ? "26mm" : "34mm";
+  const innerWidth = is58 ? "48mm" : "72mm";
+  const sidePad = "1mm";
+  const baseFont = is58 ? 10 : 11;
+  const metaFont = is58 ? 10 : 11;
+  const moneyFont = is58 ? 10.5 : 11.5;
+  const totalFont = is58 ? 12 : 14;
+  const titleFont = is58 ? 12 : 14;
+  const shopFont = is58 ? 13 : 15;
+  // Right (amount) column gets generous fixed width so values never clip.
+  const amountColWidth = is58 ? "24mm" : "32mm";
+  const metaColWidth = is58 ? "30mm" : "42mm";
 
   // Safe 2-column row: fixed-width right column, left wraps inside its cell.
   const Row = (props: {
