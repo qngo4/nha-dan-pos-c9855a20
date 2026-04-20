@@ -59,9 +59,14 @@ function buildPrintStyles(mode: PrintMode) {
       overflow: visible !important;
     }
     body {
-      font-family: 'Courier New', ui-monospace, monospace;
+      font-family: Arial, Helvetica, system-ui, sans-serif;
+      color: #000 !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+    #print-mount, #print-mount * {
+      color: #000 !important;
+      font-weight-adjust: none;
     }
     #print-mount,
     #print-mount > * {

@@ -10,6 +10,9 @@ interface Props {
   rootId?: string;
 }
 
+// Thermal-safe font stack: no decorative web fonts, full Vietnamese diacritic support
+const THERMAL_FONT = "Arial, Helvetica, system-ui, sans-serif";
+
 export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props) {
   const billable = lines.filter((l) => !l.reward);
   const rewards = lines.filter((l) => l.reward);
@@ -31,29 +34,70 @@ export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props
   };
 
   const is58 = paper === "pos58";
+  // Conservative inner width: leave ~6mm safety on POS58, ~10mm on POS80
+  // so right-side values are never clipped by the printer's printable area.
   const paperWidth = is58 ? 58 : 80;
-  const innerWidth = is58 ? "52mm" : "72mm";
-  const baseFont = is58 ? 10.5 : 11.5;
-  const titleFont = is58 ? 12 : 14;
-  const shopFont = is58 ? 13 : 15;
-  const pad = is58 ? "2.5mm" : "3.5mm";
+  const innerWidth = is58 ? "50mm" : "70mm";
+  const sidePad = is58 ? "3mm" : "4mm";
+  const baseFont = is58 ? 11 : 12;
+  const metaFont = is58 ? 11 : 12;
+  const moneyFont = is58 ? 11.5 : 12.5;
+  const totalFont = is58 ? 13 : 15;
+  const titleFont = is58 ? 13 : 15;
+  const shopFont = is58 ? 14 : 16;
+  // Fixed safe width for the right (amount) column. Critical for thermal safety.
+  const amountColWidth = is58 ? "20mm" : "26mm";
+  const metaColWidth = is58 ? "26mm" : "34mm";
 
-  const row = (label: string, value: string, opts?: { strong?: boolean }) => (
+  // Safe 2-column row: fixed-width right column, left wraps inside its cell.
+  const Row = (props: {
+    label: string;
+    value: string;
+    rightWidth?: string;
+    strong?: boolean;
+    fontSize?: number;
+  }) => (
     <div
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: 8,
-        fontWeight: opts?.strong ? 700 : 400,
+        display: "table",
+        width: "100%",
+        tableLayout: "fixed",
+        fontWeight: props.strong ? 700 : 500,
+        fontSize: `${props.fontSize ?? baseFont}px`,
+        color: "#000",
       }}
     >
-      <span style={{ flex: 1 }}>{label}</span>
-      <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>{value}</span>
+      <div style={{ display: "table-row" }}>
+        <div
+          style={{
+            display: "table-cell",
+            verticalAlign: "top",
+            wordBreak: "break-word",
+            paddingRight: "1mm",
+            color: "#000",
+          }}
+        >
+          {props.label}
+        </div>
+        <div
+          style={{
+            display: "table-cell",
+            verticalAlign: "top",
+            width: props.rightWidth ?? amountColWidth,
+            textAlign: "right",
+            wordBreak: "break-word",
+            color: "#000",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {props.value}
+        </div>
+      </div>
     </div>
   );
 
-  const divider = <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />;
+  const divider = <div style={{ borderTop: "1px dashed #000", margin: "3px 0" }} />;
+  const solidDivider = <div style={{ borderTop: "1px solid #000", margin: "4px 0" }} />;
 
   return (
     <div
@@ -68,56 +112,71 @@ export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props
         style={{
           width: innerWidth,
           maxWidth: innerWidth,
-          padding: pad,
+          paddingLeft: sidePad,
+          paddingRight: sidePad,
+          paddingTop: "2mm",
+          paddingBottom: "2mm",
           margin: 0,
           background: "#fff",
           color: "#000",
-          fontFamily: "'Courier New', ui-monospace, monospace",
+          fontFamily: THERMAL_FONT,
           fontSize: `${baseFont}px`,
-          lineHeight: 1.28,
+          lineHeight: 1.3,
+          fontWeight: 500,
         }}
       >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontWeight: 700, fontSize: `${shopFont}px`, textTransform: "uppercase" }}>Nhã Đan Shop</div>
-          <div style={{ fontSize: `${baseFont - 1}px` }}>123 Nguyễn Văn Linh, Q7, TP.HCM</div>
-          <div style={{ fontSize: `${baseFont - 1}px` }}>0901 234 567</div>
-          <div style={{ fontWeight: 700, fontSize: `${titleFont}px`, marginTop: 4 }}>HÓA ĐƠN BÁN HÀNG</div>
-          <div style={{ fontSize: `${baseFont - 1}px`, marginTop: 2 }}>{invoice.number}</div>
+        <div style={{ textAlign: "center", color: "#000" }}>
+          <div style={{ fontWeight: 700, fontSize: `${shopFont}px`, textTransform: "uppercase", color: "#000" }}>
+            Nhã Đan Shop
+          </div>
+          <div style={{ fontSize: `${baseFont}px`, color: "#000", fontWeight: 500 }}>
+            123 Nguyễn Văn Linh, Q7, TP.HCM
+          </div>
+          <div style={{ fontSize: `${baseFont}px`, color: "#000", fontWeight: 500 }}>0901 234 567</div>
+          <div style={{ fontWeight: 700, fontSize: `${titleFont}px`, marginTop: 3, color: "#000" }}>
+            HÓA ĐƠN BÁN HÀNG
+          </div>
+          <div style={{ fontSize: `${baseFont}px`, marginTop: 1, color: "#000", fontWeight: 600 }}>
+            {invoice.number}
+          </div>
         </div>
 
         {divider}
 
-        <div style={{ fontSize: `${baseFont - 1}px` }}>
-          {row("Ngày:", formatDateTime(invoice.date))}
-          {row("KH:", invoice.customerName)}
-          {row("NV:", invoice.createdBy)}
-          {row("TT:", invoice.paymentType.toUpperCase())}
+        <div>
+          <Row label="Ngày:" value={formatDateTime(invoice.date)} rightWidth={metaColWidth} fontSize={metaFont} />
+          <Row label="KH:" value={invoice.customerName} rightWidth={metaColWidth} fontSize={metaFont} />
+          <Row label="NV:" value={invoice.createdBy} rightWidth={metaColWidth} fontSize={metaFont} />
+          <Row label="TT:" value={invoice.paymentType.toUpperCase()} rightWidth={metaColWidth} fontSize={metaFont} />
         </div>
 
         {divider}
 
         <div>
           {billable.map((line, i) => (
-            <div key={`billable-${i}`} style={{ marginBottom: is58 ? 3 : 4 }}>
-              <div style={{ wordBreak: "break-word", fontWeight: 700 }}>{line.name}</div>
-              <div style={{ fontSize: `${baseFont - 1}px`, color: "#111" }}>{line.code}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span>{line.qty} × {formatVND(line.price)}</span>
-                <span style={{ whiteSpace: "nowrap" }}>{formatVND(line.qty * line.price)}</span>
-              </div>
+            <div key={`billable-${i}`} style={{ marginBottom: is58 ? 3 : 4, color: "#000" }}>
+              <div style={{ wordBreak: "break-word", fontWeight: 700, color: "#000" }}>{line.name}</div>
+              {line.code ? (
+                <div style={{ fontSize: `${baseFont - 0.5}px`, color: "#000", fontWeight: 500 }}>{line.code}</div>
+              ) : null}
+              <Row
+                label={`${line.qty} × ${formatVND(line.price)}`}
+                value={formatVND(line.qty * line.price)}
+                strong
+                fontSize={moneyFont}
+              />
             </div>
           ))}
 
           {rewards.map((line, i) => (
-            <div key={`reward-${i}`} style={{ marginBottom: is58 ? 3 : 4 }}>
-              <div style={{ wordBreak: "break-word", fontWeight: 700 }}>[QUÀ TẶNG] {line.name}</div>
-              <div style={{ fontSize: `${baseFont - 1}px` }}>
-                {line.rewardSource ? `Tặng từ khuyến mãi ${line.rewardSource}` : "Tặng từ khuyến mãi"}
+            <div key={`reward-${i}`} style={{ marginBottom: is58 ? 3 : 4, color: "#000" }}>
+              <div style={{ wordBreak: "break-word", fontWeight: 700, color: "#000" }}>
+                [QUÀ TẶNG] {line.name}
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span>SL {line.qty}</span>
-                <span>Miễn phí</span>
+              <div style={{ fontSize: `${baseFont - 0.5}px`, color: "#000", fontWeight: 500 }}>
+                {line.rewardSource ? `Tặng từ KM ${line.rewardSource}` : "Tặng từ khuyến mãi"}
               </div>
+              <Row label={`SL ${line.qty}`} value="Miễn phí" strong fontSize={moneyFont} />
             </div>
           ))}
         </div>
@@ -125,28 +184,50 @@ export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props
         {divider}
 
         <div>
-          {row("Tạm tính:", formatVND(b.subtotal))}
-          {b.manualDiscount > 0 && row("CK thủ công:", `-${formatVND(b.manualDiscount)}`)}
-          {b.promoDiscount > 0 && row(`Khuyến mãi${b.promoName ? ` (${b.promoName})` : ""}:`, `-${formatVND(b.promoDiscount)}`)}
-          {b.shippingFee > 0 && row("Phí ship:", formatVND(b.shippingFee))}
-          {b.shippingDiscount > 0 && row("Ưu đãi ship:", `-${formatVND(b.shippingDiscount)}`)}
-          {b.vatAmount > 0 && row(`VAT (${b.vatPercent}%):`, `+${formatVND(b.vatAmount)}`)}
+          <Row label="Tạm tính:" value={formatVND(b.subtotal)} fontSize={moneyFont} />
+          {b.manualDiscount > 0 && (
+            <Row label="CK thủ công:" value={`-${formatVND(b.manualDiscount)}`} fontSize={moneyFont} />
+          )}
+          {b.promoDiscount > 0 && (
+            <Row
+              label={`Khuyến mãi${b.promoName ? ` (${b.promoName})` : ""}:`}
+              value={`-${formatVND(b.promoDiscount)}`}
+              fontSize={moneyFont}
+            />
+          )}
+          {b.shippingFee > 0 && <Row label="Phí ship:" value={formatVND(b.shippingFee)} fontSize={moneyFont} />}
+          {b.shippingDiscount > 0 && (
+            <Row label="Ưu đãi ship:" value={`-${formatVND(b.shippingDiscount)}`} fontSize={moneyFont} />
+          )}
+          {b.vatAmount > 0 && (
+            <Row label={`VAT (${b.vatPercent}%):`} value={`+${formatVND(b.vatAmount)}`} fontSize={moneyFont} />
+          )}
         </div>
 
-        <div style={{ borderTop: "1px solid #000", margin: "5px 0" }} />
-        {row("TỔNG:", formatVND(b.total), { strong: true })}
+        {solidDivider}
+        <Row label="TỔNG CỘNG:" value={formatVND(b.total)} strong fontSize={totalFont} />
 
         {invoice.note ? (
           <>
             {divider}
-            <div style={{ fontSize: `${baseFont - 1}px`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            <div
+              style={{
+                fontSize: `${baseFont}px`,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                color: "#000",
+                fontWeight: 500,
+              }}
+            >
               Ghi chú: {invoice.note}
             </div>
           </>
         ) : null}
 
         {divider}
-        <div style={{ textAlign: "center", fontSize: `${baseFont - 1}px` }}>Cảm ơn quý khách. Hẹn gặp lại!</div>
+        <div style={{ textAlign: "center", fontSize: `${baseFont}px`, color: "#000", fontWeight: 600 }}>
+          Cảm ơn quý khách. Hẹn gặp lại!
+        </div>
         <div style={{ height: is58 ? "4mm" : "5mm" }} />
       </div>
     </div>
