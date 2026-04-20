@@ -60,7 +60,7 @@ export function validateAddress(addr: ShippingAddress): { ok: true } | { ok: fal
  */
 export async function quoteShipping(input: QuoteInput): Promise<ShippingState> {
   const v = validateAddress(input.address);
-  if (!v.ok) return { state: "incomplete", missing: v.missing };
+  if (v.ok === false) return { state: "incomplete", missing: v.missing };
 
   // Simulated network latency
   await new Promise((r) => setTimeout(r, 450));
