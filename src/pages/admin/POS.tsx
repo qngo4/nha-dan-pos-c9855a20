@@ -511,9 +511,6 @@ export default function AdminPOS() {
                   <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-md hover:bg-muted">
                     <Printer className="h-4 w-4" /> In POS58
                   </button>
-                  <button onClick={handlePrint80} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-md hover:bg-muted">
-                    <Printer className="h-4 w-4" /> In POS80
-                  </button>
                   <button onClick={handleNewInvoice} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
                     <Receipt className="h-4 w-4" /> Hóa đơn mới
                   </button>
