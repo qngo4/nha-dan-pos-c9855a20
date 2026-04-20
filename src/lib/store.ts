@@ -12,6 +12,7 @@ import {
   userAccounts as initialUsers,
   promotions as initialPromotionsRaw,
   invoices as initialInvoices,
+  pendingOrders as initialPendingOrders,
   type Category,
   type Product,
   type ProductVariant,
@@ -21,6 +22,7 @@ import {
   type Supplier,
   type UserAccount,
   type Invoice,
+  type PendingOrder,
 } from "./mock-data";
 import { migratePromotion, type Promotion } from "./promotions";
 
@@ -33,6 +35,7 @@ interface State {
   users: UserAccount[];
   promotions: Promotion[];
   invoices: Invoice[];
+  pendingOrders: PendingOrder[];
 }
 
 let state: State = {
@@ -44,6 +47,7 @@ let state: State = {
   users: [...initialUsers],
   promotions: (initialPromotionsRaw as any[]).map((p) => migratePromotion({ ...p, id: p.id })),
   invoices: [...initialInvoices],
+  pendingOrders: [...initialPendingOrders],
 };
 
 const listeners = new Set<() => void>();
@@ -271,6 +275,34 @@ export const invoiceActions = {
   },
   remove(id: string) {
     setState((s) => ({ ...s, invoices: s.invoices.filter((i) => i.id !== id) }));
+  },
+};
+
+// ===== Pending Orders (created by online checkout, awaiting admin confirmation) =====
+export const pendingOrderActions = {
+  create(input: Omit<PendingOrder, "id" | "orderNumber" | "createdAt" | "expiresAt" | "status"> & {
+    orderNumber?: string;
+    expiresInHours?: number;
+  }): PendingOrder {
+    const now = new Date();
+    const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    const seq = String(state.pendingOrders.length + 1).padStart(3, "0");
+    const order: PendingOrder = {
+      ...input,
+      id: uid("po"),
+      orderNumber: input.orderNumber ?? `DH-${ymd}-${seq}`,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + (input.expiresInHours ?? 12) * 3600_000).toISOString(),
+      status: "pending",
+    };
+    setState((s) => ({ ...s, pendingOrders: [order, ...s.pendingOrders] }));
+    return order;
+  },
+  setStatus(id: string, status: PendingOrder["status"]) {
+    setState((s) => ({ ...s, pendingOrders: s.pendingOrders.map((o) => (o.id === id ? { ...o, status } : o)) }));
+  },
+  remove(id: string) {
+    setState((s) => ({ ...s, pendingOrders: s.pendingOrders.filter((o) => o.id !== id) }));
   },
 };
 

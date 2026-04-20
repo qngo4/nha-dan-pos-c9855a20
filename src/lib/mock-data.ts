@@ -22,6 +22,8 @@ export interface ProductVariant {
   expiryDays: number;
   isDefault: boolean;
   expiryDate?: string;
+  /** Optional override — falls back to product.image when empty */
+  image?: string;
 }
 
 export interface Product {
@@ -30,7 +32,10 @@ export interface Product {
   name: string;
   categoryId: string;
   categoryName: string;
+  /** Product-level image (data URL or remote URL). May be empty. */
   image: string;
+  /** Optional gallery (additional product-level images) */
+  images?: string[];
   active: boolean;
   variants: ProductVariant[];
   type: 'single' | 'multi';
@@ -129,13 +134,23 @@ export interface PendingOrder {
   orderNumber: string;
   customerId: string;
   customerName: string;
+  customerPhone?: string;
+  shippingAddress?: {
+    province: string;
+    district: string;
+    ward: string;
+    street?: string;
+  };
   paymentMethod: 'transfer' | 'momo' | 'zalopay';
+  subtotal?: number;
+  shippingFee?: number;
   total: number;
   createdAt: string;
   expiresAt: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'expired';
   itemCount: number;
   items?: { name: string; qty: number; price: number }[];
+  note?: string;
 }
 
 export interface GoodsReceipt {

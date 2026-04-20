@@ -60,6 +60,7 @@ const App = () => (
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/pending-payment" element={<PendingPaymentPage />} />
+            <Route path="/pending-payment/:id" element={<PendingPaymentPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>
 

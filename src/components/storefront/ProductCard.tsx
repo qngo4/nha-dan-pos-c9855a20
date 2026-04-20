@@ -4,6 +4,7 @@ import { formatVND } from "@/lib/format";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { toast } from "sonner";
 import type { products } from "@/lib/mock-data";
+import { resolveProductImage } from "@/lib/product-image";
 
 type Product = (typeof products)[number];
 
@@ -20,6 +21,7 @@ export function ProductCard({ product, compact = false }: { product: Product; co
   const minPrice = Math.min(...product.variants.map((v) => v.sellPrice));
   const maxPrice = Math.max(...product.variants.map((v) => v.sellPrice));
   const discount = stockStatus === "in-stock" && dv.sellPrice > 20000 ? Math.floor(((maxPrice - minPrice) / maxPrice) * 100) : 0;
+  const imageUrl = resolveProductImage(product, dv);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -38,9 +40,18 @@ export function ProductCard({ product, compact = false }: { product: Product; co
     >
       {/* Image */}
       <div className="aspect-square bg-gradient-to-br from-muted/40 to-storefront-soft relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
-          <Package className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.25} />
-        </div>
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={product.name}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:scale-110">
+            <Package className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.25} />
+          </div>
+        )}
 
         {/* Top-left badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
