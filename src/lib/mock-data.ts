@@ -134,13 +134,23 @@ export interface PendingOrder {
   orderNumber: string;
   customerId: string;
   customerName: string;
+  customerPhone?: string;
+  shippingAddress?: {
+    province: string;
+    district: string;
+    ward: string;
+    street?: string;
+  };
   paymentMethod: 'transfer' | 'momo' | 'zalopay';
+  subtotal?: number;
+  shippingFee?: number;
   total: number;
   createdAt: string;
   expiresAt: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'expired';
   itemCount: number;
   items?: { name: string; qty: number; price: number }[];
+  note?: string;
 }
 
 export interface GoodsReceipt {
