@@ -354,6 +354,3 @@ function ShippingBlock({ ship }: { ship: ShippingState }) {
   );
 }
 
-function formatVND(n: number) {
-  return new Intl.NumberFormat("vi-VN").format(n) + "₫";
-}
