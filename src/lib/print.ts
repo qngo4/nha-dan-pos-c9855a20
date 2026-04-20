@@ -44,9 +44,11 @@ function buildPrintStyles(mode: PrintMode) {
     `;
   }
 
-  const paperWidth = mode === "pos58" ? "58mm" : "80mm";
+  // Use the printer's safe printable width as the @page width so browser
+  // does not scale content into an area larger than the print head can print.
+  const paperWidth = mode === "pos58" ? "48mm" : "72mm";
   return `
-    @page { size: ${paperWidth} 297mm; margin: 0; }
+    @page { size: ${paperWidth} auto; margin: 0; }
     html, body {
       margin: 0 !important;
       padding: 0 !important;
