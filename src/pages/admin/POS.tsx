@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
+import { Printable58Invoice } from "@/components/shared/Printable58Invoice";
 import { triggerPrint } from "@/lib/print";
 import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
@@ -236,7 +237,8 @@ export default function AdminPOS() {
 
   const handlePrint = () => {
     if (!lastInvoice && lines.length === 0) { toast.error("Chưa có hóa đơn để in"); return; }
-    triggerPrint(lastInvoice?.number ?? "hóa đơn nháp");
+    // POS workflow defaults to 58mm thermal printer (POS58).
+    triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos58");
   };
 
   const printableInvoice: Invoice = {
@@ -746,7 +748,10 @@ export default function AdminPOS() {
       </div>
 
       {(lines.length > 0 || lastInvoice) && (
-        <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
+        <>
+          <PrintableInvoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
+          <Printable58Invoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
+        </>
       )}
       <CustomerFormDrawer open={customerDrawerOpen} onClose={() => setCustomerDrawerOpen(false)} />
     </>
