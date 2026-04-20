@@ -80,7 +80,7 @@
     --storefront-ink: 220 30% 12%;
     --storefront-muted: 220 12% 48%;
     --storefront-soft: 30 40% 96%;
-    --storefront-accent: 14 88% 55%;          /* warm coral accent for CTAs/badges */
+    --storefront-accent: 14 88% 55%;
     --storefront-accent-soft: 14 90% 96%;
     --storefront-gold: 38 85% 52%;
 
@@ -160,7 +160,6 @@
 }
 
 @layer utilities {
-  /* Scrollbar styling */
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -175,17 +174,14 @@
     @apply bg-muted-foreground/30;
   }
 
-  /* Admin density utilities */
   .admin-dense {
     @apply text-sm leading-tight;
   }
 
-  /* Storefront breathing */
   .storefront-relaxed {
     @apply text-base leading-relaxed;
   }
 
-  /* Premium storefront utilities */
   .sf-hero-bg { background-image: var(--gradient-hero); }
   .sf-hero-overlay { background-image: var(--gradient-hero-overlay); }
   .sf-card-bg { background-image: var(--gradient-card); }
@@ -207,83 +203,17 @@
   }
 }
 
-/* ===== Print isolation =====
-   Anything outside .print-area is hidden during printing.
-   .print-area itself is normally hidden off-screen and only revealed when printing.
-   Two paper variants exist:
-     - .print-area (default A4)
-     - .print-area.print-58 (58mm thermal)
-   The body class .print-a4 / .print-pos58 (set by triggerPrint) selects which one is visible. */
-.print-area {
+.print-area,
+.print-root {
   position: fixed;
-  left: -10000px;
+  left: -100vw;
   top: 0;
-  width: 210mm;
-  background: white;
-  color: black;
-  z-index: -1;
-}
-.print-area.print-58 {
-  width: 58mm;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media print {
-  body * { visibility: hidden !important; }
-  .no-print { display: none !important; }
-
-  /* --- Default: A4 --- */
-  body.print-a4 .print-area:not(.print-58),
-  body.print-a4 .print-area:not(.print-58) * {
-    visibility: visible !important;
+  .no-print {
+    display: none !important;
   }
-  body.print-a4 .print-area:not(.print-58) {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    z-index: 9999 !important;
-  }
-  body.print-a4 .print-area.print-58 { display: none !important; }
-
-  /* Fallback when no body class is set: behave like A4 (legacy callers) */
-  body:not(.print-a4):not(.print-pos58) .print-area:not(.print-58),
-  body:not(.print-a4):not(.print-pos58) .print-area:not(.print-58) * {
-    visibility: visible !important;
-  }
-  body:not(.print-a4):not(.print-pos58) .print-area:not(.print-58) {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    z-index: 9999 !important;
-  }
-  body:not(.print-a4):not(.print-pos58) .print-area.print-58 { display: none !important; }
-
-  body.print-a4 { }
-  /* A4 page size */
-  @page { size: A4 portrait; margin: 12mm; }
-
-  /* --- POS58 thermal --- */
-  body.print-pos58 .print-area.print-58,
-  body.print-pos58 .print-area.print-58 * {
-    visibility: visible !important;
-  }
-  body.print-pos58 .print-area.print-58 {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 58mm !important;
-    max-width: 58mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-    z-index: 9999 !important;
-    overflow: hidden !important;
-  }
-  body.print-pos58 .print-area:not(.print-58) { display: none !important; }
-
-  /* @page rules cannot be nested under selectors. Default A4 @page is declared
-     above. POS58 @page (size: 58mm auto; margin: 0) is injected dynamically by
-     triggerPrint() via a <style id="pos58-page-style"> tag, then removed after
-     printing — this is the only reliable cross-browser way to switch paper. */
 }

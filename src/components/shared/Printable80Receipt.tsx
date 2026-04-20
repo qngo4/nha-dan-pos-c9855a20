@@ -7,6 +7,6 @@ interface Props {
   rootId?: string;
 }
 
-export function Printable58Receipt({ receipt, lines, rootId }: Props) {
-  return <PrintableThermalReceipt receipt={receipt} lines={lines} paper="pos58" rootId={rootId} />;
+export function Printable80Receipt({ receipt, lines, rootId }: Props) {
+  return <PrintableThermalReceipt receipt={receipt} lines={lines} paper="pos80" rootId={rootId} />;
 }

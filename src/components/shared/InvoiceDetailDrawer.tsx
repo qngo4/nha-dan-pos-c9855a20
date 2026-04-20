@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Invoice, InvoiceLine } from "@/lib/mock-data";
 import { PrintableInvoice } from "@/components/shared/PrintableInvoice";
 import { Printable58Invoice } from "@/components/shared/Printable58Invoice";
+import { Printable80Invoice } from "@/components/shared/Printable80Invoice";
 import { triggerPrint } from "@/lib/print";
 import { useStore } from "@/lib/store";
 import { PROMOTION_TYPE_LABELS, formatPromotionSummary, formatScope, type Promotion } from "@/lib/promotions";
@@ -87,8 +88,9 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
       })
     : "";
 
-  const handlePrint = () => triggerPrint(`hóa đơn ${invoice.number}`, "a4");
-  const handlePrint58 = () => triggerPrint(`hóa đơn ${invoice.number} (POS58)`, "pos58");
+  const handlePrint = () => triggerPrint(`hóa đơn ${invoice.number}`, "a4", { targetId: "print-area-invoice" });
+  const handlePrint58 = () => triggerPrint(`hóa đơn ${invoice.number} (POS58)`, "pos58", { targetId: "print-root-invoice-pos58" });
+  const handlePrint80 = () => triggerPrint(`hóa đơn ${invoice.number} (POS80)`, "pos80", { targetId: "print-root-invoice-pos80" });
 
   return (
     <>
@@ -325,8 +327,11 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
 
           <div className="p-4 border-t flex flex-wrap gap-2">
             <button onClick={onClose} className="flex-1 min-w-[80px] px-3 py-2 text-sm border rounded-md hover:bg-muted">Đóng</button>
-            <button onClick={handlePrint58} className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+            <button onClick={handlePrint58} className="flex-1 min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
               <Printer className="h-4 w-4" /> POS58
+            </button>
+            <button onClick={handlePrint80} className="flex-1 min-w-[96px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-md hover:bg-muted">
+              <Printer className="h-4 w-4" /> POS80
             </button>
             <button onClick={handlePrint} className="flex-1 min-w-[110px] flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary-hover">
               <Printer className="h-4 w-4" /> In A4
@@ -335,9 +340,9 @@ export function InvoiceDetailDrawer({ invoice, onClose }: Props) {
         </div>
       </div>
 
-      {/* Print-only content — both variants mounted; CSS reveals the active one */}
       <PrintableInvoice invoice={invoice} lines={lines} />
       <Printable58Invoice invoice={invoice} lines={lines} />
+      <Printable80Invoice invoice={invoice} lines={lines} />
     </>
   );
 }
