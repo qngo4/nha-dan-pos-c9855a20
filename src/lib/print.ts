@@ -1,53 +1,185 @@
-// Print helper: ensures the "Đang in..." toast auto-dismisses
-// even if the user cancels the browser print dialog, and supports
-// switching paper size between A4 and POS58 thermal.
 import { toast } from "sonner";
 
-export type PrintMode = "a4" | "pos58";
+export type PrintMode = "a4" | "pos58" | "pos80";
 
-const POS58_STYLE_ID = "pos58-page-style";
-
-function applyPos58PageStyle() {
-  if (document.getElementById(POS58_STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = POS58_STYLE_ID;
-  // @page rules can't be nested under selectors, so we inject this only
-  // while POS58 printing is active and remove it right after.
-  style.textContent = `@media print { @page { size: 58mm auto; margin: 0; } }`;
-  document.head.appendChild(style);
+interface TriggerPrintOptions {
+  targetId: string;
 }
 
-function removePos58PageStyle() {
-  const el = document.getElementById(POS58_STYLE_ID);
-  if (el) el.remove();
+let activePrintJobId: string | null = null;
+let activeCleanup: (() => void) | null = null;
+
+function buildPrintStyles(mode: PrintMode) {
+  if (mode === "a4") {
+    return `
+      @page { size: A4 portrait; margin: 12mm; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #print-mount,
+      #print-mount > * {
+        display: block !important;
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: auto !important;
+        max-width: none !important;
+        visibility: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        box-shadow: none !important;
+      }
+    `;
+  }
+
+  const paperWidth = mode === "pos58" ? "58mm" : "80mm";
+  return `
+    @page { size: ${paperWidth} 297mm; margin: 0; }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: ${paperWidth} !important;
+      max-width: ${paperWidth} !important;
+      background: #fff !important;
+      color: #000 !important;
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+    }
+    body {
+      font-family: 'Courier New', ui-monospace, monospace;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    #print-mount,
+    #print-mount > * {
+      display: block !important;
+      position: static !important;
+      left: auto !important;
+      top: auto !important;
+      width: ${paperWidth} !important;
+      max-width: ${paperWidth} !important;
+      min-height: 0 !important;
+      height: auto !important;
+      visibility: visible !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      box-shadow: none !important;
+      background: #fff !important;
+    }
+    #print-mount [data-thermal-root] * {
+      position: static !important;
+      float: none !important;
+      box-sizing: border-box !important;
+      max-height: none !important;
+    }
+  `;
 }
 
-/**
- * Trigger browser print.
- * - "a4" (default): standard A4 layout (existing PrintableInvoice/PrintableReceipt).
- * - "pos58": 58mm thermal layout (Printable58Invoice / Printable58Receipt).
- */
-export function triggerPrint(label: string, mode: PrintMode = "a4") {
-  const id = toast.loading(`Đang chuẩn bị in ${label}...`);
+function createPrintFrame() {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.position = "fixed";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  frame.style.opacity = "0";
+  frame.style.pointerEvents = "none";
+  document.body.appendChild(frame);
+  return frame;
+}
 
-  document.body.classList.remove("print-a4", "print-pos58");
-  document.body.classList.add(mode === "pos58" ? "print-pos58" : "print-a4");
-  if (mode === "pos58") applyPos58PageStyle();
+export function triggerPrint(label: string, mode: PrintMode = "a4", options: TriggerPrintOptions) {
+  const source = document.getElementById(options.targetId);
+  if (!source) {
+    toast.error("Không tìm thấy nội dung in");
+    return false;
+  }
+
+  if (activePrintJobId) {
+    toast.error("Đang có lệnh in khác, vui lòng chờ hoàn tất");
+    return false;
+  }
+
+  const toastId = toast.loading(`Đang chuẩn bị in ${label}...`);
+  const frame = createPrintFrame();
+  const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  activePrintJobId = jobId;
+
+  let cleaned = false;
+  let focusFallbackAttached = false;
+  let cleanupTimer = 0;
 
   const cleanup = () => {
-    toast.dismiss(id);
-    document.body.classList.remove("print-a4", "print-pos58");
-    removePos58PageStyle();
-    window.removeEventListener("afterprint", cleanup);
+    if (cleaned) return;
+    cleaned = true;
+    if (cleanupTimer) window.clearTimeout(cleanupTimer);
+    if (focusFallbackAttached) window.removeEventListener("focus", onFocusBack);
+    toast.dismiss(toastId);
+    frame.remove();
+    if (activePrintJobId === jobId) activePrintJobId = null;
+    if (activeCleanup === cleanup) activeCleanup = null;
   };
-  window.addEventListener("afterprint", cleanup);
-  setTimeout(cleanup, 8000);
 
-  setTimeout(() => {
-    try {
-      window.print();
-    } catch {
-      cleanup();
-    }
-  }, 100);
+  const onFocusBack = () => {
+    window.setTimeout(cleanup, 300);
+  };
+
+  activeCleanup = cleanup;
+
+  try {
+    const doc = frame.contentDocument;
+    const win = frame.contentWindow;
+    if (!doc || !win) throw new Error("Không khởi tạo được khung in");
+
+    doc.open();
+    doc.write(`<!doctype html><html><head><meta charset="utf-8" /><title>${label}</title><style>${buildPrintStyles(mode)}</style></head><body><div id="print-mount"></div></body></html>`);
+    doc.close();
+
+    const mount = doc.getElementById("print-mount");
+    if (!mount) throw new Error("Không tạo được vùng in");
+
+    const clone = source.cloneNode(true) as HTMLElement;
+    mount.appendChild(clone);
+
+    win.addEventListener("afterprint", cleanup, { once: true });
+    focusFallbackAttached = true;
+    window.addEventListener("focus", onFocusBack, { once: true });
+    cleanupTimer = window.setTimeout(cleanup, 20000);
+
+    window.setTimeout(() => {
+      try {
+        if (activePrintJobId !== jobId) return;
+        win.focus();
+        win.print();
+      } catch {
+        cleanup();
+      }
+    }, 120);
+
+    return true;
+  } catch {
+    cleanup();
+    toast.error("Không thể mở lệnh in");
+    return false;
+  }
+}
+
+export function cancelActivePrintJob() {
+  activeCleanup?.();
 }
