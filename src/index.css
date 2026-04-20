@@ -209,7 +209,11 @@
 
 /* ===== Print isolation =====
    Anything outside .print-area is hidden during printing.
-   .print-area itself is normally hidden off-screen and only revealed when printing. */
+   .print-area itself is normally hidden off-screen and only revealed when printing.
+   Two paper variants exist:
+     - .print-area (default A4)
+     - .print-area.print-58 (58mm thermal)
+   The body class .print-a4 / .print-pos58 (set by triggerPrint) selects which one is visible. */
 .print-area {
   position: fixed;
   left: -10000px;
@@ -219,17 +223,80 @@
   color: black;
   z-index: -1;
 }
+.print-area.print-58 {
+  width: 58mm;
+}
 
 @media print {
-  @page { margin: 12mm; }
   body * { visibility: hidden !important; }
-  .print-area, .print-area * { visibility: visible !important; }
-  .print-area {
+  .no-print { display: none !important; }
+
+  /* --- Default: A4 --- */
+  body.print-a4 .print-area:not(.print-58),
+  body.print-a4 .print-area:not(.print-58) * {
+    visibility: visible !important;
+  }
+  body.print-a4 .print-area:not(.print-58) {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
     z-index: 9999 !important;
   }
-  .no-print { display: none !important; }
+  body.print-a4 .print-area.print-58 { display: none !important; }
+
+  /* Fallback when no body class is set: behave like A4 (legacy callers) */
+  body:not(.print-a4):not(.print-pos58) .print-area:not(.print-58),
+  body:not(.print-a4):not(.print-pos58) .print-area:not(.print-58) * {
+    visibility: visible !important;
+  }
+  body:not(.print-a4):not(.print-pos58) .print-area:not(.print-58) {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    z-index: 9999 !important;
+  }
+  body:not(.print-a4):not(.print-pos58) .print-area.print-58 { display: none !important; }
+
+  body.print-a4 { }
+  /* A4 page size */
+  @page { size: A4 portrait; margin: 12mm; }
+
+  /* --- POS58 thermal --- */
+  body.print-pos58 .print-area.print-58,
+  body.print-pos58 .print-area.print-58 * {
+    visibility: visible !important;
+  }
+  body.print-pos58 .print-area.print-58 {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    z-index: 9999 !important;
+    overflow: hidden !important;
+  }
+  body.print-pos58 .print-area:not(.print-58) { display: none !important; }
+
+  /* Override @page size when POS58 mode is active. The latter @page wins
+     because of cascade order; browsers that support named pages may ignore
+     this, but most modern browsers honor the last @page rule. */
+  @media print {
+    body.print-pos58 {
+      /* No-op selector to scope, real rule below */
+    }
+  }
+}
+
+/* POS58: dedicated @page block — separate so it overrides A4 @page when active.
+   Browsers do not support body-conditional @page, so we always emit this and
+   rely on the visibility/display rules above to render only the correct template.
+   When the user prints with POS58 mode, they should also pick "58mm" or
+   "Custom 58mm" in their browser print dialog if their thermal driver requires it. */
+@media print {
+  body.print-pos58 @page { size: 58mm auto; margin: 0; }
 }
