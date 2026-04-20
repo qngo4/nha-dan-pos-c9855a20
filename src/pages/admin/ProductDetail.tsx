@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -8,6 +8,7 @@ import { importStaging } from "@/lib/import-staging";
 import { useStore, productActions } from "@/lib/store";
 import type { ProductVariant } from "@/lib/mock-data";
 import { formatVND } from "@/lib/format";
+import { resolveProductImage, fileToDataUrl, MAX_IMAGE_BYTES } from "@/lib/product-image";
 import {
   ArrowLeft, Save, Plus, Pencil, Trash2, Upload, ImageIcon, Check, Star, X
 } from "lucide-react";
@@ -422,18 +423,12 @@ function AdminProductDetail() {
       )}
 
       {/* Images */}
-      {activeTab === "images" && (
-        <div className="bg-card rounded-lg border p-6">
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="rounded-full bg-muted p-4 mb-4">
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="font-semibold">Hình ảnh sản phẩm</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-sm">Kéo thả hoặc chọn ảnh để tải lên. Hỗ trợ JPG, PNG. Tối đa 5MB mỗi ảnh.</p>
-            <button onClick={() => toast.info("Chức năng tải ảnh sẽ sớm có")} className="mt-4 flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-md hover:bg-muted">
-              <Upload className="h-4 w-4" /> Tải ảnh lên
-            </button>
-          </div>
+      {activeTab === "images" && product && (
+        <ImagesTab product={product} />
+      )}
+      {activeTab === "images" && !product && (
+        <div className="bg-card rounded-lg border p-6 text-sm text-muted-foreground">
+          Hãy lưu sản phẩm trước, sau đó quay lại tab này để tải ảnh lên.
         </div>
       )}
 
