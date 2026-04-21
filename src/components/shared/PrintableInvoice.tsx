@@ -87,6 +87,17 @@ export function PrintableInvoice({ invoice, lines }: Props) {
             {b.promoDiscount > 0 && <tr><td>Khuyến mãi{b.promoName ? ` (${b.promoName})` : ""}:</td><td style={{ textAlign: "right" }}>-{formatVND(b.promoDiscount)}</td></tr>}
             {(b.shippingFee > 0) && <tr><td>Phí ship:</td><td style={{ textAlign: "right" }}>{formatVND(b.shippingFee)}</td></tr>}
             {b.shippingDiscount > 0 && <tr><td>Ưu đãi ship:</td><td style={{ textAlign: "right" }}>-{formatVND(b.shippingDiscount)}</td></tr>}
+            {(b.shippingZoneCode || b.shippingEtaMin) && (
+              <tr>
+                <td>Giao hàng:</td>
+                <td style={{ textAlign: "right" }}>
+                  {[
+                    b.shippingZoneCode ? `${b.shippingZoneCode}${b.shippingZoneLabel ? ` · ${b.shippingZoneLabel}` : ""}` : null,
+                    b.shippingEtaMin && b.shippingEtaMax ? `Dự kiến ${b.shippingEtaMin}–${b.shippingEtaMax} ngày` : null,
+                  ].filter(Boolean).join(" · ")}
+                </td>
+              </tr>
+            )}
             {b.vatAmount > 0 && <tr><td>VAT ({b.vatPercent}%):</td><td style={{ textAlign: "right" }}>+{formatVND(b.vatAmount)}</td></tr>}
             <tr style={{ borderTop: "1px solid #000", fontWeight: "bold", fontSize: "13pt" }}>
               <td style={{ paddingTop: 6 }}>TỔNG CỘNG:</td>
