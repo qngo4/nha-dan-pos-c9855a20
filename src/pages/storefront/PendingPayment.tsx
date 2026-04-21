@@ -53,9 +53,12 @@ export default function PendingPaymentPage() {
         }
       }
 
+      // Generate VietQR for any online payment method (bank_transfer / momo / zalopay).
+      // For momo/zalopay we still use the configured bank QR as a uniform settlement
+      // path — admin will reconcile via the same transfer reference.
       if (
         fromService &&
-        fromService.paymentMethod === "bank_transfer" &&
+        fromService.paymentMethod !== "cash" &&
         fromService.status === "pending_payment" &&
         settings?.qrEnabled &&
         !qr
@@ -123,7 +126,11 @@ export default function PendingPaymentPage() {
     navigator.clipboard.writeText(text).then(() => toast.success(`Đã sao chép ${label}`));
   };
 
-  const showBankPanel = order.paymentMethod === "bank_transfer" && order.status === "pending_payment";
+  const showBankPanel = order.paymentMethod !== "cash" && order.status === "pending_payment";
+  const paymentLabelShort =
+    order.paymentMethod === "bank_transfer" ? "chuyển khoản" :
+    order.paymentMethod === "momo" ? "MoMo" :
+    order.paymentMethod === "zalopay" ? "ZaloPay" : "tiền mặt";
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -158,7 +165,7 @@ export default function PendingPaymentPage() {
       {showBankPanel && (
         <div className="bg-card rounded-lg border p-4 mb-4">
           <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-primary" /> Thông tin chuyển khoản
+            <QrCode className="h-4 w-4 text-primary" /> Thông tin thanh toán ({paymentLabelShort})
           </h2>
 
           {!bank?.qrEnabled || !bank?.accountNumber ? (
@@ -169,14 +176,14 @@ export default function PendingPaymentPage() {
               </span>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-[160px_1fr] gap-4">
+            <div className="grid sm:grid-cols-[244px_1fr] gap-4">
               <div className="flex justify-center">
                 {qr ? (
-                  <img src={qr.imageUrl} alt="VietQR" className="h-40 w-40 object-contain border rounded-md bg-white" />
+                  <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
                 ) : qrError ? (
-                  <div className="h-40 w-40 border rounded-md flex items-center justify-center text-[10px] text-danger text-center px-2">{qrError}</div>
+                  <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-danger text-center px-2">{qrError}</div>
                 ) : (
-                  <div className="h-40 w-40 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
+                  <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
                 )}
               </div>
               <div className="space-y-1.5 text-sm">

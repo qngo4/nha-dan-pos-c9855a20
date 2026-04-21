@@ -27,24 +27,42 @@ export default function CartPage() {
     [items],
   );
 
-  // Evaluate the best promotion for the current cart so users can see the
-  // deal *before* heading to checkout. Voucher discounts are intentionally
-  // applied later, on the Checkout page (where the input lives).
-  const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
+  // Evaluate ALL promotions so users can pick the one they want instead of being
+  // locked into the auto-best. Voucher discounts apply later on Checkout.
+  const [allPromos, setAllPromos] = useState<EvaluatedPromotion[]>([]);
+  const [chosenPromoId, setChosenPromoId] = useState<string | null>(null);
   useEffect(() => {
     let cancel = false;
     if (!items.length) {
-      setBestPromo(null);
+      setAllPromos([]);
       return;
     }
     const ctx: CartContext = { lines: items, subtotal };
-    void promotions.pickBest(ctx).then((p) => {
-      if (!cancel) setBestPromo(p);
+    void promotions.evaluateAll(ctx).then((list) => {
+      if (cancel) return;
+      setAllPromos(list);
     });
     return () => {
       cancel = true;
     };
   }, [items, subtotal]);
+
+  const eligiblePromos = useMemo(() => allPromos.filter((p) => p.eligible), [allPromos]);
+  // Default to the first eligible (best by value — adapter sorts) if user hasn't picked.
+  const sortedEligible = useMemo(
+    () => [...eligiblePromos].sort(
+      (a, b) =>
+        b.discountAmount + b.shippingDiscountAmount -
+        (a.discountAmount + a.shippingDiscountAmount),
+    ),
+    [eligiblePromos],
+  );
+  const bestPromo: EvaluatedPromotion | null = useMemo(() => {
+    if (chosenPromoId) {
+      return sortedEligible.find((p) => p.promotionId === chosenPromoId) ?? sortedEligible[0] ?? null;
+    }
+    return sortedEligible[0] ?? null;
+  }, [sortedEligible, chosenPromoId]);
 
   const promoDiscount = bestPromo?.discountAmount ?? 0;
   const baseShipping = subtotal >= 200000 ? 0 : 20000;
@@ -115,31 +133,54 @@ export default function CartPage() {
               <CartRow key={item.id} item={item} onRemove={removeItem} />
             ))}
 
-            {/* Promotion preview */}
-            {bestPromo && (
-              <div className="bg-success-soft/30 border border-success/30 rounded-2xl p-4">
-                <div className="flex items-start gap-2.5">
-                  <Gift className="h-4 w-4 text-success shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-success">
-                      Áp dụng tự động: {bestPromo.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {bestPromo.ruleSummary}
-                    </p>
-                    {bestPromo.giftLines.length > 0 && (
-                      <ul className="mt-2 space-y-0.5 text-xs text-success">
-                        {bestPromo.giftLines.map((g, i) => (
-                          <li key={i}>🎁 {g.productName} ×{g.qty}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  {promoDiscount > 0 && (
-                    <span className="text-sm font-bold text-success shrink-0">
-                      −{formatVND(promoDiscount)}
-                    </span>
-                  )}
+            {/* Promotion picker — let users override the auto-applied deal. */}
+            {sortedEligible.length > 0 && (
+              <div className="bg-success-soft/30 border border-success/30 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-success">
+                  <Gift className="h-4 w-4" /> Khuyến mãi áp dụng được ({sortedEligible.length})
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Hệ thống tự chọn ưu đãi có lợi nhất. Bạn có thể đổi sang khuyến mãi khác phù hợp hơn.
+                </p>
+                <div className="space-y-1.5">
+                  {sortedEligible.map((p) => {
+                    const selected = bestPromo?.promotionId === p.promotionId;
+                    return (
+                      <button
+                        key={p.promotionId}
+                        type="button"
+                        onClick={() => setChosenPromoId(p.promotionId)}
+                        className={`w-full text-left p-2.5 rounded-xl border-2 transition-all ${
+                          selected ? "border-success bg-card" : "border-transparent bg-card/60 hover:border-success/40"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className={`mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            selected ? "border-success bg-success" : "border-muted-foreground/40"
+                          }`}>
+                            {selected && <span className="h-1.5 w-1.5 rounded-full bg-card" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold truncate">{p.name}</p>
+                              {p.discountAmount > 0 && (
+                                <span className="text-xs font-bold text-success shrink-0">−{formatVND(p.discountAmount)}</span>
+                              )}
+                              {p.shippingDiscountAmount > 0 && p.discountAmount === 0 && (
+                                <span className="text-xs font-bold text-success shrink-0">Free ship</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{p.ruleSummary}</p>
+                            {p.giftLines.length > 0 && (
+                              <p className="text-[11px] text-success mt-0.5">
+                                🎁 {p.giftLines.map((g) => `${g.productName} ×${g.qty}`).join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
