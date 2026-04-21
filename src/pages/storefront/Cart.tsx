@@ -27,24 +27,42 @@ export default function CartPage() {
     [items],
   );
 
-  // Evaluate the best promotion for the current cart so users can see the
-  // deal *before* heading to checkout. Voucher discounts are intentionally
-  // applied later, on the Checkout page (where the input lives).
-  const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
+  // Evaluate ALL promotions so users can pick the one they want instead of being
+  // locked into the auto-best. Voucher discounts apply later on Checkout.
+  const [allPromos, setAllPromos] = useState<EvaluatedPromotion[]>([]);
+  const [chosenPromoId, setChosenPromoId] = useState<string | null>(null);
   useEffect(() => {
     let cancel = false;
     if (!items.length) {
-      setBestPromo(null);
+      setAllPromos([]);
       return;
     }
     const ctx: CartContext = { lines: items, subtotal };
-    void promotions.pickBest(ctx).then((p) => {
-      if (!cancel) setBestPromo(p);
+    void promotions.evaluateAll(ctx).then((list) => {
+      if (cancel) return;
+      setAllPromos(list);
     });
     return () => {
       cancel = true;
     };
   }, [items, subtotal]);
+
+  const eligiblePromos = useMemo(() => allPromos.filter((p) => p.eligible), [allPromos]);
+  // Default to the first eligible (best by value — adapter sorts) if user hasn't picked.
+  const sortedEligible = useMemo(
+    () => [...eligiblePromos].sort(
+      (a, b) =>
+        b.discountAmount + b.shippingDiscountAmount -
+        (a.discountAmount + a.shippingDiscountAmount),
+    ),
+    [eligiblePromos],
+  );
+  const bestPromo: EvaluatedPromotion | null = useMemo(() => {
+    if (chosenPromoId) {
+      return sortedEligible.find((p) => p.promotionId === chosenPromoId) ?? sortedEligible[0] ?? null;
+    }
+    return sortedEligible[0] ?? null;
+  }, [sortedEligible, chosenPromoId]);
 
   const promoDiscount = bestPromo?.discountAmount ?? 0;
   const baseShipping = subtotal >= 200000 ? 0 : 20000;
