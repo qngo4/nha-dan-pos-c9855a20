@@ -15,9 +15,11 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = 'Xác nhận', cancelLabel = 'Hủy', variant = 'default' }: ConfirmDialogProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-card rounded-lg border shadow-xl w-full max-w-md animate-scale-in">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      {/* Solid dim only — no backdrop-blur to avoid stacking over an open drawer
+          (drawer's blur + this blur would smear text across them, see issue #7). */}
+      <div className="fixed inset-0 bg-foreground/50" onClick={onClose} />
+      <div className="relative bg-card rounded-lg border shadow-2xl w-full max-w-md animate-scale-in">
         <div className="p-5">
           <div className="flex items-start gap-3">
             {variant !== 'default' && (
