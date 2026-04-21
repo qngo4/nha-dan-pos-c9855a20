@@ -1,35 +1,47 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { pendingOrders as initialOrders, type PendingOrder } from "@/lib/mock-data";
+import { pendingOrders as pendingOrdersService } from "@/services";
+import type { PendingOrder, PendingOrderStatus, PaymentMethod } from "@/services/types";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { Clock, Eye, Check, X, AlertTriangle, CreditCard, User, Calendar, CheckCircle2, XCircle } from "lucide-react";
+import {
+  Clock, Eye, Check, X, AlertTriangle, CreditCard, User, Calendar,
+  CheckCircle2, XCircle, MapPin, Gift, Tag, Truck, Receipt,
+} from "lucide-react";
 import { toast } from "sonner";
 
-function getStatusBadge(status: string) {
+type TabId = "all" | PendingOrderStatus;
+
+function statusBadge(status: PendingOrderStatus) {
   switch (status) {
-    case 'pending': return <StatusBadge status="pending" />;
-    case 'confirmed': return <StatusBadge status="confirmed" />;
-    case 'cancelled': return <StatusBadge status="cancelled" />;
-    case 'expired': return <StatusBadge status="expired-order" />;
-    default: return null;
+    case "pending_payment":
+    case "waiting_confirm":
+      return <StatusBadge status="pending" />;
+    case "confirmed":
+      return <StatusBadge status="confirmed" />;
+    case "cancelled":
+      return <StatusBadge status="cancelled" />;
+    default:
+      return null;
   }
 }
 
-function getPaymentBadge(method: string) {
+function paymentBadge(method: PaymentMethod) {
   switch (method) {
-    case 'transfer': return <StatusBadge status="transfer" />;
-    case 'momo': return <StatusBadge status="momo" />;
-    case 'zalopay': return <StatusBadge status="zalopay" />;
+    case "cash": return <StatusBadge status="cash" />;
+    case "bank_transfer": return <StatusBadge status="transfer" />;
+    case "momo": return <StatusBadge status="momo" />;
+    case "zalopay": return <StatusBadge status="zalopay" />;
     default: return null;
   }
 }
 
-function timeRemaining(expiresAt: string) {
+function timeRemaining(expiresAt?: string) {
+  if (!expiresAt) return "—";
   const ms = new Date(expiresAt).getTime() - Date.now();
-  if (ms <= 0) return 'Đã hết hạn';
+  if (ms <= 0) return "Đã hết hạn";
   const hours = Math.floor(ms / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
   if (hours > 24) return `${Math.floor(hours / 24)} ngày`;
@@ -37,44 +49,62 @@ function timeRemaining(expiresAt: string) {
 }
 
 export default function AdminPendingOrders() {
-  const [orderList, setOrderList] = useState<PendingOrder[]>(initialOrders);
-  const [activeTab, setActiveTab] = useState('all');
+  const [orderList, setOrderList] = useState<PendingOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabId>("all");
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [detailOrder, setDetailOrder] = useState<PendingOrder | null>(null);
 
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const res = await pendingOrdersService.list({
+      sort: [{ field: "createdAt", direction: "desc" }],
+    });
+    setOrderList(res.items);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
   const tabs = useMemo(() => ([
-    { id: 'all', label: 'Tất cả', count: orderList.length },
-    { id: 'pending', label: 'Chờ xác nhận', count: orderList.filter(o => o.status === 'pending').length },
-    { id: 'confirmed', label: 'Đã xác nhận', count: orderList.filter(o => o.status === 'confirmed').length },
-    { id: 'cancelled', label: 'Đã hủy', count: orderList.filter(o => o.status === 'cancelled').length },
-    { id: 'expired', label: 'Hết hạn', count: orderList.filter(o => o.status === 'expired').length },
+    { id: "all" as TabId, label: "Tất cả", count: orderList.length },
+    { id: "pending_payment" as TabId, label: "Chờ thanh toán", count: orderList.filter(o => o.status === "pending_payment").length },
+    { id: "waiting_confirm" as TabId, label: "Chờ xác nhận", count: orderList.filter(o => o.status === "waiting_confirm").length },
+    { id: "confirmed" as TabId, label: "Đã xác nhận", count: orderList.filter(o => o.status === "confirmed").length },
+    { id: "cancelled" as TabId, label: "Đã hủy", count: orderList.filter(o => o.status === "cancelled").length },
   ]), [orderList]);
 
-  const filtered = activeTab === 'all' ? orderList : orderList.filter(o => o.status === activeTab);
-  const pendingCount = orderList.filter(o => o.status === 'pending').length;
+  const filtered = activeTab === "all" ? orderList : orderList.filter(o => o.status === activeTab);
+  const pendingCount = orderList.filter(o => o.status === "pending_payment" || o.status === "waiting_confirm").length;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!confirmTarget) return;
     const o = orderList.find(x => x.id === confirmTarget);
-    setOrderList(prev => prev.map(x => x.id === confirmTarget ? { ...x, status: 'confirmed' } : x));
-    toast.success(`Đã xác nhận thanh toán ${o?.orderNumber ?? ''}. Hóa đơn đã được tạo.`);
+    const updated = await pendingOrdersService.update(confirmTarget, { status: "confirmed" });
+    setOrderList(prev => prev.map(x => x.id === confirmTarget ? updated : x));
+    if (detailOrder?.id === confirmTarget) setDetailOrder(updated);
+    toast.success(`Đã xác nhận thanh toán ${o?.code ?? ""}. Hóa đơn đã được tạo.`);
     setConfirmTarget(null);
-    if (detailOrder?.id === confirmTarget) setDetailOrder({ ...detailOrder, status: 'confirmed' });
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!cancelTarget) return;
     const o = orderList.find(x => x.id === cancelTarget);
-    setOrderList(prev => prev.map(x => x.id === cancelTarget ? { ...x, status: 'cancelled' } : x));
-    toast.success(`Đã hủy đơn ${o?.orderNumber ?? ''}`);
+    const updated = await pendingOrdersService.update(cancelTarget, { status: "cancelled" });
+    setOrderList(prev => prev.map(x => x.id === cancelTarget ? updated : x));
+    if (detailOrder?.id === cancelTarget) setDetailOrder(updated);
+    toast.success(`Đã hủy đơn ${o?.code ?? ""}`);
     setCancelTarget(null);
-    if (detailOrder?.id === cancelTarget) setDetailOrder({ ...detailOrder, status: 'cancelled' });
   };
+
+  const isPendingLike = (s: PendingOrderStatus) => s === "pending_payment" || s === "waiting_confirm";
 
   return (
     <div className="space-y-4 admin-dense">
-      <PageHeader title="Đơn chờ thanh toán" description={`${pendingCount} đơn đang chờ xác nhận`} />
+      <PageHeader title="Đơn chờ thanh toán" description={`${pendingCount} đơn đang chờ xử lý`} />
 
       {pendingCount > 0 && (
         <div className="flex items-center gap-2 p-3 bg-warning-soft rounded-lg border border-warning/20">
@@ -114,20 +144,26 @@ export default function AdminPendingOrders() {
             </tr>
           </thead>
           <tbody>
+            {loading && (
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Đang tải…</td></tr>
+            )}
+            {!loading && filtered.length === 0 && (
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Không có đơn nào</td></tr>
+            )}
             {filtered.map(order => (
               <tr key={order.id} className={cn(
                 "border-b last:border-0 hover:bg-muted/30 transition-colors",
-                order.status === 'pending' && "bg-warning-soft/30"
+                isPendingLike(order.status) && "bg-warning-soft/30"
               )}>
                 <td className="px-3 py-2.5 font-mono text-xs font-medium">
-                  <button onClick={() => setDetailOrder(order)} className="hover:text-primary hover:underline">{order.orderNumber}</button>
+                  <button onClick={() => setDetailOrder(order)} className="hover:text-primary hover:underline">{order.code}</button>
                 </td>
-                <td className="px-3 py-2.5">{order.customerName}</td>
-                <td className="px-3 py-2.5 text-center">{getPaymentBadge(order.paymentMethod)}</td>
-                <td className="px-3 py-2.5 text-right font-medium">{formatVND(order.total)}</td>
+                <td className="px-3 py-2.5">{order.customerName ?? "—"}</td>
+                <td className="px-3 py-2.5 text-center">{paymentBadge(order.paymentMethod)}</td>
+                <td className="px-3 py-2.5 text-right font-medium">{formatVND(order.pricingBreakdownSnapshot.total)}</td>
                 <td className="px-3 py-2.5 text-center text-muted-foreground text-xs">{formatDateTime(order.createdAt)}</td>
                 <td className="px-3 py-2.5 text-center">
-                  {order.status === 'pending' ? (
+                  {isPendingLike(order.status) ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning-soft text-warning text-[11px] font-medium">
                       <Clock className="h-3 w-3" />
                       {timeRemaining(order.expiresAt)}
@@ -136,10 +172,10 @@ export default function AdminPendingOrders() {
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-center">{getStatusBadge(order.status)}</td>
+                <td className="px-3 py-2.5 text-center">{statusBadge(order.status)}</td>
                 <td className="px-3 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {order.status === 'pending' && (
+                    {isPendingLike(order.status) && (
                       <>
                         <button onClick={() => setConfirmTarget(order.id)} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-success text-success-foreground rounded hover:opacity-90">
                           <Check className="h-3 w-3" /> Xác nhận
@@ -165,27 +201,27 @@ export default function AdminPendingOrders() {
         {filtered.map(order => (
           <div key={order.id} className={cn(
             "bg-card rounded-lg border p-3",
-            order.status === 'pending' && "border-warning/30 bg-warning-soft/30"
+            isPendingLike(order.status) && "border-warning/30 bg-warning-soft/30"
           )}>
             <button onClick={() => setDetailOrder(order)} className="w-full text-left">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="font-mono text-xs font-medium">{order.orderNumber}</p>
-                  <p className="text-xs text-muted-foreground">{order.customerName}</p>
+                  <p className="font-mono text-xs font-medium">{order.code}</p>
+                  <p className="text-xs text-muted-foreground">{order.customerName ?? "—"}</p>
                 </div>
-                {getStatusBadge(order.status)}
+                {statusBadge(order.status)}
               </div>
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
-                  {getPaymentBadge(order.paymentMethod)}
-                  {order.status === 'pending' && (
+                  {paymentBadge(order.paymentMethod)}
+                  {isPendingLike(order.status) && (
                     <span className="inline-flex items-center gap-1 text-[11px] text-warning"><Clock className="h-3 w-3" />{timeRemaining(order.expiresAt)}</span>
                   )}
                 </div>
-                <span className="font-bold">{formatVND(order.total)}</span>
+                <span className="font-bold">{formatVND(order.pricingBreakdownSnapshot.total)}</span>
               </div>
             </button>
-            {order.status === 'pending' && (
+            {isPendingLike(order.status) && (
               <div className="flex gap-2 mt-2 pt-2 border-t">
                 <button onClick={() => setConfirmTarget(order.id)} className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium bg-success text-success-foreground rounded">
                   <Check className="h-3 w-3" /> Xác nhận
@@ -217,8 +253,25 @@ export default function AdminPendingOrders() {
         variant="danger"
       />
 
-      {/* Detail drawer */}
-      {detailOrder && <PendingOrderDetail order={detailOrder} onClose={() => setDetailOrder(null)} onConfirm={() => setConfirmTarget(detailOrder.id)} onCancel={() => setCancelTarget(detailOrder.id)} />}
+      {detailOrder && (
+        <PendingOrderDetail
+          order={detailOrder}
+          onClose={() => setDetailOrder(null)}
+          onConfirm={() => setConfirmTarget(detailOrder.id)}
+          onCancel={() => setCancelTarget(detailOrder.id)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+        <Icon className="h-3.5 w-3.5" /> {title}
+      </h3>
+      {children}
     </div>
   );
 }
@@ -229,17 +282,32 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const items = order.items ?? [{ name: 'Sản phẩm', qty: order.itemCount, price: order.total / Math.max(1, order.itemCount) }];
+  const isPendingLike = order.status === "pending_payment" || order.status === "waiting_confirm";
+  const pb = order.pricingBreakdownSnapshot;
+  const addr = order.shippingAddress;
+  const promo = order.promotionSnapshot;
+  const voucher = order.voucherSnapshot;
+  const gifts = order.giftLinesSnapshot ?? [];
+  const ship = order.shippingQuoteSnapshot;
 
   const timelineSteps = [
-    { id: 'created', label: 'Đã đặt đơn', icon: Calendar, done: true, time: order.createdAt },
-    { id: 'pending', label: 'Chờ xác nhận thanh toán', icon: Clock, done: order.status !== 'pending', current: order.status === 'pending' },
+    { id: "created", label: "Đã đặt đơn", icon: Calendar, done: true, time: order.createdAt },
+    { id: "pending", label: "Chờ xác nhận thanh toán", icon: Clock, done: !isPendingLike, current: isPendingLike },
     {
-      id: 'final',
-      label: order.status === 'confirmed' ? 'Đã xác nhận — Hóa đơn đã tạo' : order.status === 'cancelled' ? 'Đã hủy' : order.status === 'expired' ? 'Đã hết hạn' : 'Chờ xử lý',
-      icon: order.status === 'confirmed' ? CheckCircle2 : order.status === 'cancelled' ? XCircle : order.status === 'expired' ? AlertTriangle : Clock,
-      done: order.status !== 'pending',
-      variant: order.status === 'confirmed' ? 'success' : order.status === 'cancelled' || order.status === 'expired' ? 'danger' : undefined,
+      id: "final",
+      label:
+        order.status === "confirmed" ? "Đã xác nhận — Hóa đơn đã tạo" :
+        order.status === "cancelled" ? "Đã hủy" :
+        "Chờ xử lý",
+      icon:
+        order.status === "confirmed" ? CheckCircle2 :
+        order.status === "cancelled" ? XCircle :
+        Clock,
+      done: !isPendingLike,
+      variant:
+        order.status === "confirmed" ? "success" :
+        order.status === "cancelled" ? "danger" :
+        undefined,
     },
   ];
 
@@ -249,10 +317,10 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
       <div className="relative w-full max-w-md bg-card border-l shadow-xl flex flex-col animate-slide-in-right">
         <div className="p-4 border-b flex items-start justify-between gap-2">
           <div>
-            <p className="font-mono text-sm font-semibold">{order.orderNumber}</p>
+            <p className="font-mono text-sm font-semibold">{order.code}</p>
             <div className="mt-1 flex items-center gap-2">
-              {getStatusBadge(order.status)}
-              {getPaymentBadge(order.paymentMethod)}
+              {statusBadge(order.status)}
+              {paymentBadge(order.paymentMethod)}
             </div>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="h-4 w-4" /></button>
@@ -260,26 +328,41 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="grid grid-cols-1 gap-2 text-sm">
-            <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> {order.customerName}</div>
+            <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" /> {order.customerName ?? "—"} {order.customerPhone ? `· ${order.customerPhone}` : ""}</div>
             <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> {formatDateTime(order.createdAt)}</div>
-            <div className="flex items-center gap-2 text-muted-foreground"><CreditCard className="h-3.5 w-3.5" /> Hết hạn: {formatDateTime(order.expiresAt)}</div>
+            {order.expiresAt && (
+              <div className="flex items-center gap-2 text-muted-foreground"><CreditCard className="h-3.5 w-3.5" /> Hết hạn: {formatDateTime(order.expiresAt)}</div>
+            )}
+            <div className="flex items-center gap-2 text-muted-foreground text-xs">Tham chiếu CK: <span className="font-mono">{order.paymentReference}</span></div>
           </div>
 
+          {/* Shipping address */}
+          {addr && (
+            <Section title="Địa chỉ giao hàng" icon={MapPin}>
+              <div className="border rounded-lg p-3 text-sm space-y-1">
+                <p className="font-medium">{addr.receiverName} · {addr.phone}</p>
+                <p className="text-muted-foreground">{addr.street}</p>
+                <p className="text-muted-foreground">{addr.wardName}, {addr.districtName}, {addr.provinceName}</p>
+                {addr.note && <p className="text-xs text-muted-foreground italic">Ghi chú: {addr.note}</p>}
+              </div>
+            </Section>
+          )}
+
           {/* Timeline */}
-          <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Tiến trình</h3>
+          <Section title="Tiến trình" icon={Clock}>
             <div className="space-y-3">
-              {timelineSteps.map((step, i) => {
+              {timelineSteps.map((step) => {
                 const Icon = step.icon;
-                const variant = (step as any).variant;
+                const variant = (step as { variant?: string }).variant;
+                const current = (step as { current?: boolean }).current;
                 return (
                   <div key={step.id} className="flex gap-3">
                     <div className={cn(
                       "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
-                      variant === 'success' ? "bg-success-soft text-success" :
-                      variant === 'danger' ? "bg-danger-soft text-danger" :
+                      variant === "success" ? "bg-success-soft text-success" :
+                      variant === "danger" ? "bg-danger-soft text-danger" :
                       step.done ? "bg-primary-soft text-primary" :
-                      (step as any).current ? "bg-warning-soft text-warning animate-pulse-soft" :
+                      current ? "bg-warning-soft text-warning animate-pulse-soft" :
                       "bg-muted text-muted-foreground"
                     )}>
                       <Icon className="h-3.5 w-3.5" />
@@ -292,30 +375,137 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
                 );
               })}
             </div>
-          </div>
+          </Section>
 
-          <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sản phẩm ({order.itemCount})</h3>
+          {/* Lines */}
+          <Section title={`Sản phẩm (${order.lines.length})`} icon={Receipt}>
             <div className="border rounded-lg divide-y">
-              {items.map((it, i) => (
-                <div key={i} className="p-3 flex items-center justify-between text-sm">
+              {order.lines.map((it) => (
+                <div key={it.id} className="p-3 flex items-center justify-between text-sm">
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{it.name}</p>
-                    <p className="text-xs text-muted-foreground">{it.qty} × {formatVND(it.price)}</p>
+                    <p className="font-medium truncate">{it.productName}{it.variantName ? ` · ${it.variantName}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{it.qty} × {formatVND(it.unitPrice)}</p>
                   </div>
-                  <span className="font-medium shrink-0">{formatVND(it.qty * it.price)}</span>
+                  <span className="font-medium shrink-0">{formatVND(it.lineSubtotal)}</span>
                 </div>
               ))}
             </div>
-          </div>
+          </Section>
 
-          <div className="bg-muted/40 rounded-lg p-3 flex items-center justify-between">
-            <span className="font-semibold">Tổng cộng</span>
-            <span className="font-bold text-base text-primary">{formatVND(order.total)}</span>
-          </div>
+          {/* Promotion snapshot */}
+          {promo && (
+            <Section title="Khuyến mãi áp dụng" icon={Tag}>
+              <div className="border rounded-lg p-3 text-sm space-y-1.5 bg-info-soft/30">
+                <p className="font-medium">{promo.name}</p>
+                <p className="text-xs text-muted-foreground">{promo.ruleSummary}</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Giảm trên đơn</span>
+                  <span className="font-medium">−{formatVND(promo.discountAmount)}</span>
+                </div>
+                {promo.shippingDiscountAmount > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Giảm phí ship</span>
+                    <span className="font-medium">−{formatVND(promo.shippingDiscountAmount)}</span>
+                  </div>
+                )}
+                {promo.affectedLines.length > 0 && (
+                  <div className="pt-1.5 mt-1.5 border-t border-info/20 space-y-1">
+                    {promo.affectedLines.map((l, i) => (
+                      <p key={i} className="text-xs text-muted-foreground">
+                        • {l.productName}{l.variantName ? ` · ${l.variantName}` : ""}
+                        {l.discountedAmount ? ` — giảm ${formatVND(l.discountedAmount)}` : ""}
+                        {l.rewardQty ? ` — tặng ${l.rewardQty}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
+          {/* Voucher snapshot */}
+          {voucher && (
+            <Section title="Voucher" icon={Tag}>
+              <div className="border rounded-lg p-3 text-sm space-y-1 bg-accent-soft/30">
+                <div className="flex justify-between">
+                  <span className="font-mono font-medium">{voucher.code}</span>
+                  <span className="font-medium">−{formatVND(voucher.discountAmount)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{voucher.ruleSummary}</p>
+              </div>
+            </Section>
+          )}
+
+          {/* Gift lines */}
+          {gifts.length > 0 && (
+            <Section title={`Quà tặng (${gifts.length})`} icon={Gift}>
+              <div className="border rounded-lg divide-y">
+                {gifts.map((g, i) => (
+                  <div key={i} className="p-3 flex items-center justify-between text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{g.productName}{g.variantName ? ` · ${g.variantName}` : ""}</p>
+                      <p className="text-xs text-muted-foreground">Từ KM: {g.promotionName}</p>
+                    </div>
+                    <span className="text-xs font-medium shrink-0">×{g.qty}</span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {/* Shipping quote snapshot */}
+          {ship && (
+            <Section title="Vận chuyển" icon={Truck}>
+              <div className="border rounded-lg p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Phí vận chuyển</span>
+                  <span className="font-medium">{formatVND(ship.fee)}</span>
+                </div>
+                {ship.zoneCode && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Vùng</span>
+                    <span className="font-mono">{ship.zoneCode}</span>
+                  </div>
+                )}
+                {ship.etaDays && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Dự kiến giao</span>
+                    <span>{ship.etaDays.min}–{ship.etaDays.max} ngày</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Nguồn báo giá</span>
+                  <span>{ship.source === "carrier_api" ? "API hãng vận chuyển" : "Bảng vùng nội bộ"}</span>
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* Pricing breakdown */}
+          <Section title="Chi tiết giá" icon={Receipt}>
+            <div className="border rounded-lg p-3 text-sm space-y-1">
+              <Row label="Tạm tính" value={formatVND(pb.subtotal)} />
+              {pb.manualDiscount > 0 && <Row label="Giảm thủ công" value={`−${formatVND(pb.manualDiscount)}`} muted />}
+              {pb.promotionDiscount > 0 && <Row label="Giảm khuyến mãi" value={`−${formatVND(pb.promotionDiscount)}`} muted />}
+              {pb.voucherDiscount > 0 && <Row label="Giảm voucher" value={`−${formatVND(pb.voucherDiscount)}`} muted />}
+              <Row label="Phí vận chuyển" value={formatVND(pb.shippingFee)} />
+              {pb.shippingDiscount > 0 && <Row label="Giảm phí ship" value={`−${formatVND(pb.shippingDiscount)}`} muted />}
+              {pb.vat > 0 && <Row label="VAT" value={formatVND(pb.vat)} />}
+              <div className="pt-2 mt-1 border-t flex items-center justify-between">
+                <span className="font-semibold">Tổng cộng</span>
+                <span className="font-bold text-base text-primary">{formatVND(pb.total)}</span>
+              </div>
+            </div>
+          </Section>
+
+          {order.note && (
+            <Section title="Ghi chú" icon={Receipt}>
+              <p className="text-sm text-muted-foreground border rounded-lg p-3">{order.note}</p>
+            </Section>
+          )}
         </div>
 
-        {order.status === 'pending' ? (
+        {isPendingLike ? (
           <div className="p-4 border-t flex gap-2">
             <button onClick={onCancel} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium bg-danger text-danger-foreground rounded-md hover:opacity-90">
               <X className="h-4 w-4" /> Hủy đơn
@@ -330,6 +520,15 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="flex justify-between">
+      <span className={muted ? "text-muted-foreground" : ""}>{label}</span>
+      <span className={muted ? "text-muted-foreground" : "font-medium"}>{value}</span>
     </div>
   );
 }
