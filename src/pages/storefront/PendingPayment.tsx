@@ -165,7 +165,7 @@ export default function PendingPaymentPage() {
       {showBankPanel && (
         <div className="bg-card rounded-lg border p-4 mb-4">
           <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-primary" /> Thông tin chuyển khoản
+            <QrCode className="h-4 w-4 text-primary" /> Thông tin thanh toán ({paymentLabelShort})
           </h2>
 
           {!bank?.qrEnabled || !bank?.accountNumber ? (

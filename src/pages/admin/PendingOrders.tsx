@@ -285,7 +285,9 @@ export default function AdminPendingOrders() {
         variant="danger"
       />
 
-      {detailOrder && (
+      {/* Hide the side drawer while a confirm/cancel ConfirmDialog is open so we
+          don't stack two backdrop blurs (was rendering blurry text — issue #7). */}
+      {detailOrder && !confirmTarget && !cancelTarget && (
         <PendingOrderDetail
           order={detailOrder}
           onClose={() => setDetailOrder(null)}
