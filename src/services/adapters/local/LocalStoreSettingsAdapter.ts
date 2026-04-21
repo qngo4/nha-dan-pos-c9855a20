@@ -22,18 +22,24 @@ const DEFAULT_SETTINGS: StorePaymentSettings = {
   zalopayPhone: "",
 };
 
+function merge(stored: Partial<StorePaymentSettings> | null): StorePaymentSettings {
+  return { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+}
+
 export class LocalStoreSettingsAdapter implements StoreSettingsService {
   private listeners = new Set<(s: StorePaymentSettings | null) => void>();
 
-  async getPaymentSettings(): Promise<StorePaymentSettings | null> {
-    const stored = readJson<StorePaymentSettings | null>(KEY, null);
-    return stored ?? DEFAULT_SETTINGS;
+  async getPaymentSettings(): Promise<StorePaymentSettings> {
+    const stored = readJson<Partial<StorePaymentSettings> | null>(KEY, null);
+    return merge(stored);
   }
 
   async savePaymentSettings(input: StorePaymentSettings): Promise<StorePaymentSettings> {
-    writeJson(KEY, input);
-    this.listeners.forEach((cb) => cb(input));
-    return input;
+    // Always persist a complete shape so newly-added wallet fields survive reload.
+    const full = merge(input);
+    writeJson(KEY, full);
+    this.listeners.forEach((cb) => cb(full));
+    return full;
   }
 
   subscribePaymentSettings(cb: (s: StorePaymentSettings | null) => void): () => void {
