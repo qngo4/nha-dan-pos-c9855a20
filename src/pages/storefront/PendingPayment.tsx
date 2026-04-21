@@ -27,6 +27,11 @@ export default function PendingPaymentPage() {
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // Bumping this re-mounts the wallet <img> so a failed/missing static QR
+  // can be re-attempted without leaving the page.
+  const [walletQrAttempt, setWalletQrAttempt] = useState(0);
+  const [walletImgFailed, setWalletImgFailed] = useState(false);
+  const [changingMethod, setChangingMethod] = useState(false);
 
   // Reload the order whenever:
   //  - the route id changes
