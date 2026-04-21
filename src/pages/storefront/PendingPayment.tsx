@@ -53,12 +53,12 @@ export default function PendingPaymentPage() {
         }
       }
 
-      // Generate VietQR for any online payment method (bank_transfer / momo / zalopay).
-      // For momo/zalopay we still use the configured bank QR as a uniform settlement
-      // path — admin will reconcile via the same transfer reference.
+      // For bank_transfer: generate dynamic VietQR (amount + content embedded).
+      // For momo/zalopay: use the static QR image admin uploaded in Store Settings;
+      // skip the VietQR API entirely so each method shows its own wallet QR.
       if (
         fromService &&
-        fromService.paymentMethod !== "cash" &&
+        fromService.paymentMethod === "bank_transfer" &&
         fromService.status === "pending_payment" &&
         settings?.qrEnabled &&
         !qr
