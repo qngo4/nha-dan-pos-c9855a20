@@ -53,9 +53,12 @@ export default function PendingPaymentPage() {
         }
       }
 
+      // Generate VietQR for any online payment method (bank_transfer / momo / zalopay).
+      // For momo/zalopay we still use the configured bank QR as a uniform settlement
+      // path — admin will reconcile via the same transfer reference.
       if (
         fromService &&
-        fromService.paymentMethod === "bank_transfer" &&
+        fromService.paymentMethod !== "cash" &&
         fromService.status === "pending_payment" &&
         settings?.qrEnabled &&
         !qr
@@ -123,7 +126,11 @@ export default function PendingPaymentPage() {
     navigator.clipboard.writeText(text).then(() => toast.success(`Đã sao chép ${label}`));
   };
 
-  const showBankPanel = order.paymentMethod === "bank_transfer" && order.status === "pending_payment";
+  const showBankPanel = order.paymentMethod !== "cash" && order.status === "pending_payment";
+  const paymentLabelShort =
+    order.paymentMethod === "bank_transfer" ? "chuyển khoản" :
+    order.paymentMethod === "momo" ? "MoMo" :
+    order.paymentMethod === "zalopay" ? "ZaloPay" : "tiền mặt";
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
