@@ -1,0 +1,1167 @@
+{
+  "provinces": [
+    {
+      "code": "01",
+      "name": "Hà Nội"
+    },
+    {
+      "code": "79",
+      "name": "TP. Hồ Chí Minh"
+    },
+    {
+      "code": "48",
+      "name": "Đà Nẵng"
+    },
+    {
+      "code": "31",
+      "name": "Hải Phòng"
+    },
+    {
+      "code": "92",
+      "name": "Cần Thơ"
+    },
+    {
+      "code": "74",
+      "name": "Bình Dương"
+    },
+    {
+      "code": "75",
+      "name": "Đồng Nai"
+    },
+    {
+      "code": "77",
+      "name": "Bà Rịa - Vũng Tàu"
+    },
+    {
+      "code": "80",
+      "name": "Long An"
+    },
+    {
+      "code": "27",
+      "name": "Bắc Ninh"
+    },
+    {
+      "code": "33",
+      "name": "Hưng Yên"
+    },
+    {
+      "code": "30",
+      "name": "Hải Dương"
+    },
+    {
+      "code": "26",
+      "name": "Vĩnh Phúc"
+    },
+    {
+      "code": "72",
+      "name": "Tây Ninh"
+    },
+    {
+      "code": "46",
+      "name": "Thừa Thiên Huế"
+    },
+    {
+      "code": "49",
+      "name": "Quảng Nam"
+    },
+    {
+      "code": "56",
+      "name": "Khánh Hòa"
+    },
+    {
+      "code": "60",
+      "name": "Bình Thuận"
+    },
+    {
+      "code": "68",
+      "name": "Lâm Đồng"
+    },
+    {
+      "code": "82",
+      "name": "Tiền Giang"
+    },
+    {
+      "code": "94",
+      "name": "Bạc Liêu"
+    }
+  ],
+  "districts": [
+    {
+      "code": "001",
+      "name": "Quận Ba Đình",
+      "provinceCode": "01"
+    },
+    {
+      "code": "002",
+      "name": "Quận Hoàn Kiếm",
+      "provinceCode": "01"
+    },
+    {
+      "code": "003",
+      "name": "Quận Tây Hồ",
+      "provinceCode": "01"
+    },
+    {
+      "code": "007",
+      "name": "Quận Cầu Giấy",
+      "provinceCode": "01"
+    },
+    {
+      "code": "008",
+      "name": "Quận Đống Đa",
+      "provinceCode": "01"
+    },
+    {
+      "code": "019",
+      "name": "Quận Long Biên",
+      "provinceCode": "01"
+    },
+    {
+      "code": "760",
+      "name": "Quận 1",
+      "provinceCode": "79"
+    },
+    {
+      "code": "761",
+      "name": "Quận 12",
+      "provinceCode": "79"
+    },
+    {
+      "code": "764",
+      "name": "Quận Gò Vấp",
+      "provinceCode": "79"
+    },
+    {
+      "code": "765",
+      "name": "Quận Bình Thạnh",
+      "provinceCode": "79"
+    },
+    {
+      "code": "766",
+      "name": "Quận Tân Bình",
+      "provinceCode": "79"
+    },
+    {
+      "code": "768",
+      "name": "Quận Phú Nhuận",
+      "provinceCode": "79"
+    },
+    {
+      "code": "770",
+      "name": "Thành phố Thủ Đức",
+      "provinceCode": "79"
+    },
+    {
+      "code": "777",
+      "name": "Quận 7",
+      "provinceCode": "79"
+    },
+    {
+      "code": "490",
+      "name": "Quận Hải Châu",
+      "provinceCode": "48"
+    },
+    {
+      "code": "491",
+      "name": "Quận Thanh Khê",
+      "provinceCode": "48"
+    },
+    {
+      "code": "492",
+      "name": "Quận Sơn Trà",
+      "provinceCode": "48"
+    },
+    {
+      "code": "303",
+      "name": "Quận Hồng Bàng",
+      "provinceCode": "31"
+    },
+    {
+      "code": "304",
+      "name": "Quận Ngô Quyền",
+      "provinceCode": "31"
+    },
+    {
+      "code": "916",
+      "name": "Quận Ninh Kiều",
+      "provinceCode": "92"
+    },
+    {
+      "code": "917",
+      "name": "Quận Bình Thủy",
+      "provinceCode": "92"
+    },
+    {
+      "code": "718",
+      "name": "Thành phố Thủ Dầu Một",
+      "provinceCode": "74"
+    },
+    {
+      "code": "719",
+      "name": "Thành phố Dĩ An",
+      "provinceCode": "74"
+    },
+    {
+      "code": "720",
+      "name": "Thành phố Thuận An",
+      "provinceCode": "74"
+    },
+    {
+      "code": "731",
+      "name": "Thành phố Biên Hòa",
+      "provinceCode": "75"
+    },
+    {
+      "code": "732",
+      "name": "Thành phố Long Khánh",
+      "provinceCode": "75"
+    },
+    {
+      "code": "747",
+      "name": "Thành phố Vũng Tàu",
+      "provinceCode": "77"
+    },
+    {
+      "code": "748",
+      "name": "Thành phố Bà Rịa",
+      "provinceCode": "77"
+    },
+    {
+      "code": "794",
+      "name": "Thành phố Tân An",
+      "provinceCode": "80"
+    },
+    {
+      "code": "256",
+      "name": "Thành phố Bắc Ninh",
+      "provinceCode": "27"
+    },
+    {
+      "code": "323",
+      "name": "Thành phố Hưng Yên",
+      "provinceCode": "33"
+    },
+    {
+      "code": "288",
+      "name": "Thành phố Hải Dương",
+      "provinceCode": "30"
+    },
+    {
+      "code": "243",
+      "name": "Thành phố Vĩnh Yên",
+      "provinceCode": "26"
+    },
+    {
+      "code": "703",
+      "name": "Thành phố Tây Ninh",
+      "provinceCode": "72"
+    },
+    {
+      "code": "474",
+      "name": "Thành phố Huế",
+      "provinceCode": "46"
+    },
+    {
+      "code": "502",
+      "name": "Thành phố Tam Kỳ",
+      "provinceCode": "49"
+    },
+    {
+      "code": "503",
+      "name": "Thành phố Hội An",
+      "provinceCode": "49"
+    },
+    {
+      "code": "568",
+      "name": "Thành phố Nha Trang",
+      "provinceCode": "56"
+    },
+    {
+      "code": "593",
+      "name": "Thành phố Phan Thiết",
+      "provinceCode": "60"
+    },
+    {
+      "code": "672",
+      "name": "Thành phố Đà Lạt",
+      "provinceCode": "68"
+    },
+    {
+      "code": "673",
+      "name": "Thành phố Bảo Lộc",
+      "provinceCode": "68"
+    },
+    {
+      "code": "815",
+      "name": "Thành phố Mỹ Tho",
+      "provinceCode": "80"
+    },
+    {
+      "code": "954",
+      "name": "Thành phố Bạc Liêu",
+      "provinceCode": "94"
+    }
+  ],
+  "wards": [
+    {
+      "code": "001-01",
+      "name": "Phường 1",
+      "districtCode": "001"
+    },
+    {
+      "code": "001-02",
+      "name": "Phường 2",
+      "districtCode": "001"
+    },
+    {
+      "code": "001-03",
+      "name": "Phường 3",
+      "districtCode": "001"
+    },
+    {
+      "code": "001-04",
+      "name": "Phường 4",
+      "districtCode": "001"
+    },
+    {
+      "code": "002-01",
+      "name": "Phường 1",
+      "districtCode": "002"
+    },
+    {
+      "code": "002-02",
+      "name": "Phường 2",
+      "districtCode": "002"
+    },
+    {
+      "code": "002-03",
+      "name": "Phường 3",
+      "districtCode": "002"
+    },
+    {
+      "code": "002-04",
+      "name": "Phường 4",
+      "districtCode": "002"
+    },
+    {
+      "code": "003-01",
+      "name": "Phường 1",
+      "districtCode": "003"
+    },
+    {
+      "code": "003-02",
+      "name": "Phường 2",
+      "districtCode": "003"
+    },
+    {
+      "code": "003-03",
+      "name": "Phường 3",
+      "districtCode": "003"
+    },
+    {
+      "code": "003-04",
+      "name": "Phường 4",
+      "districtCode": "003"
+    },
+    {
+      "code": "007-01",
+      "name": "Phường 1",
+      "districtCode": "007"
+    },
+    {
+      "code": "007-02",
+      "name": "Phường 2",
+      "districtCode": "007"
+    },
+    {
+      "code": "007-03",
+      "name": "Phường 3",
+      "districtCode": "007"
+    },
+    {
+      "code": "007-04",
+      "name": "Phường 4",
+      "districtCode": "007"
+    },
+    {
+      "code": "008-01",
+      "name": "Phường 1",
+      "districtCode": "008"
+    },
+    {
+      "code": "008-02",
+      "name": "Phường 2",
+      "districtCode": "008"
+    },
+    {
+      "code": "008-03",
+      "name": "Phường 3",
+      "districtCode": "008"
+    },
+    {
+      "code": "008-04",
+      "name": "Phường 4",
+      "districtCode": "008"
+    },
+    {
+      "code": "019-01",
+      "name": "Phường 1",
+      "districtCode": "019"
+    },
+    {
+      "code": "019-02",
+      "name": "Phường 2",
+      "districtCode": "019"
+    },
+    {
+      "code": "019-03",
+      "name": "Phường 3",
+      "districtCode": "019"
+    },
+    {
+      "code": "019-04",
+      "name": "Phường 4",
+      "districtCode": "019"
+    },
+    {
+      "code": "760-01",
+      "name": "Phường 1",
+      "districtCode": "760"
+    },
+    {
+      "code": "760-02",
+      "name": "Phường 2",
+      "districtCode": "760"
+    },
+    {
+      "code": "760-03",
+      "name": "Phường 3",
+      "districtCode": "760"
+    },
+    {
+      "code": "760-04",
+      "name": "Phường 4",
+      "districtCode": "760"
+    },
+    {
+      "code": "761-01",
+      "name": "Phường 1",
+      "districtCode": "761"
+    },
+    {
+      "code": "761-02",
+      "name": "Phường 2",
+      "districtCode": "761"
+    },
+    {
+      "code": "761-03",
+      "name": "Phường 3",
+      "districtCode": "761"
+    },
+    {
+      "code": "761-04",
+      "name": "Phường 4",
+      "districtCode": "761"
+    },
+    {
+      "code": "764-01",
+      "name": "Phường 1",
+      "districtCode": "764"
+    },
+    {
+      "code": "764-02",
+      "name": "Phường 2",
+      "districtCode": "764"
+    },
+    {
+      "code": "764-03",
+      "name": "Phường 3",
+      "districtCode": "764"
+    },
+    {
+      "code": "764-04",
+      "name": "Phường 4",
+      "districtCode": "764"
+    },
+    {
+      "code": "765-01",
+      "name": "Phường 1",
+      "districtCode": "765"
+    },
+    {
+      "code": "765-02",
+      "name": "Phường 2",
+      "districtCode": "765"
+    },
+    {
+      "code": "765-03",
+      "name": "Phường 3",
+      "districtCode": "765"
+    },
+    {
+      "code": "765-04",
+      "name": "Phường 4",
+      "districtCode": "765"
+    },
+    {
+      "code": "766-01",
+      "name": "Phường 1",
+      "districtCode": "766"
+    },
+    {
+      "code": "766-02",
+      "name": "Phường 2",
+      "districtCode": "766"
+    },
+    {
+      "code": "766-03",
+      "name": "Phường 3",
+      "districtCode": "766"
+    },
+    {
+      "code": "766-04",
+      "name": "Phường 4",
+      "districtCode": "766"
+    },
+    {
+      "code": "768-01",
+      "name": "Phường 1",
+      "districtCode": "768"
+    },
+    {
+      "code": "768-02",
+      "name": "Phường 2",
+      "districtCode": "768"
+    },
+    {
+      "code": "768-03",
+      "name": "Phường 3",
+      "districtCode": "768"
+    },
+    {
+      "code": "768-04",
+      "name": "Phường 4",
+      "districtCode": "768"
+    },
+    {
+      "code": "770-01",
+      "name": "Phường 1",
+      "districtCode": "770"
+    },
+    {
+      "code": "770-02",
+      "name": "Phường 2",
+      "districtCode": "770"
+    },
+    {
+      "code": "770-03",
+      "name": "Phường 3",
+      "districtCode": "770"
+    },
+    {
+      "code": "770-04",
+      "name": "Phường 4",
+      "districtCode": "770"
+    },
+    {
+      "code": "777-01",
+      "name": "Phường 1",
+      "districtCode": "777"
+    },
+    {
+      "code": "777-02",
+      "name": "Phường 2",
+      "districtCode": "777"
+    },
+    {
+      "code": "777-03",
+      "name": "Phường 3",
+      "districtCode": "777"
+    },
+    {
+      "code": "777-04",
+      "name": "Phường 4",
+      "districtCode": "777"
+    },
+    {
+      "code": "490-01",
+      "name": "Phường 1",
+      "districtCode": "490"
+    },
+    {
+      "code": "490-02",
+      "name": "Phường 2",
+      "districtCode": "490"
+    },
+    {
+      "code": "490-03",
+      "name": "Phường 3",
+      "districtCode": "490"
+    },
+    {
+      "code": "490-04",
+      "name": "Phường 4",
+      "districtCode": "490"
+    },
+    {
+      "code": "491-01",
+      "name": "Phường 1",
+      "districtCode": "491"
+    },
+    {
+      "code": "491-02",
+      "name": "Phường 2",
+      "districtCode": "491"
+    },
+    {
+      "code": "491-03",
+      "name": "Phường 3",
+      "districtCode": "491"
+    },
+    {
+      "code": "491-04",
+      "name": "Phường 4",
+      "districtCode": "491"
+    },
+    {
+      "code": "492-01",
+      "name": "Phường 1",
+      "districtCode": "492"
+    },
+    {
+      "code": "492-02",
+      "name": "Phường 2",
+      "districtCode": "492"
+    },
+    {
+      "code": "492-03",
+      "name": "Phường 3",
+      "districtCode": "492"
+    },
+    {
+      "code": "492-04",
+      "name": "Phường 4",
+      "districtCode": "492"
+    },
+    {
+      "code": "303-01",
+      "name": "Phường 1",
+      "districtCode": "303"
+    },
+    {
+      "code": "303-02",
+      "name": "Phường 2",
+      "districtCode": "303"
+    },
+    {
+      "code": "303-03",
+      "name": "Phường 3",
+      "districtCode": "303"
+    },
+    {
+      "code": "303-04",
+      "name": "Phường 4",
+      "districtCode": "303"
+    },
+    {
+      "code": "304-01",
+      "name": "Phường 1",
+      "districtCode": "304"
+    },
+    {
+      "code": "304-02",
+      "name": "Phường 2",
+      "districtCode": "304"
+    },
+    {
+      "code": "304-03",
+      "name": "Phường 3",
+      "districtCode": "304"
+    },
+    {
+      "code": "304-04",
+      "name": "Phường 4",
+      "districtCode": "304"
+    },
+    {
+      "code": "916-01",
+      "name": "Phường 1",
+      "districtCode": "916"
+    },
+    {
+      "code": "916-02",
+      "name": "Phường 2",
+      "districtCode": "916"
+    },
+    {
+      "code": "916-03",
+      "name": "Phường 3",
+      "districtCode": "916"
+    },
+    {
+      "code": "916-04",
+      "name": "Phường 4",
+      "districtCode": "916"
+    },
+    {
+      "code": "917-01",
+      "name": "Phường 1",
+      "districtCode": "917"
+    },
+    {
+      "code": "917-02",
+      "name": "Phường 2",
+      "districtCode": "917"
+    },
+    {
+      "code": "917-03",
+      "name": "Phường 3",
+      "districtCode": "917"
+    },
+    {
+      "code": "917-04",
+      "name": "Phường 4",
+      "districtCode": "917"
+    },
+    {
+      "code": "718-01",
+      "name": "Phường 1",
+      "districtCode": "718"
+    },
+    {
+      "code": "718-02",
+      "name": "Phường 2",
+      "districtCode": "718"
+    },
+    {
+      "code": "718-03",
+      "name": "Phường 3",
+      "districtCode": "718"
+    },
+    {
+      "code": "718-04",
+      "name": "Phường 4",
+      "districtCode": "718"
+    },
+    {
+      "code": "719-01",
+      "name": "Phường 1",
+      "districtCode": "719"
+    },
+    {
+      "code": "719-02",
+      "name": "Phường 2",
+      "districtCode": "719"
+    },
+    {
+      "code": "719-03",
+      "name": "Phường 3",
+      "districtCode": "719"
+    },
+    {
+      "code": "719-04",
+      "name": "Phường 4",
+      "districtCode": "719"
+    },
+    {
+      "code": "720-01",
+      "name": "Phường 1",
+      "districtCode": "720"
+    },
+    {
+      "code": "720-02",
+      "name": "Phường 2",
+      "districtCode": "720"
+    },
+    {
+      "code": "720-03",
+      "name": "Phường 3",
+      "districtCode": "720"
+    },
+    {
+      "code": "720-04",
+      "name": "Phường 4",
+      "districtCode": "720"
+    },
+    {
+      "code": "731-01",
+      "name": "Phường 1",
+      "districtCode": "731"
+    },
+    {
+      "code": "731-02",
+      "name": "Phường 2",
+      "districtCode": "731"
+    },
+    {
+      "code": "731-03",
+      "name": "Phường 3",
+      "districtCode": "731"
+    },
+    {
+      "code": "731-04",
+      "name": "Phường 4",
+      "districtCode": "731"
+    },
+    {
+      "code": "732-01",
+      "name": "Phường 1",
+      "districtCode": "732"
+    },
+    {
+      "code": "732-02",
+      "name": "Phường 2",
+      "districtCode": "732"
+    },
+    {
+      "code": "732-03",
+      "name": "Phường 3",
+      "districtCode": "732"
+    },
+    {
+      "code": "732-04",
+      "name": "Phường 4",
+      "districtCode": "732"
+    },
+    {
+      "code": "747-01",
+      "name": "Phường 1",
+      "districtCode": "747"
+    },
+    {
+      "code": "747-02",
+      "name": "Phường 2",
+      "districtCode": "747"
+    },
+    {
+      "code": "747-03",
+      "name": "Phường 3",
+      "districtCode": "747"
+    },
+    {
+      "code": "747-04",
+      "name": "Phường 4",
+      "districtCode": "747"
+    },
+    {
+      "code": "748-01",
+      "name": "Phường 1",
+      "districtCode": "748"
+    },
+    {
+      "code": "748-02",
+      "name": "Phường 2",
+      "districtCode": "748"
+    },
+    {
+      "code": "748-03",
+      "name": "Phường 3",
+      "districtCode": "748"
+    },
+    {
+      "code": "748-04",
+      "name": "Phường 4",
+      "districtCode": "748"
+    },
+    {
+      "code": "794-01",
+      "name": "Phường 1",
+      "districtCode": "794"
+    },
+    {
+      "code": "794-02",
+      "name": "Phường 2",
+      "districtCode": "794"
+    },
+    {
+      "code": "794-03",
+      "name": "Phường 3",
+      "districtCode": "794"
+    },
+    {
+      "code": "794-04",
+      "name": "Phường 4",
+      "districtCode": "794"
+    },
+    {
+      "code": "256-01",
+      "name": "Phường 1",
+      "districtCode": "256"
+    },
+    {
+      "code": "256-02",
+      "name": "Phường 2",
+      "districtCode": "256"
+    },
+    {
+      "code": "256-03",
+      "name": "Phường 3",
+      "districtCode": "256"
+    },
+    {
+      "code": "256-04",
+      "name": "Phường 4",
+      "districtCode": "256"
+    },
+    {
+      "code": "323-01",
+      "name": "Phường 1",
+      "districtCode": "323"
+    },
+    {
+      "code": "323-02",
+      "name": "Phường 2",
+      "districtCode": "323"
+    },
+    {
+      "code": "323-03",
+      "name": "Phường 3",
+      "districtCode": "323"
+    },
+    {
+      "code": "323-04",
+      "name": "Phường 4",
+      "districtCode": "323"
+    },
+    {
+      "code": "288-01",
+      "name": "Phường 1",
+      "districtCode": "288"
+    },
+    {
+      "code": "288-02",
+      "name": "Phường 2",
+      "districtCode": "288"
+    },
+    {
+      "code": "288-03",
+      "name": "Phường 3",
+      "districtCode": "288"
+    },
+    {
+      "code": "288-04",
+      "name": "Phường 4",
+      "districtCode": "288"
+    },
+    {
+      "code": "243-01",
+      "name": "Phường 1",
+      "districtCode": "243"
+    },
+    {
+      "code": "243-02",
+      "name": "Phường 2",
+      "districtCode": "243"
+    },
+    {
+      "code": "243-03",
+      "name": "Phường 3",
+      "districtCode": "243"
+    },
+    {
+      "code": "243-04",
+      "name": "Phường 4",
+      "districtCode": "243"
+    },
+    {
+      "code": "703-01",
+      "name": "Phường 1",
+      "districtCode": "703"
+    },
+    {
+      "code": "703-02",
+      "name": "Phường 2",
+      "districtCode": "703"
+    },
+    {
+      "code": "703-03",
+      "name": "Phường 3",
+      "districtCode": "703"
+    },
+    {
+      "code": "703-04",
+      "name": "Phường 4",
+      "districtCode": "703"
+    },
+    {
+      "code": "474-01",
+      "name": "Phường 1",
+      "districtCode": "474"
+    },
+    {
+      "code": "474-02",
+      "name": "Phường 2",
+      "districtCode": "474"
+    },
+    {
+      "code": "474-03",
+      "name": "Phường 3",
+      "districtCode": "474"
+    },
+    {
+      "code": "474-04",
+      "name": "Phường 4",
+      "districtCode": "474"
+    },
+    {
+      "code": "502-01",
+      "name": "Phường 1",
+      "districtCode": "502"
+    },
+    {
+      "code": "502-02",
+      "name": "Phường 2",
+      "districtCode": "502"
+    },
+    {
+      "code": "502-03",
+      "name": "Phường 3",
+      "districtCode": "502"
+    },
+    {
+      "code": "502-04",
+      "name": "Phường 4",
+      "districtCode": "502"
+    },
+    {
+      "code": "503-01",
+      "name": "Phường 1",
+      "districtCode": "503"
+    },
+    {
+      "code": "503-02",
+      "name": "Phường 2",
+      "districtCode": "503"
+    },
+    {
+      "code": "503-03",
+      "name": "Phường 3",
+      "districtCode": "503"
+    },
+    {
+      "code": "503-04",
+      "name": "Phường 4",
+      "districtCode": "503"
+    },
+    {
+      "code": "568-01",
+      "name": "Phường 1",
+      "districtCode": "568"
+    },
+    {
+      "code": "568-02",
+      "name": "Phường 2",
+      "districtCode": "568"
+    },
+    {
+      "code": "568-03",
+      "name": "Phường 3",
+      "districtCode": "568"
+    },
+    {
+      "code": "568-04",
+      "name": "Phường 4",
+      "districtCode": "568"
+    },
+    {
+      "code": "593-01",
+      "name": "Phường 1",
+      "districtCode": "593"
+    },
+    {
+      "code": "593-02",
+      "name": "Phường 2",
+      "districtCode": "593"
+    },
+    {
+      "code": "593-03",
+      "name": "Phường 3",
+      "districtCode": "593"
+    },
+    {
+      "code": "593-04",
+      "name": "Phường 4",
+      "districtCode": "593"
+    },
+    {
+      "code": "672-01",
+      "name": "Phường 1",
+      "districtCode": "672"
+    },
+    {
+      "code": "672-02",
+      "name": "Phường 2",
+      "districtCode": "672"
+    },
+    {
+      "code": "672-03",
+      "name": "Phường 3",
+      "districtCode": "672"
+    },
+    {
+      "code": "672-04",
+      "name": "Phường 4",
+      "districtCode": "672"
+    },
+    {
+      "code": "673-01",
+      "name": "Phường 1",
+      "districtCode": "673"
+    },
+    {
+      "code": "673-02",
+      "name": "Phường 2",
+      "districtCode": "673"
+    },
+    {
+      "code": "673-03",
+      "name": "Phường 3",
+      "districtCode": "673"
+    },
+    {
+      "code": "673-04",
+      "name": "Phường 4",
+      "districtCode": "673"
+    },
+    {
+      "code": "815-01",
+      "name": "Phường 1",
+      "districtCode": "815"
+    },
+    {
+      "code": "815-02",
+      "name": "Phường 2",
+      "districtCode": "815"
+    },
+    {
+      "code": "815-03",
+      "name": "Phường 3",
+      "districtCode": "815"
+    },
+    {
+      "code": "815-04",
+      "name": "Phường 4",
+      "districtCode": "815"
+    },
+    {
+      "code": "954-01",
+      "name": "Phường 1",
+      "districtCode": "954"
+    },
+    {
+      "code": "954-02",
+      "name": "Phường 2",
+      "districtCode": "954"
+    },
+    {
+      "code": "954-03",
+      "name": "Phường 3",
+      "districtCode": "954"
+    },
+    {
+      "code": "954-04",
+      "name": "Phường 4",
+      "districtCode": "954"
+    }
+  ]
+}
