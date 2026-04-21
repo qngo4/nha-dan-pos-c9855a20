@@ -17,10 +17,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { pendingOrders, shipping } from "@/services";
+import { pendingOrders, promotions, shipping } from "@/services";
 import type {
+  CartContext,
+  CartLine,
+  EvaluatedPromotion,
   PaymentMethod,
   PendingOrderLine,
+  PromotionSnapshot,
   ShippingAddress,
   ShippingQuote,
 } from "@/services/types";
