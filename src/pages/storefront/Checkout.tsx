@@ -113,8 +113,45 @@ export default function CheckoutPage() {
     };
   }, [shippingAddress, subtotal]);
 
-  const shippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
-  const total = subtotal + shippingFee;
+  const baseShippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
+
+  // Evaluate the best promotion whenever the cart subtotal or shipping fee changes.
+  const cartLines: CartLine[] = useMemo(
+    () =>
+      orderItems.map((it, i) => ({
+        id: `tmp-${i}`,
+        productId: `tmp-p-${i}`,
+        variantId: `tmp-v-${i}`,
+        productName: it.name,
+        qty: it.qty,
+        unitPrice: it.price,
+        lineSubtotal: it.qty * it.price,
+      })),
+    []
+  );
+
+  const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
+
+  useEffect(() => {
+    let cancel = false;
+    const ctx: CartContext = {
+      lines: cartLines,
+      subtotal,
+      shippingAddress: shippingAddress ?? undefined,
+      shippingQuote: quote,
+    };
+    void promotions.pickBest(ctx).then((p) => {
+      if (!cancel) setBestPromo(p);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [cartLines, subtotal, shippingAddress, quote]);
+
+  const promoDiscount = bestPromo?.discountAmount ?? 0;
+  const shippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
+  const shippingFee = Math.max(0, baseShippingFee - shippingDiscount);
+  const total = Math.max(0, subtotal - promoDiscount + shippingFee);
   const isOnline = payment !== "cash";
 
   const phoneOk = /^[\d+]{9,12}$/.test(phone.replace(/\s/g, ""));
