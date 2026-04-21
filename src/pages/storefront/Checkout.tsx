@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatVND } from "@/lib/format";
 import {
@@ -17,8 +17,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { quoteShipping, type ShippingState } from "@/lib/shipping";
-import { pendingOrderActions, invoiceActions } from "@/lib/store";
+import { pendingOrders, shipping } from "@/services";
+import type {
+  PaymentMethod,
+  PendingOrderLine,
+  ShippingAddress,
+  ShippingQuote,
+} from "@/services/types";
+import { invoiceActions } from "@/lib/store";
+import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
 
 const orderItems = [
   { name: "Mì Hảo Hảo - Tôm chua cay", qty: 10, price: 5000 },
@@ -28,12 +35,21 @@ const orderItems = [
 
 const paymentMethods = [
   { id: "cash", label: "Tiền mặt khi nhận", icon: Banknote, desc: "COD — hóa đơn lập ngay khi xác nhận" },
-  { id: "transfer", label: "Chuyển khoản ngân hàng", icon: CreditCard, desc: "Tạo đơn chờ — admin xác nhận sau khi nhận tiền" },
+  { id: "bank_transfer", label: "Chuyển khoản ngân hàng", icon: CreditCard, desc: "Tạo đơn chờ — admin xác nhận sau khi nhận tiền" },
   { id: "momo", label: "Ví MoMo", icon: Smartphone, desc: "Quét QR — admin xác nhận thanh toán" },
   { id: "zalopay", label: "ZaloPay", icon: Smartphone, desc: "Quét QR — admin xác nhận thanh toán" },
 ] as const;
 
 type PaymentId = (typeof paymentMethods)[number]["id"];
+
+const EMPTY_ADDR: AddressSelectValue = {
+  provinceCode: "",
+  provinceName: "",
+  districtCode: "",
+  districtName: "",
+  wardCode: "",
+  wardName: "",
+};
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -41,92 +57,124 @@ export default function CheckoutPage() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    province: "",
-    district: "",
-    ward: "",
-    street: "",
-    note: "",
-  });
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [street, setStreet] = useState("");
+  const [note, setNote] = useState("");
+  const [addr, setAddr] = useState<AddressSelectValue>(EMPTY_ADDR);
 
-  const subtotal = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
-  const [ship, setShip] = useState<ShippingState>({ state: "idle" });
+  const subtotal = useMemo(
+    () => orderItems.reduce((s, i) => s + i.price * i.qty, 0),
+    []
+  );
 
-  // Auto-quote whenever address fields change (debounced)
+  const [quote, setQuote] = useState<ShippingQuote>({ status: "incomplete" });
+  const [quoting, setQuoting] = useState(false);
+
+  // Build canonical ShippingAddress (or null if incomplete) and quote on change.
+  const shippingAddress: ShippingAddress | null = useMemo(() => {
+    if (!addr.provinceCode || !addr.districtCode || !addr.wardCode) return null;
+    return {
+      receiverName: name.trim(),
+      phone: phone.trim(),
+      provinceCode: addr.provinceCode,
+      provinceName: addr.provinceName,
+      districtCode: addr.districtCode,
+      districtName: addr.districtName,
+      wardCode: addr.wardCode,
+      wardName: addr.wardName,
+      street: street.trim(),
+      note: note.trim() || undefined,
+    };
+  }, [addr, name, phone, street, note]);
+
   useEffect(() => {
     let cancel = false;
-    setShip({ state: "loading" });
+    if (!shippingAddress) {
+      setQuote({ status: "incomplete" });
+      setQuoting(false);
+      return;
+    }
+    setQuoting(true);
     const t = setTimeout(async () => {
-      const result = await quoteShipping({
-        address: {
-          province: form.province,
-          district: form.district,
-          ward: form.ward,
-          street: form.street,
-        },
-        subtotal,
-      });
-      if (!cancel) setShip(result);
+      const result = await shipping.quote({ address: shippingAddress, subtotal });
+      if (!cancel) {
+        setQuote(result);
+        setQuoting(false);
+      }
     }, 350);
     return () => {
       cancel = true;
       clearTimeout(t);
     };
-  }, [form.province, form.district, form.ward, form.street, subtotal]);
+  }, [shippingAddress, subtotal]);
 
-  const shippingFee = ship.state === "ok" ? ship.fee : 0;
+  const shippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
   const total = subtotal + shippingFee;
   const isOnline = payment !== "cash";
 
-  const phoneOk = /^[\d+]{9,12}$/.test(form.phone.replace(/\s/g, ""));
+  const phoneOk = /^[\d+]{9,12}$/.test(phone.replace(/\s/g, ""));
   const canSubmit =
-    form.name.trim() &&
+    name.trim().length > 0 &&
     phoneOk &&
-    ship.state === "ok" &&
+    quote.status === "quoted" &&
     !submitting;
 
   const submit = async () => {
-    if (!form.name.trim() || !phoneOk) {
+    if (!name.trim() || !phoneOk) {
       toast.error("Vui lòng nhập đầy đủ họ tên và SĐT hợp lệ");
       return;
     }
-    if (ship.state !== "ok") {
+    if (quote.status !== "quoted" || !shippingAddress) {
       toast.error("Vui lòng nhập đầy đủ địa chỉ để tính phí giao hàng");
       return;
     }
     setSubmitting(true);
     try {
       if (isOnline) {
-        const order = pendingOrderActions.create({
-          customerId: "",
-          customerName: form.name.trim(),
-          customerPhone: form.phone.trim(),
-          shippingAddress: {
-            province: form.province.trim(),
-            district: form.district.trim(),
-            ward: form.ward.trim(),
-            street: form.street.trim(),
+        const lines: PendingOrderLine[] = orderItems.map((it, i) => ({
+          id: `tmp-${i}`,
+          productId: "",
+          variantId: "",
+          productName: it.name,
+          qty: it.qty,
+          unitPrice: it.price,
+          lineSubtotal: it.qty * it.price,
+        }));
+        const order = await pendingOrders.create({
+          customerName: name.trim(),
+          customerPhone: phone.trim(),
+          shippingAddress,
+          paymentMethod: payment as PaymentMethod,
+          paymentReference: "",
+          lines,
+          shippingQuoteSnapshot: {
+            source: quote.source ?? "zone_fallback",
+            zoneCode: quote.zoneCode,
+            fee: shippingFee,
+            etaDays: quote.etaDays,
           },
-          paymentMethod: payment as Exclude<PaymentId, "cash">,
-          subtotal,
-          shippingFee,
-          total,
-          itemCount: orderItems.length,
-          items: orderItems,
-          note: form.note.trim() || undefined,
-          expiresInHours: 12,
+          pricingBreakdownSnapshot: {
+            subtotal,
+            manualDiscount: 0,
+            promotionDiscount: 0,
+            voucherDiscount: 0,
+            shippingFee,
+            shippingDiscount: 0,
+            vat: 0,
+            total,
+          },
+          note: note.trim() || undefined,
         });
         toast.success("Đã tạo đơn — chuyển sang trang chờ thanh toán");
         navigate(`/pending-payment/${order.id}`);
       } else {
-        // Cash / COD — create invoice immediately
+        // Cash / COD — create invoice immediately (legacy invoice store still in use)
         const inv = invoiceActions.create({
           number: `HD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 900 + 100)}`,
           date: new Date().toISOString(),
           customerId: "",
-          customerName: form.name.trim(),
+          customerName: name.trim(),
           total,
           paymentType: "cash",
           status: "active",
@@ -168,26 +216,25 @@ export default function CheckoutPage() {
             <section className="bg-storefront-surface rounded-2xl border p-5 sf-shadow">
               <h2 className="font-bold text-base mb-4">Thông tin giao hàng</h2>
               <div className="grid gap-3.5 sm:grid-cols-2">
-                <Field label="Họ và tên *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Nguyễn Văn A" />
-                <Field label="Số điện thoại *" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} placeholder="0901234567" />
-                <Field label="Tỉnh / Thành phố *" value={form.province} onChange={(v) => setForm({ ...form, province: v })} placeholder="VD: TP.HCM" />
-                <Field label="Quận / Huyện *" value={form.district} onChange={(v) => setForm({ ...form, district: v })} placeholder="VD: Quận 1" />
-                <Field label="Phường / Xã *" value={form.ward} onChange={(v) => setForm({ ...form, ward: v })} placeholder="VD: Phường Bến Nghé" />
-                <Field label="Số nhà, đường" value={form.street} onChange={(v) => setForm({ ...form, street: v })} placeholder="VD: 12 Lê Lợi" />
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Ghi chú đơn hàng</label>
-                  <textarea
-                    value={form.note}
-                    onChange={(e) => setForm({ ...form, note: e.target.value })}
-                    placeholder="Ghi chú thêm (tùy chọn)"
-                    rows={2}
-                    className="mt-1.5 w-full px-3.5 py-2.5 text-sm border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 resize-none"
-                  />
-                </div>
+                <Field label="Họ và tên *" value={name} onChange={setName} placeholder="Nguyễn Văn A" />
+                <Field label="Số điện thoại *" value={phone} onChange={setPhone} placeholder="0901234567" />
+              </div>
+              <AddressSelect value={addr} onChange={setAddr} className="mt-3.5" />
+              <div className="mt-3.5">
+                <Field label="Số nhà, đường" value={street} onChange={setStreet} placeholder="VD: 12 Lê Lợi" />
+              </div>
+              <div className="mt-3.5">
+                <label className="text-xs font-semibold text-muted-foreground">Ghi chú đơn hàng</label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Ghi chú thêm (tùy chọn)"
+                  rows={2}
+                  className="mt-1.5 w-full px-3.5 py-2.5 text-sm border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 resize-none"
+                />
               </div>
 
-              {/* Shipping quote state */}
-              <ShippingBlock ship={ship} />
+              <ShippingBlock quote={quote} loading={quoting} />
             </section>
 
             {/* Payment */}
@@ -258,11 +305,11 @@ export default function CheckoutPage() {
                 <Row
                   label="Phí giao hàng"
                   value={
-                    ship.state === "loading" ? <span className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Đang tính…</span> :
-                    ship.state === "incomplete" ? <span className="text-muted-foreground">—</span> :
-                    ship.state === "unavailable" ? <span className="text-danger">Không khả dụng</span> :
-                    ship.state === "ok" && ship.freeShipApplied ? <span className="text-success">Miễn phí</span> :
-                    ship.state === "ok" ? formatVND(ship.fee) : "—"
+                    quoting ? <span className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Đang tính…</span> :
+                    quote.status === "incomplete" ? <span className="text-muted-foreground">—</span> :
+                    quote.status === "unavailable" ? <span className="text-danger">Không khả dụng</span> :
+                    quote.status === "quoted" && shippingFee === 0 ? <span className="text-success">Miễn phí</span> :
+                    quote.status === "quoted" ? formatVND(shippingFee) : "—"
                   }
                 />
                 <div className="border-t pt-3 flex justify-between items-baseline">
@@ -316,41 +363,42 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function ShippingBlock({ ship }: { ship: ShippingState }) {
-  if (ship.state === "idle") return null;
-
-  if (ship.state === "loading") {
+function ShippingBlock({ quote, loading }: { quote: ShippingQuote; loading: boolean }) {
+  if (loading) {
     return (
       <div className="mt-4 p-3 rounded-xl bg-muted/50 text-xs flex items-center gap-2 text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tính phí giao hàng…
       </div>
     );
   }
-  if (ship.state === "incomplete") {
+  if (quote.status === "incomplete") {
     return (
       <div className="mt-4 p-3 rounded-xl bg-warning-soft text-xs text-warning flex items-start gap-2">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-        <span>Vui lòng nhập đầy đủ: <b>{ship.missing.join(", ")}</b> để tính phí giao hàng.</span>
+        <span>Vui lòng chọn đầy đủ Tỉnh / Quận / Phường để tính phí giao hàng.</span>
       </div>
     );
   }
-  if (ship.state === "unavailable") {
+  if (quote.status === "unavailable") {
     return (
       <div className="mt-4 p-3 rounded-xl bg-danger-soft text-xs text-danger flex items-start gap-2">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-        <span>Không thể giao đến địa chỉ này: {ship.reason}</span>
+        <span>Không thể giao đến địa chỉ này: {quote.reasonIfUnavailable}</span>
       </div>
     );
   }
-  return (
-    <div className="mt-4 p-3 rounded-xl bg-success-soft text-xs text-success flex items-start gap-2">
-      <Truck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-      <span>
-        Khu vực <b>{ship.zone}</b> · Dự kiến giao trong <b>{ship.etaDays[0]}–{ship.etaDays[1]} ngày</b>
-        {" · "}
-        {ship.freeShipApplied ? <b>Miễn phí giao hàng</b> : <>Phí: <b>{formatVND(ship.fee)}</b></>}
-      </span>
-    </div>
-  );
+  if (quote.status === "quoted") {
+    const eta = quote.etaDays;
+    return (
+      <div className="mt-4 p-3 rounded-xl bg-success-soft text-xs text-success flex items-start gap-2">
+        <Truck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+        <span>
+          {quote.zoneCode ? <>Khu vực <b>{quote.zoneCode}</b> · </> : null}
+          {eta ? <>Dự kiến giao trong <b>{eta.min}–{eta.max} ngày</b> · </> : null}
+          {quote.fee === 0 ? <b>Miễn phí giao hàng</b> : <>Phí: <b>{formatVND(quote.fee ?? 0)}</b></>}
+        </span>
+      </div>
+    );
+  }
+  return null;
 }
-
