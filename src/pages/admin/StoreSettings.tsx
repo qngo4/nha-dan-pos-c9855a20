@@ -3,6 +3,7 @@ import { storeSettings } from "@/services";
 import type { StorePaymentSettings, VietQrTemplate } from "@/services/types";
 import { toast } from "sonner";
 import { Building2, Save, QrCode, Upload, X, Wallet } from "lucide-react";
+import { resizeImageFile, approxDataUrlBytes } from "@/lib/image-resize";
 
 const VIETQR_BANKS: { code: string; name: string }[] = [
   { code: "VCB", name: "Vietcombank" },
