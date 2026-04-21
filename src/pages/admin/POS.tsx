@@ -20,6 +20,8 @@ import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
 import { applyPromotionToCart, formatPromotionSummary, getPromotionProgress, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
+import { shipping } from "@/services";
+import type { ShippingConfig, ShippingZoneRule } from "@/services/types";
 
 type ScanMode = "hid" | "camera" | "manual";
 
@@ -38,10 +40,28 @@ export default function AdminPOS() {
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [vatPercent, setVatPercent] = useState<number>(0);
   const [promotionId, setPromotionId] = useState<string>("");
+  const [shippingZoneCode, setShippingZoneCode] = useState<string>("");
+  const [shippingZones, setShippingZones] = useState<ShippingZoneRule[]>([]);
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
   const customerCountRef = useState({ n: customers.length })[0];
   const barcodeRef = useRef<HTMLInputElement>(null);
+
+  // Load shipping zones once so cashiers can attach a zone code + ETA to the receipt.
+  useEffect(() => {
+    let cancel = false;
+    void shipping.getConfig().then((cfg: ShippingConfig) => {
+      if (!cancel) setShippingZones(cfg.zoneRules);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  const selectedShippingZone = useMemo(
+    () => shippingZones.find((z) => z.zoneCode === shippingZoneCode) ?? null,
+    [shippingZones, shippingZoneCode],
+  );
 
   // Auto-select newly created customer
   useEffect(() => {
