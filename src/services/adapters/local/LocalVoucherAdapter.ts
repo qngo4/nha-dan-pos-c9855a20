@@ -8,7 +8,7 @@ import type {
 } from "@/services/vouchers/VoucherService";
 import { computePercentOff } from "@/services/vouchers/VoucherService";
 import type { CartContext, Money, VoucherSnapshot } from "@/services/types";
-import { findVoucherByCode } from "@/lib/vouchers-store";
+import { findVoucherByCode, isWithinActiveWindow } from "@/lib/vouchers-store";
 
 export class LocalVoucherAdapter implements VoucherService {
   async validate(rawCode: string, ctx: CartContext): Promise<VoucherValidationResult> {
@@ -18,6 +18,9 @@ export class LocalVoucherAdapter implements VoucherService {
     const def = findVoucherByCode(code);
     if (!def) return { valid: false, reasonIfInvalid: "Mã giảm giá không hợp lệ" };
     if (!def.active) return { valid: false, reasonIfInvalid: "Mã giảm giá đã ngừng áp dụng" };
+    if (!isWithinActiveWindow(def)) {
+      return { valid: false, reasonIfInvalid: "Mã giảm giá không nằm trong thời gian áp dụng" };
+    }
 
     if (def.minSubtotal > 0 && ctx.subtotal < def.minSubtotal) {
       return {

@@ -20,6 +20,8 @@ import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
 import { applyPromotionToCart, formatPromotionSummary, getPromotionProgress, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
+import { shipping } from "@/services";
+import type { ShippingConfig, ShippingZoneRule } from "@/services/types";
 
 type ScanMode = "hid" | "camera" | "manual";
 
@@ -38,10 +40,28 @@ export default function AdminPOS() {
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [vatPercent, setVatPercent] = useState<number>(0);
   const [promotionId, setPromotionId] = useState<string>("");
+  const [shippingZoneCode, setShippingZoneCode] = useState<string>("");
+  const [shippingZones, setShippingZones] = useState<ShippingZoneRule[]>([]);
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
   const customerCountRef = useState({ n: customers.length })[0];
   const barcodeRef = useRef<HTMLInputElement>(null);
+
+  // Load shipping zones once so cashiers can attach a zone code + ETA to the receipt.
+  useEffect(() => {
+    let cancel = false;
+    void shipping.getConfig().then((cfg: ShippingConfig) => {
+      if (!cancel) setShippingZones(cfg.zoneRules);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  const selectedShippingZone = useMemo(
+    () => shippingZones.find((z) => z.zoneCode === shippingZoneCode) ?? null,
+    [shippingZones, shippingZoneCode],
+  );
 
   // Auto-select newly created customer
   useEffect(() => {
@@ -203,6 +223,10 @@ export default function AdminPOS() {
       shippingFee: totals.shippingFee,
       shippingDiscount: totals.shippingDiscount,
       shippingPayable: totals.shippingPayable,
+      shippingZoneCode: selectedShippingZone?.zoneCode,
+      shippingZoneLabel: selectedShippingZone?.label,
+      shippingEtaMin: selectedShippingZone?.etaDays.min,
+      shippingEtaMax: selectedShippingZone?.etaDays.max,
       vatPercent,
       vatBase: totals.vatBase,
       vatAmount: totals.vatAmount,
@@ -231,6 +255,7 @@ export default function AdminPOS() {
     setLines([]); setNote(""); setSelectedCustomer(""); setLastInvoice(null);
     setDiscountValue(0); setDiscountMode("amount");
     setShippingFee(0); setVatPercent(0); setPromotionId("");
+    setShippingZoneCode("");
     barcodeRef.current?.focus();
   };
 
@@ -239,6 +264,8 @@ export default function AdminPOS() {
     triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos58", { targetId: "print-root-invoice-pos58" });
   };
 
+  // In-memory invoice used for the live preview / print of the current draft.
+  // Mirror the same breakdown so the printed receipt shows zone + ETA before saving.
   const printableInvoice: Invoice = {
     id: "pos-current",
     number: lastInvoice?.number ?? "HD-NHAP",
@@ -247,6 +274,24 @@ export default function AdminPOS() {
     customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
     total: lastInvoice?.total ?? totals.total,
     paymentType: "cash", status: "active", createdBy: "admin", itemCount: totalItems,
+    breakdown: {
+      subtotal: totals.subtotal,
+      manualDiscount: totals.manualDiscount,
+      promoDiscount: totals.promoDiscount,
+      promoName: selectedPromotion?.name,
+      shippingFee: totals.shippingFee,
+      shippingDiscount: totals.shippingDiscount,
+      shippingPayable: totals.shippingPayable,
+      shippingZoneCode: selectedShippingZone?.zoneCode,
+      shippingZoneLabel: selectedShippingZone?.label,
+      shippingEtaMin: selectedShippingZone?.etaDays.min,
+      shippingEtaMax: selectedShippingZone?.etaDays.max,
+      vatPercent,
+      vatBase: totals.vatBase,
+      vatAmount: totals.vatAmount,
+      total: totals.total,
+      freeItems: totals.freeItems.map((g) => ({ productName: g.productName, quantity: g.quantity })),
+    },
   };
   const printableLines = lines.map((l) => ({
     name: `${l.productName} - ${l.variantName}${l.reward ? " (Quà tặng)" : ""}`,
@@ -632,6 +677,32 @@ export default function AdminPOS() {
                     className={cn("px-2 text-xs font-medium transition-colors border-l", discountMode === "percent" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted")}>%</button>
                 </div>
               </div>
+            </div>
+
+            {/* Shipping zone (printed on receipt for delivery verification) */}
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                <Truck className="h-3 w-3" /> Vùng giao hàng
+              </label>
+              <select
+                value={shippingZoneCode}
+                onChange={(e) => setShippingZoneCode(e.target.value)}
+                disabled={!!lastInvoice}
+                className="mt-1 w-full h-8 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+              >
+                <option value="">— Không gắn vùng —</option>
+                {shippingZones.map((z) => (
+                  <option key={z.zoneCode} value={z.zoneCode}>
+                    {z.zoneCode} · {z.label} ({z.etaDays.min}–{z.etaDays.max} ngày)
+                  </option>
+                ))}
+              </select>
+              {selectedShippingZone && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  In trên hóa đơn: <span className="font-mono">{selectedShippingZone.zoneCode}</span> · giao{" "}
+                  {selectedShippingZone.etaDays.min}–{selectedShippingZone.etaDays.max} ngày
+                </p>
+              )}
             </div>
 
             {/* Shipping + VAT */}

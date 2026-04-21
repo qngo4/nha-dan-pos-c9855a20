@@ -200,6 +200,20 @@ export function PrintableThermalInvoice({ invoice, lines, paper, rootId }: Props
           {b.shippingDiscount > 0 && (
             <Row label="Ưu đãi ship:" value={`-${formatVND(b.shippingDiscount)}`} fontSize={moneyFont} />
           )}
+          {(b.shippingZoneCode || b.shippingEtaMin) && (
+            <Row
+              label="Giao hàng:"
+              value={
+                [
+                  b.shippingZoneCode ? `${b.shippingZoneCode}${b.shippingZoneLabel ? ` · ${b.shippingZoneLabel}` : ""}` : null,
+                  b.shippingEtaMin && b.shippingEtaMax
+                    ? `${b.shippingEtaMin}–${b.shippingEtaMax} ngày`
+                    : null,
+                ].filter(Boolean).join(" · ")
+              }
+              fontSize={metaFont}
+            />
+          )}
           {b.vatAmount > 0 && (
             <Row label={`VAT (${b.vatPercent}%):`} value={`+${formatVND(b.vatAmount)}`} fontSize={moneyFont} />
           )}

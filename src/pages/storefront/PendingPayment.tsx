@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
 import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
+import { OrderTimeline } from "@/components/shared/OrderTimeline";
 import type {
   PaymentMethod,
   PendingOrder,
@@ -77,13 +78,6 @@ export default function PendingPaymentPage() {
   const breakdown = order.pricingBreakdownSnapshot;
   const items = order.lines;
 
-  const steps = [
-    { label: "Tạo đơn", done: true, active: false },
-    { label: "Chờ thanh toán", done: false, active: order.status === "pending_payment" },
-    { label: "Xác nhận", done: order.status === "confirmed" || order.status === "waiting_confirm", active: order.status === "waiting_confirm" },
-    { label: "Hoàn tất", done: order.status === "confirmed", active: false },
-  ];
-
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`Đã sao chép ${label}`));
   };
@@ -108,15 +102,16 @@ export default function PendingPaymentPage() {
         </p>
       </div>
 
-      <div className="flex items-center justify-between mb-8 px-4">
-        {steps.map((step, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 relative">
-            <div className={`h-3 w-3 rounded-full border-2 ${step.done ? "bg-success border-success" : step.active ? "bg-warning border-warning animate-pulse-soft" : "bg-muted border-border"}`} />
-            <span className={`text-[10px] font-medium ${step.done ? "text-success" : step.active ? "text-warning" : "text-muted-foreground"}`}>
-              {step.label}
-            </span>
-          </div>
-        ))}
+      <div className="bg-card border rounded-lg p-4 mb-4">
+        <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
+          <Clock className="h-4 w-4 text-primary" /> Tiến trình đơn hàng
+        </h2>
+        <OrderTimeline
+          paymentMethod={order.paymentMethod}
+          status={order.status}
+          createdAt={order.createdAt}
+          expiresAt={order.expiresAt}
+        />
       </div>
 
       {showBankPanel && (

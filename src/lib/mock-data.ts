@@ -104,6 +104,13 @@ export interface InvoiceBreakdown {
   shippingFee: number;
   shippingDiscount: number;
   shippingPayable: number;
+  /** Selected shipping zone code (e.g. "Z1") for staff verification on the printed receipt. */
+  shippingZoneCode?: string;
+  /** Friendly zone label (e.g. "Nội thành HN / HCM"). */
+  shippingZoneLabel?: string;
+  /** ETA window in days. Used to print "Dự kiến giao 1–2 ngày". */
+  shippingEtaMin?: number;
+  shippingEtaMax?: number;
   vatPercent: number;
   vatBase: number;
   vatAmount: number;

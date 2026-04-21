@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatVND, formatDateTime } from "@/lib/format";
-import { Clock, LogOut, Save, Loader2, MapPin, User as UserIcon } from "lucide-react";
+import { Clock, LogOut, Save, Loader2, MapPin, User as UserIcon, Users, Plus, Check } from "lucide-react";
 import { currentCustomerActions, useCurrentCustomer } from "@/lib/current-customer";
-import { pendingOrders } from "@/services";
-import type { PendingOrder, ShippingAddress } from "@/services/types";
+import { customers as customersService, pendingOrders } from "@/services";
+import type { Customer, PendingOrder, ShippingAddress } from "@/services/types";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
 import { toast } from "sonner";
 
@@ -40,6 +40,30 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
 
   const [orders, setOrders] = useState<PendingOrder[]>([]);
+
+  // Profile switcher: list every persisted customer so the device can hop
+  // between them without losing data. Refreshed whenever the active id changes.
+  const [allProfiles, setAllProfiles] = useState<Customer[]>([]);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  useEffect(() => {
+    void customersService.list({ pageSize: 200 }).then((res) => setAllProfiles(res.items));
+  }, [customer?.id]);
+
+  const switchProfile = async (id: string) => {
+    if (id === customer?.id) {
+      setSwitcherOpen(false);
+      return;
+    }
+    await currentCustomerActions.switchTo(id);
+    setSwitcherOpen(false);
+    toast.success("Đã chuyển sang hồ sơ khác");
+  };
+
+  const createNewProfile = async () => {
+    await currentCustomerActions.createAndSwitch();
+    setSwitcherOpen(false);
+    toast.success("Đã tạo hồ sơ trống mới");
+  };
 
   // Hydrate form from CustomerService once customer is loaded.
   useEffect(() => {
@@ -125,18 +149,70 @@ export default function AccountPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
       {/* Profile header */}
-      <div className="bg-card rounded-lg border p-5">
+      <div className="bg-card rounded-lg border p-5 relative">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 bg-primary-soft rounded-full flex items-center justify-center text-lg font-bold text-primary shrink-0">
             {initial}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold truncate">{name || "Chưa đặt tên"}</h1>
             <p className="text-sm text-muted-foreground">
               {phone || "Chưa có số điện thoại"} · {customer?.points ?? 0} điểm
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setSwitcherOpen((o) => !o)}
+            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-full border text-xs font-semibold hover:bg-muted"
+            aria-haspopup="menu"
+            aria-expanded={switcherOpen}
+          >
+            <Users className="h-3.5 w-3.5" /> Đổi hồ sơ
+          </button>
         </div>
+
+        {switcherOpen && (
+          <div className="absolute right-5 top-16 z-20 w-72 max-h-80 overflow-auto bg-card border rounded-lg shadow-lg p-1.5">
+            <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Hồ sơ trên thiết bị này ({allProfiles.length})
+            </p>
+            {allProfiles.length === 0 && (
+              <p className="px-2 py-2 text-xs text-muted-foreground">Chưa có hồ sơ nào.</p>
+            )}
+            {allProfiles.map((p) => {
+              const active = p.id === customer?.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => switchProfile(p.id)}
+                  className="w-full flex items-center gap-2 px-2 py-2 text-left rounded-md hover:bg-muted text-sm"
+                >
+                  <div className="h-7 w-7 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                    {(p.name || "?").trim().charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{p.name || "Hồ sơ chưa đặt tên"}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {p.phone || "Chưa có SĐT"} · {p.points ?? 0} điểm
+                    </p>
+                  </div>
+                  {active && <Check className="h-4 w-4 text-primary shrink-0" />}
+                </button>
+              );
+            })}
+            <div className="border-t mt-1 pt-1">
+              <button
+                type="button"
+                onClick={createNewProfile}
+                className="w-full flex items-center gap-2 px-2 py-2 text-left rounded-md hover:bg-muted text-sm font-medium text-primary"
+              >
+                <Plus className="h-4 w-4" /> Tạo hồ sơ trống mới
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 mt-4">
           <div className="bg-muted rounded-md p-3 text-center">
             <p className="text-xs text-muted-foreground">Đơn hàng</p>
