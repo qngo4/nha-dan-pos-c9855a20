@@ -241,7 +241,7 @@ export default function AdminPOS() {
       customerId: selectedCustomer || "",
       customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
       total: totals.total,
-      paymentType: "cash",
+      paymentType,
       status: "active",
       createdBy: "admin",
       itemCount: totalItems,
@@ -257,7 +257,7 @@ export default function AdminPOS() {
     setLines([]); setNote(""); setSelectedCustomer(""); setLastInvoice(null);
     setDiscountValue(0); setDiscountMode("amount");
     setShippingFee(0); setVatPercent(0); setPromotionId("");
-    setShippingZoneCode("");
+    setShippingZoneCode(""); setPaymentType("cash");
     barcodeRef.current?.focus();
   };
 
@@ -275,7 +275,7 @@ export default function AdminPOS() {
     customerId: selectedCustomer || "",
     customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
     total: lastInvoice?.total ?? totals.total,
-    paymentType: "cash", status: "active", createdBy: "admin", itemCount: totalItems,
+    paymentType, status: "active", createdBy: "admin", itemCount: totalItems,
     breakdown: {
       subtotal: totals.subtotal,
       manualDiscount: totals.manualDiscount,
