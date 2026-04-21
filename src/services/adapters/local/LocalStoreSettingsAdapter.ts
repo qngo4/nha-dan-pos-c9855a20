@@ -14,6 +14,12 @@ const DEFAULT_SETTINGS: StorePaymentSettings = {
   branch: "",
   transferPrefix: "DH",
   qrTemplate: "compact2",
+  momoQrImage: "",
+  momoAccountName: "",
+  momoPhone: "",
+  zalopayQrImage: "",
+  zalopayAccountName: "",
+  zalopayPhone: "",
 };
 
 export class LocalStoreSettingsAdapter implements StoreSettingsService {

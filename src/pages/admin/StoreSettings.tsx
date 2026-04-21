@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { storeSettings } from "@/services";
 import type { StorePaymentSettings, VietQrTemplate } from "@/services/types";
 import { toast } from "sonner";
-import { Building2, Save, QrCode } from "lucide-react";
+import { Building2, Save, QrCode, Upload, X, Wallet } from "lucide-react";
 
 const VIETQR_BANKS: { code: string; name: string }[] = [
   { code: "VCB", name: "Vietcombank" },
@@ -36,7 +36,15 @@ const EMPTY: StorePaymentSettings = {
   branch: "",
   transferPrefix: "DH",
   qrTemplate: "compact2",
+  momoQrImage: "",
+  momoAccountName: "",
+  momoPhone: "",
+  zalopayQrImage: "",
+  zalopayAccountName: "",
+  zalopayPhone: "",
 };
+
+const MAX_QR_BYTES = 800 * 1024; // ~800KB safety cap for localStorage
 
 export default function StoreSettingsPage() {
   const [form, setForm] = useState<StorePaymentSettings>(EMPTY);
@@ -195,6 +203,27 @@ export default function StoreSettingsPage() {
         )}
       </div>
 
+      <EWalletQrSection
+        title="Ví MoMo"
+        color="text-[#A50064]"
+        imageValue={form.momoQrImage ?? ""}
+        accountName={form.momoAccountName ?? ""}
+        phone={form.momoPhone ?? ""}
+        onImage={(v) => update("momoQrImage", v)}
+        onAccountName={(v) => update("momoAccountName", v)}
+        onPhone={(v) => update("momoPhone", v)}
+      />
+      <EWalletQrSection
+        title="ZaloPay"
+        color="text-[#0068FF]"
+        imageValue={form.zalopayQrImage ?? ""}
+        accountName={form.zalopayAccountName ?? ""}
+        phone={form.zalopayPhone ?? ""}
+        onImage={(v) => update("zalopayQrImage", v)}
+        onAccountName={(v) => update("zalopayAccountName", v)}
+        onPhone={(v) => update("zalopayPhone", v)}
+      />
+
       <div className="flex justify-end">
         <button
           onClick={onSave}
@@ -214,5 +243,94 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-medium text-muted-foreground mb-1 block">{label}</span>
       {children}
     </label>
+  );
+}
+
+function EWalletQrSection(props: {
+  title: string;
+  color: string;
+  imageValue: string;
+  accountName: string;
+  phone: string;
+  onImage: (v: string) => void;
+  onAccountName: (v: string) => void;
+  onPhone: (v: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const onFile = (f: File | null) => {
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return toast.error("Vui lòng chọn file ảnh");
+    if (f.size > MAX_QR_BYTES) return toast.error("Ảnh quá lớn (tối đa ~800KB). Vui lòng nén trước khi tải lên.");
+    const reader = new FileReader();
+    reader.onload = () => props.onImage(String(reader.result ?? ""));
+    reader.onerror = () => toast.error("Không đọc được file ảnh");
+    reader.readAsDataURL(f);
+  };
+
+  return (
+    <div className="bg-card border rounded-lg p-5 space-y-4">
+      <h2 className={`font-semibold text-sm flex items-center gap-2 ${props.color}`}>
+        <Wallet className="h-4 w-4" /> QR {props.title}
+      </h2>
+      <p className="text-xs text-muted-foreground">
+        Tải ảnh mã QR tĩnh của ví {props.title}. Khi khách chọn phương thức này, trang thanh toán sẽ hiển thị ảnh QR bạn đã tải lên thay cho VietQR ngân hàng.
+      </p>
+
+      <div className="grid sm:grid-cols-[200px_1fr] gap-4 items-start">
+        <div className="flex flex-col items-center gap-2">
+          {props.imageValue ? (
+            <div className="relative">
+              <img src={props.imageValue} alt={`QR ${props.title}`} className="h-48 w-48 object-contain border rounded bg-white p-2" />
+              <button
+                type="button"
+                onClick={() => props.onImage("")}
+                className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-danger text-danger-foreground flex items-center justify-center shadow"
+                aria-label="Xoá ảnh QR"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="h-48 w-48 border-2 border-dashed rounded flex items-center justify-center text-xs text-muted-foreground text-center px-3">
+              Chưa có ảnh QR
+            </div>
+          )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-muted"
+          >
+            <Upload className="h-3.5 w-3.5" /> {props.imageValue ? "Thay ảnh" : "Tải ảnh QR"}
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <Field label={`Chủ tài khoản ${props.title}`}>
+            <input
+              value={props.accountName}
+              onChange={(e) => props.onAccountName(e.target.value)}
+              className="input-base"
+              placeholder="VD: NGUYEN VAN A"
+            />
+          </Field>
+          <Field label={`Số điện thoại ${props.title} (tuỳ chọn)`}>
+            <input
+              value={props.phone}
+              onChange={(e) => props.onPhone(e.target.value.replace(/\s/g, ""))}
+              className="input-base"
+              placeholder="VD: 0901234567"
+            />
+          </Field>
+        </div>
+      </div>
+    </div>
   );
 }

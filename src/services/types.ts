@@ -47,6 +47,15 @@ export interface StorePaymentSettings {
   branch?: string;
   transferPrefix?: string; // e.g. "DH"
   qrTemplate?: VietQrTemplate;
+  // E-wallet static QR images (data URLs or external URLs).
+  // When set, PendingPayment shows these instead of the VietQR for the
+  // matching payment method.
+  momoQrImage?: string;
+  momoAccountName?: string;
+  momoPhone?: string;
+  zalopayQrImage?: string;
+  zalopayAccountName?: string;
+  zalopayPhone?: string;
 }
 
 export interface VietQrRequest {
