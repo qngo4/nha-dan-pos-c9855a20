@@ -1,8 +1,10 @@
 // Adapter that wraps the existing rule engine in src/lib/promotions.ts and
 // exposes it through the canonical PromotionEvaluationService contract.
 //
-// Source of promotion definitions: the existing in-memory store (src/lib/store.ts),
+// Source of promotion definitions: the in-memory store (src/lib/store.ts),
 // which already migrates legacy mock data into the discriminated-union model.
+// When the EC2 backend lands, only this adapter changes — the UI keeps
+// consuming `promotions.pickBest()` / `promotions.evaluateAll()` unchanged.
 import type { PromotionEvaluationService } from "@/services/promotions/PromotionEvaluationService";
 import type {
   CartContext,
@@ -13,34 +15,14 @@ import type {
 } from "@/services/types";
 import {
   applyPromotionToCart,
+  formatPromotionSummary,
   type Cart as LibCart,
   type CartLine as LibCartLine,
   type Promotion as LibPromotion,
   type PromotionApplication,
   type PromotionType as LibPromotionType,
-  formatPromotionSummary,
 } from "@/lib/promotions";
-
-// Lazy import of the store to avoid a circular dep at module init time.
-function readPromotions(): LibPromotion[] {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const mod = require("@/lib/store") as typeof import("@/lib/store");
-  return mod.useStore.length === 0
-    ? // useStore is a hook — read raw state via the getSnapshot exposed indirectly:
-      (mod as unknown as { __getState?: () => { promotions: LibPromotion[] } }).__getState?.()
-        ?.promotions ?? readPromotionsFallback(mod)
-    : readPromotionsFallback(mod);
-}
-function readPromotionsFallback(mod: typeof import("@/lib/store")): LibPromotion[] {
-  // The store doesn't expose a getter, so we tap through useStore's snapshot
-  // by calling the internal subscribe pattern: the safest cross-cut is to read
-  // via a one-shot subscriber. Since we don't want to subscribe forever, we use
-  // a tiny trick: useStore's getSnapshot returns the live state object — but it
-  // is only available inside a React render. As a service we instead rely on the
-  // module-level `state` via a runtime accessor we add below.
-  const anyMod = mod as unknown as { getStoreState?: () => { promotions: LibPromotion[] } };
-  return anyMod.getStoreState?.().promotions ?? [];
-}
+import { getStoreState } from "@/lib/store";
 
 const TYPE_MAP: Record<LibPromotionType, ServicePromotionType> = {
   percent: "percent_discount",
@@ -65,9 +47,9 @@ function toLibCart(ctx: CartContext): LibCart {
   };
 }
 
+// Distribute the line-level discount proportionally across cart lines.
+// Free-shipping promotions never affect line items.
 function buildAffectedLines(ctx: CartContext, app: PromotionApplication): PromotionAffectedLine[] {
-  // Distribute the discount proportionally across cart lines that fall within
-  // the promotion's effective scope. Free-shipping never affects line items.
   if (app.discount <= 0) return [];
   const totalSubtotal = ctx.lines.reduce((s, l) => s + l.lineSubtotal, 0);
   if (totalSubtotal <= 0) return [];
@@ -95,7 +77,11 @@ function buildGiftLines(app: PromotionApplication): GiftLine[] {
   }));
 }
 
-function toEvaluated(p: LibPromotion, app: PromotionApplication, ctx: CartContext): EvaluatedPromotion {
+function toEvaluated(
+  p: LibPromotion,
+  app: PromotionApplication,
+  ctx: CartContext
+): EvaluatedPromotion {
   return {
     promotionId: app.promotionId,
     name: app.promotionName,
@@ -113,8 +99,8 @@ function toEvaluated(p: LibPromotion, app: PromotionApplication, ctx: CartContex
 
 export class LocalPromotionAdapter implements PromotionEvaluationService {
   async evaluateAll(ctx: CartContext): Promise<EvaluatedPromotion[]> {
-    const promos = readPromotions();
-    if (promos.length === 0) return [];
+    const promos = getStoreState().promotions;
+    if (!promos.length) return [];
     const libCart = toLibCart(ctx);
     return promos.map((p) => toEvaluated(p, applyPromotionToCart(libCart, p), ctx));
   }
@@ -122,8 +108,8 @@ export class LocalPromotionAdapter implements PromotionEvaluationService {
   async pickBest(ctx: CartContext): Promise<EvaluatedPromotion | null> {
     const all = await this.evaluateAll(ctx);
     const eligible = all.filter((e) => e.eligible);
-    if (eligible.length === 0) return null;
-    // Prefer the one with the highest combined discount (line discount + shipping discount).
+    if (!eligible.length) return null;
+    // Best = highest combined value to the customer (line discount + shipping discount).
     eligible.sort(
       (a, b) =>
         b.discountAmount + b.shippingDiscountAmount -
