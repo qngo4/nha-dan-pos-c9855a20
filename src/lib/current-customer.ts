@@ -87,6 +87,44 @@ export const currentCustomerActions = {
   getDefaultAddress(): ShippingAddress | null {
     return cachedAddr;
   },
+  /**
+   * Switch the device pointer to an existing customer profile WITHOUT touching
+   * the underlying records. Useful for quickly testing multiple users on one
+   * browser. Also pulls that customer's saved address (if any) into cache.
+   */
+  async switchTo(customerId: string): Promise<void> {
+    const c = await customers.get(customerId);
+    if (!c) throw new Error("Customer not found");
+    cachedId = customerId;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(KEY_CURRENT_ID, customerId);
+      // Default address is per-device; clear so the next checkout pre-fills
+      // from this customer's most recent order, not the previous user's data.
+      window.localStorage.removeItem(KEY_DEFAULT_ADDR);
+    }
+    cachedAddr = null;
+    emit();
+  },
+  /**
+   * Create a brand-new blank profile and switch to it. The previous profile
+   * stays intact in CustomerService so the user can switch back later.
+   */
+  async createAndSwitch(name = "", phone = ""): Promise<Customer> {
+    const created = await customers.upsert({
+      id: "",
+      name,
+      phone,
+      points: 0,
+    } as Customer);
+    cachedId = created.id;
+    cachedAddr = null;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(KEY_CURRENT_ID, created.id);
+      window.localStorage.removeItem(KEY_DEFAULT_ADDR);
+    }
+    emit();
+    return created;
+  },
   /** Wipe local pointer (does NOT delete the underlying customer record). */
   signOut() {
     cachedId = null;
