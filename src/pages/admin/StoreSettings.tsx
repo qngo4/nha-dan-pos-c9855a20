@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { storeSettings } from "@/services";
 import type { StorePaymentSettings, VietQrTemplate } from "@/services/types";
 import { toast } from "sonner";
-import { Building2, Save, QrCode, Upload, X, Wallet } from "lucide-react";
+import { Building2, Save, QrCode, Upload, X, Wallet, Check, AlertTriangle } from "lucide-react";
 import { resizeImageFile, approxDataUrlBytes } from "@/lib/image-resize";
+import { inspectQrImageFile } from "@/lib/qr-image-check";
 
 const VIETQR_BANKS: { code: string; name: string }[] = [
   { code: "VCB", name: "Vietcombank" },
