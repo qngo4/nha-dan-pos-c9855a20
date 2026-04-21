@@ -42,7 +42,8 @@ interface BuildArgs {
  */
 export function buildOrderTimeline({ paymentMethod, status, createdAt, expiresAt }: BuildArgs): TimelineStep[] {
   const isCash = paymentMethod === "cash";
-  const isPendingLike = status === "pending_payment" || status === "waiting_confirm";
+  const isPending = status === "pending_payment";
+  const isWaiting = status === "waiting_confirm";
   const isConfirmed = status === "confirmed";
   const isCancelled = status === "cancelled";
 
@@ -54,22 +55,27 @@ export function buildOrderTimeline({ paymentMethod, status, createdAt, expiresAt
     time: createdAt,
   };
 
+  // Mutually-exclusive `current` between middle and settle:
+  //  - pending_payment  → middle is current, settle is upcoming
+  //  - waiting_confirm  → middle is done,    settle is current
+  //  - confirmed        → both done
+  //  - cancelled        → flagged on settle
   const middle: TimelineStep = isCash
     ? {
         id: "out_for_delivery",
         label: "Đang chuẩn bị & giao hàng",
         icon: Truck,
-        done: !isPendingLike,
-        current: isPendingLike,
-        hint: "Shipper sẽ thu tiền mặt khi giao",
+        done: isWaiting || isConfirmed,
+        current: isPending,
+        hint: isPending ? "Shipper sẽ thu tiền mặt khi giao" : undefined,
       }
     : {
         id: "awaiting_payment",
         label: "Chờ thanh toán",
         icon: Clock,
-        done: status === "confirmed",
-        current: isPendingLike,
-        hint: expiresAt ? `Hết hạn: ${formatDateTime(expiresAt)}` : undefined,
+        done: isWaiting || isConfirmed,
+        current: isPending,
+        hint: isPending && expiresAt ? `Hết hạn: ${formatDateTime(expiresAt)}` : undefined,
       };
 
   const settle: TimelineStep = isCash
@@ -78,8 +84,9 @@ export function buildOrderTimeline({ paymentMethod, status, createdAt, expiresAt
         label: isConfirmed ? "Đã thu tiền · Hóa đơn đã lập" : isCancelled ? "Đã hủy" : "Chờ thu tiền mặt",
         icon: isCancelled ? XCircle : Banknote,
         done: isConfirmed,
-        current: status === "waiting_confirm",
+        current: isWaiting,
         variant: isConfirmed ? "success" : isCancelled ? "danger" : undefined,
+        hint: isWaiting ? "Shipper đã giao, đang chờ kế toán đối soát" : undefined,
       }
     : {
         id: "payment_confirmed",
@@ -89,8 +96,9 @@ export function buildOrderTimeline({ paymentMethod, status, createdAt, expiresAt
           : "Chờ admin xác nhận",
         icon: isCancelled ? XCircle : CreditCard,
         done: isConfirmed,
-        current: status === "waiting_confirm",
+        current: isWaiting,
         variant: isConfirmed ? "success" : isCancelled ? "danger" : undefined,
+        hint: isWaiting ? "Khách đã chuyển khoản, chờ admin đối soát" : undefined,
       };
 
   const completed: TimelineStep = {
