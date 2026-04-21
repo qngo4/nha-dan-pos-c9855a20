@@ -26,6 +26,7 @@ export default function PendingPaymentPage() {
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   // Reload the order whenever:
   //  - the route id changes
@@ -131,6 +132,33 @@ export default function PendingPaymentPage() {
     order.paymentMethod === "bank_transfer" ? "chuyển khoản" :
     order.paymentMethod === "momo" ? "MoMo" :
     order.paymentMethod === "zalopay" ? "ZaloPay" : "tiền mặt";
+
+  // Per-method QR readiness: locks the "Tôi đã thanh toán" button if admin
+  // hasn't configured the static wallet QR (MoMo/ZaloPay) or VietQR (bank_transfer).
+  const isWalletMethod = order.paymentMethod === "momo" || order.paymentMethod === "zalopay";
+  const walletImageForMethod =
+    order.paymentMethod === "momo" ? bank?.momoQrImage :
+    order.paymentMethod === "zalopay" ? bank?.zalopayQrImage : "";
+  const paymentReady = order.paymentMethod === "cash"
+    ? true
+    : isWalletMethod
+      ? Boolean(walletImageForMethod)
+      : Boolean(bank?.qrEnabled && bank?.accountNumber);
+  const onCustomerConfirm = async () => {
+    if (!order || !paymentReady) return;
+    setConfirming(true);
+    try {
+      await pendingOrdersService.update(order.id, { status: "waiting_confirm" });
+      toast.success("Đã ghi nhận. Cửa hàng sẽ kiểm tra và xác nhận.");
+      const fresh = await pendingOrdersService.get(order.id);
+      if (fresh) setOrder(fresh);
+    } catch {
+      toast.error("Không gửi được xác nhận, vui lòng thử lại");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -336,6 +364,28 @@ export default function PendingPaymentPage() {
               {order.shippingQuoteSnapshot.zoneCode ? ` · ${order.shippingQuoteSnapshot.zoneCode}` : ""}
             </p>
           )}
+        </div>
+      )}
+
+      {order.status === "pending_payment" && order.paymentMethod !== "cash" && (
+        <div className="mb-3 space-y-2">
+          {!paymentReady && (
+            <div className="p-3 rounded-md border border-warning/40 bg-warning-soft text-xs text-warning flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                {isWalletMethod
+                  ? `Cửa hàng chưa cấu hình QR ${paymentLabelShort}. Vui lòng liên hệ cửa hàng hoặc chọn phương thức khác — nút xác nhận sẽ mở khi QR sẵn sàng.`
+                  : "Cửa hàng chưa bật VietQR. Vui lòng liên hệ cửa hàng để được hướng dẫn chuyển khoản."}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={onCustomerConfirm}
+            disabled={!paymentReady || confirming}
+            className="w-full py-2.5 rounded-md bg-success text-success-foreground text-sm font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {confirming ? "Đang gửi..." : "Tôi đã thanh toán — gửi xác nhận"}
+          </button>
         </div>
       )}
 
