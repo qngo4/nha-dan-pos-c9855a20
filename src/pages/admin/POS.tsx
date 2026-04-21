@@ -10,6 +10,7 @@ import {
   Search, Barcode, Camera, Keyboard, ShoppingCart, Receipt,
   AlertTriangle, Printer, X, Check, CheckCircle2, ScanLine,
   Tag, Gift, Truck, ChevronUp, ChevronDown,
+  Banknote, Landmark, Wallet, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ export default function AdminPOS() {
   const [promotionId, setPromotionId] = useState<string>("");
   const [shippingZoneCode, setShippingZoneCode] = useState<string>("");
   const [shippingZones, setShippingZones] = useState<ShippingZoneRule[]>([]);
+  const [paymentType, setPaymentType] = useState<Invoice["paymentType"]>("cash");
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
   const customerCountRef = useState({ n: customers.length })[0];
@@ -239,7 +241,7 @@ export default function AdminPOS() {
       customerId: selectedCustomer || "",
       customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
       total: totals.total,
-      paymentType: "cash",
+      paymentType,
       status: "active",
       createdBy: "admin",
       itemCount: totalItems,
@@ -255,7 +257,7 @@ export default function AdminPOS() {
     setLines([]); setNote(""); setSelectedCustomer(""); setLastInvoice(null);
     setDiscountValue(0); setDiscountMode("amount");
     setShippingFee(0); setVatPercent(0); setPromotionId("");
-    setShippingZoneCode("");
+    setShippingZoneCode(""); setPaymentType("cash");
     barcodeRef.current?.focus();
   };
 
@@ -273,7 +275,7 @@ export default function AdminPOS() {
     customerId: selectedCustomer || "",
     customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
     total: lastInvoice?.total ?? totals.total,
-    paymentType: "cash", status: "active", createdBy: "admin", itemCount: totalItems,
+    paymentType, status: "active", createdBy: "admin", itemCount: totalItems,
     breakdown: {
       subtotal: totals.subtotal,
       manualDiscount: totals.manualDiscount,
@@ -659,6 +661,9 @@ export default function AdminPOS() {
                 className="mt-1 w-full h-8 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60" />
             </div>
 
+            {/* Payment method */}
+            <PaymentMethodPicker value={paymentType} onChange={setPaymentType} disabled={!!lastInvoice} />
+
             {/* Promotion */}
             <PromotionBlock />
 
@@ -787,6 +792,7 @@ export default function AdminPOS() {
                   options={customers.filter((c) => c.active).map((c) => ({ id: c.id, label: c.name, sub: `${c.code} · ${c.phone}` }))}
                   onCreateNew={() => setCustomerDrawerOpen(true)} createLabel="Tạo khách hàng mới" />
               </div>
+              <PaymentMethodPicker value={paymentType} onChange={setPaymentType} disabled={!!lastInvoice} />
               <PromotionBlock />
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -829,6 +835,53 @@ function Row({ label, value, muted, className }: { label: string; value: string;
     <div className={cn("flex justify-between", className)}>
       <span className={muted ? "text-muted-foreground" : ""}>{label}</span>
       <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+const PAYMENT_METHODS: { value: Invoice["paymentType"]; label: string; icon: typeof Banknote }[] = [
+  { value: "cash", label: "Tiền mặt", icon: Banknote },
+  { value: "transfer", label: "Chuyển khoản", icon: Landmark },
+  { value: "momo", label: "MoMo", icon: Wallet },
+  { value: "zalopay", label: "ZaloPay", icon: CreditCard },
+];
+
+function PaymentMethodPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Invoice["paymentType"];
+  onChange: (v: Invoice["paymentType"]) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label className="text-[11px] font-medium text-muted-foreground">Phương thức thanh toán</label>
+      <div className="mt-1 grid grid-cols-2 gap-1.5">
+        {PAYMENT_METHODS.map((m) => {
+          const Icon = m.icon;
+          const active = value === m.value;
+          return (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => onChange(m.value)}
+              disabled={disabled}
+              className={cn(
+                "flex items-center justify-center gap-1.5 h-9 px-2 text-xs font-medium rounded-md border transition-colors",
+                "disabled:opacity-60 disabled:cursor-not-allowed",
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-foreground border-border hover:bg-muted",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {m.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
