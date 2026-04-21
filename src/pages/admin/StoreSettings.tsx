@@ -53,6 +53,7 @@ export default function StoreSettingsPage() {
   const [form, setForm] = useState<StorePaymentSettings>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     storeSettings.getPaymentSettings().then((s) => {
@@ -61,13 +62,29 @@ export default function StoreSettingsPage() {
     });
   }, []);
 
-  const update = <K extends keyof StorePaymentSettings>(k: K, v: StorePaymentSettings[K]) =>
+  const update = <K extends keyof StorePaymentSettings>(k: K, v: StorePaymentSettings[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
+    setSavedAt(null);
+  };
 
   const handleBankSelect = (code: string) => {
     const bank = VIETQR_BANKS.find((b) => b.code === code);
     setForm((f) => ({ ...f, vietQrBankCode: code, bankName: bank?.name ?? f.bankName }));
+    setSavedAt(null);
   };
+
+  // Browsers usually allow ~5MB per origin in localStorage; the wallet QR
+  // data URLs dwarf everything else, so we treat them as the budget proxy.
+  const STORAGE_BUDGET = 5 * 1024 * 1024;
+  const usedBytes = useMemo(() => {
+    return (
+      approxDataUrlBytes(form.momoQrImage ?? "") +
+      approxDataUrlBytes(form.zalopayQrImage ?? "")
+    );
+  }, [form.momoQrImage, form.zalopayQrImage]);
+  const usedPct = Math.min(100, Math.round((usedBytes / STORAGE_BUDGET) * 100));
+  const usageTone =
+    usedPct >= 80 ? "bg-danger" : usedPct >= 60 ? "bg-warning" : "bg-success";
 
   const onSave = async () => {
     if (form.qrEnabled) {
@@ -78,7 +95,10 @@ export default function StoreSettingsPage() {
     setSaving(true);
     try {
       await storeSettings.savePaymentSettings(form);
-      toast.success("Đã lưu cài đặt cửa hàng");
+      setSavedAt(Date.now());
+      toast.success("Đã lưu cấu hình thanh toán");
+    } catch {
+      toast.error("Lưu cấu hình thất bại");
     } finally {
       setSaving(false);
     }
