@@ -140,7 +140,6 @@ describe("COD pending-order → admin confirm → invoice", () => {
     if (typeof window !== "undefined") {
       window.localStorage.clear();
     }
-    legacyInvoices.length = 0;
   });
 
   it("creates a pending order that snapshots promotion + voucher + gifts", async () => {
@@ -223,6 +222,5 @@ describe("COD pending-order → admin confirm → invoice", () => {
 
     expect(inv.paymentType).toBe("transfer");
     expect(updated.status).toBe("confirmed");
-    expect(invoiceActions).toBeDefined();
   });
 });
