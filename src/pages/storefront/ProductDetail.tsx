@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { cartActions } from "@/lib/cart";
 
 function getStockStatus(stock: number, minStock: number) {
   if (stock === 0) return "out-of-stock" as const;
@@ -70,6 +71,19 @@ export default function StorefrontProductDetail() {
       toast.error(`Chỉ còn ${variant.stock} ${variant.sellUnit} trong kho`);
       return;
     }
+    cartActions.add({
+      productId: product.id,
+      variantId: variant.id,
+      productCode: product.code,
+      variantCode: variant.code,
+      productName: product.name,
+      variantName: variant.name,
+      categoryId: product.categoryId,
+      categoryName: product.categoryName,
+      qty,
+      unitPrice: variant.sellPrice,
+      stock: variant.stock,
+    });
     toast.success(`Đã thêm ${qty} ${variant.sellUnit} ${product.name} vào giỏ`);
   };
 

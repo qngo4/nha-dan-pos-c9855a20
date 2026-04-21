@@ -27,6 +27,7 @@ import AdminPOS from "@/pages/admin/POS";
 import AdminInvoices from "@/pages/admin/Invoices";
 import AdminPendingOrders from "@/pages/admin/PendingOrders";
 import AdminPromotions from "@/pages/admin/Promotions";
+import AdminVouchers from "@/pages/admin/Vouchers";
 import AdminCustomers from "@/pages/admin/Customers";
 import AdminSuppliers from "@/pages/admin/Suppliers";
 import AdminGoodsReceipts from "@/pages/admin/GoodsReceipts";
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="invoices" element={<AdminInvoices />} />
             <Route path="pending-orders" element={<AdminPendingOrders />} />
             <Route path="promotions" element={<AdminPromotions />} />
+            <Route path="vouchers" element={<AdminVouchers />} />
             <Route path="goods-receipts" element={<AdminGoodsReceipts />} />
             <Route path="goods-receipts/create" element={<AdminGoodsReceiptCreate />} />
             <Route path="stock-adjustments" element={<AdminStockAdjustments />} />
