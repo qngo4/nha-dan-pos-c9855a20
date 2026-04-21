@@ -182,6 +182,18 @@ export default function CheckoutPage() {
           unitPrice: it.price,
           lineSubtotal: it.qty * it.price,
         }));
+        const promotionSnapshot: PromotionSnapshot | null = bestPromo
+          ? {
+              promotionId: bestPromo.promotionId,
+              name: bestPromo.name,
+              type: bestPromo.type,
+              ruleSummary: bestPromo.ruleSummary,
+              discountAmount: bestPromo.discountAmount,
+              shippingDiscountAmount: shippingDiscount,
+              affectedLines: bestPromo.affectedLines,
+              giftLines: bestPromo.giftLines,
+            }
+          : null;
         const order = await pendingOrders.create({
           customerName: name.trim(),
           customerPhone: phone.trim(),
@@ -189,19 +201,21 @@ export default function CheckoutPage() {
           paymentMethod: payment as PaymentMethod,
           paymentReference: "",
           lines,
+          promotionSnapshot,
+          voucherSnapshot: null,
           shippingQuoteSnapshot: {
             source: quote.source ?? "zone_fallback",
             zoneCode: quote.zoneCode,
-            fee: shippingFee,
+            fee: baseShippingFee,
             etaDays: quote.etaDays,
           },
           pricingBreakdownSnapshot: {
             subtotal,
             manualDiscount: 0,
-            promotionDiscount: 0,
+            promotionDiscount: promoDiscount,
             voucherDiscount: 0,
-            shippingFee,
-            shippingDiscount: 0,
+            shippingFee: baseShippingFee,
+            shippingDiscount,
             vat: 0,
             total,
           },
