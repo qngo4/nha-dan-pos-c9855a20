@@ -220,16 +220,18 @@ export default function CheckoutPage() {
     }
     setSubmitting(true);
     try {
+      const lines: PendingOrderLine[] = cartItems.map((it) => ({
+        id: it.id,
+        productId: it.productId,
+        variantId: it.variantId,
+        productName: it.productName,
+        variantName: it.variantName,
+        qty: it.qty,
+        unitPrice: it.unitPrice,
+        lineSubtotal: it.lineSubtotal,
+      }));
+
       if (isOnline) {
-        const lines: PendingOrderLine[] = orderItems.map((it, i) => ({
-          id: `tmp-${i}`,
-          productId: "",
-          variantId: "",
-          productName: it.name,
-          qty: it.qty,
-          unitPrice: it.price,
-          lineSubtotal: it.qty * it.price,
-        }));
         const promotionSnapshot: PromotionSnapshot | null = bestPromo
           ? {
               promotionId: bestPromo.promotionId,
@@ -250,7 +252,7 @@ export default function CheckoutPage() {
           paymentReference: "",
           lines,
           promotionSnapshot,
-          voucherSnapshot: null,
+          voucherSnapshot: voucherSnap,
           shippingQuoteSnapshot: {
             source: quote.source ?? "zone_fallback",
             zoneCode: quote.zoneCode,
@@ -261,7 +263,7 @@ export default function CheckoutPage() {
             subtotal,
             manualDiscount: 0,
             promotionDiscount: promoDiscount,
-            voucherDiscount: 0,
+            voucherDiscount,
             shippingFee: baseShippingFee,
             shippingDiscount,
             vat: 0,
@@ -269,6 +271,7 @@ export default function CheckoutPage() {
           },
           note: note.trim() || undefined,
         });
+        cartActions.clear();
         toast.success("Đã tạo đơn — chuyển sang trang chờ thanh toán");
         navigate(`/pending-payment/${order.id}`);
       } else {
@@ -282,11 +285,11 @@ export default function CheckoutPage() {
           paymentType: "cash",
           status: "active",
           createdBy: "online",
-          itemCount: orderItems.length,
+          itemCount: cartItems.length,
           breakdown: {
             subtotal,
             manualDiscount: 0,
-            promoDiscount: promoDiscount,
+            promoDiscount: promoDiscount + voucherDiscount,
             shippingFee: baseShippingFee,
             shippingDiscount,
             shippingPayable: shippingFee,
@@ -295,8 +298,14 @@ export default function CheckoutPage() {
             vatAmount: 0,
             total,
           },
-          lines: orderItems.map((i) => ({ name: i.name, code: "", qty: i.qty, price: i.price })),
+          lines: cartItems.map((i) => ({
+            name: i.variantName ? `${i.productName} - ${i.variantName}` : i.productName,
+            code: i.variantCode ?? i.productCode ?? "",
+            qty: i.qty,
+            price: i.unitPrice,
+          })),
         });
+        cartActions.clear();
         toast.success(`Đã tạo hóa đơn ${inv.number}`);
         navigate("/account");
       }
