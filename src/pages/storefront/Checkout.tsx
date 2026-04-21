@@ -119,30 +119,22 @@ export default function CheckoutPage() {
 
   const baseShippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
 
-  // Evaluate the best promotion whenever the cart subtotal or shipping fee changes.
-  const cartLines: CartLine[] = useMemo(
-    () =>
-      orderItems.map((it, i) => ({
-        id: `tmp-${i}`,
-        productId: `tmp-p-${i}`,
-        variantId: `tmp-v-${i}`,
-        productName: it.name,
-        qty: it.qty,
-        unitPrice: it.price,
-        lineSubtotal: it.qty * it.price,
-      })),
-    []
-  );
-
+  // Promotion engine reads cart lines directly — they already carry the real
+  // productId / variantId / categoryId from the shared cart store.
   const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
 
   useEffect(() => {
     let cancel = false;
+    if (!cartItems.length) {
+      setBestPromo(null);
+      return;
+    }
     const ctx: CartContext = {
-      lines: cartLines,
+      lines: cartItems,
       subtotal,
       shippingAddress: shippingAddress ?? undefined,
       shippingQuote: quote,
+      voucherCode: voucherSnap?.code,
     };
     void promotions.pickBest(ctx).then((p) => {
       if (!cancel) setBestPromo(p);
@@ -150,20 +142,72 @@ export default function CheckoutPage() {
     return () => {
       cancel = true;
     };
-  }, [cartLines, subtotal, shippingAddress, quote]);
+  }, [cartItems, subtotal, shippingAddress, quote, voucherSnap]);
+
+  // Re-validate any applied voucher when the subtotal changes (e.g. cart edits
+  // could push the order under a min-spend threshold).
+  useEffect(() => {
+    if (!voucherSnap) return;
+    let cancel = false;
+    void vouchers
+      .validate(voucherSnap.code, { lines: cartItems, subtotal })
+      .then((res) => {
+        if (cancel) return;
+        if (!res.valid) {
+          setVoucherSnap(null);
+          setVoucherError(res.reasonIfInvalid ?? "Mã không còn áp dụng được");
+        } else if (res.snapshot && res.snapshot.discountAmount !== voucherSnap.discountAmount) {
+          setVoucherSnap(res.snapshot);
+        }
+      });
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, cartItems]);
 
   const promoDiscount = bestPromo?.discountAmount ?? 0;
+  const voucherDiscount = Math.min(voucherSnap?.discountAmount ?? 0, Math.max(0, subtotal - promoDiscount));
   const shippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
   const shippingFee = Math.max(0, baseShippingFee - shippingDiscount);
-  const total = Math.max(0, subtotal - promoDiscount + shippingFee);
+  const total = Math.max(0, subtotal - promoDiscount - voucherDiscount + shippingFee);
   const isOnline = payment !== "cash";
 
   const phoneOk = /^[\d+]{9,12}$/.test(phone.replace(/\s/g, ""));
   const canSubmit =
+    cartItems.length > 0 &&
     name.trim().length > 0 &&
     phoneOk &&
     quote.status === "quoted" &&
     !submitting;
+
+  const applyVoucher = async () => {
+    const code = voucherInput.trim();
+    if (!code) {
+      setVoucherError("Vui lòng nhập mã giảm giá");
+      return;
+    }
+    setVoucherChecking(true);
+    setVoucherError(null);
+    try {
+      const res = await vouchers.validate(code, { lines: cartItems, subtotal });
+      if (res.valid && res.snapshot) {
+        setVoucherSnap(res.snapshot);
+        setVoucherInput("");
+        toast.success(`Áp dụng ${res.snapshot.code} — giảm ${formatVND(res.snapshot.discountAmount)}`);
+      } else {
+        setVoucherSnap(null);
+        setVoucherError(res.reasonIfInvalid ?? "Mã không hợp lệ");
+      }
+    } finally {
+      setVoucherChecking(false);
+    }
+  };
+
+  const removeVoucher = () => {
+    setVoucherSnap(null);
+    setVoucherError(null);
+  };
 
   const submit = async () => {
     if (!name.trim() || !phoneOk) {
