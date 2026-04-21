@@ -41,6 +41,30 @@ export default function AccountPage() {
 
   const [orders, setOrders] = useState<PendingOrder[]>([]);
 
+  // Profile switcher: list every persisted customer so the device can hop
+  // between them without losing data. Refreshed whenever the active id changes.
+  const [allProfiles, setAllProfiles] = useState<Customer[]>([]);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  useEffect(() => {
+    void customersService.list({ pageSize: 200 }).then((res) => setAllProfiles(res.items));
+  }, [customer?.id]);
+
+  const switchProfile = async (id: string) => {
+    if (id === customer?.id) {
+      setSwitcherOpen(false);
+      return;
+    }
+    await currentCustomerActions.switchTo(id);
+    setSwitcherOpen(false);
+    toast.success("Đã chuyển sang hồ sơ khác");
+  };
+
+  const createNewProfile = async () => {
+    await currentCustomerActions.createAndSwitch();
+    setSwitcherOpen(false);
+    toast.success("Đã tạo hồ sơ trống mới");
+  };
+
   // Hydrate form from CustomerService once customer is loaded.
   useEffect(() => {
     if (!customer) return;
