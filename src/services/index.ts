@@ -9,6 +9,7 @@ import type { ShippingService } from "./shipping/ShippingService";
 import type { PendingOrderService } from "./pendingOrders/PendingOrderService";
 import type { PromotionEvaluationService } from "./promotions/PromotionEvaluationService";
 import type { CustomerService } from "./customers/CustomerService";
+import type { VoucherService } from "./vouchers/VoucherService";
 
 import { LocalStoreSettingsAdapter } from "./adapters/local/LocalStoreSettingsAdapter";
 import { LocalVietQrAdapter } from "./adapters/local/LocalVietQrAdapter";
@@ -17,6 +18,7 @@ import { LocalShippingAdapter } from "./adapters/local/LocalShippingAdapter";
 import { LocalPendingOrderAdapter } from "./adapters/local/LocalPendingOrderAdapter";
 import { LocalPromotionAdapter } from "./adapters/local/LocalPromotionAdapter";
 import { LocalCustomerAdapter } from "./adapters/local/LocalCustomerAdapter";
+import { LocalVoucherAdapter } from "./adapters/local/LocalVoucherAdapter";
 
 export const storeSettings: StoreSettingsService = new LocalStoreSettingsAdapter();
 export const vietQr: VietQrService = new LocalVietQrAdapter(storeSettings);
@@ -25,6 +27,7 @@ export const shipping: ShippingService = new LocalShippingAdapter();
 export const pendingOrders: PendingOrderService = new LocalPendingOrderAdapter();
 export const promotions: PromotionEvaluationService = new LocalPromotionAdapter();
 export const customers: CustomerService = new LocalCustomerAdapter();
+export const vouchers: VoucherService = new LocalVoucherAdapter();
 
 // Re-export interface types for UI consumers that need to type service references.
 export type { StoreSettingsService } from "./storeSettings/StoreSettingsService";
@@ -34,3 +37,4 @@ export type { ShippingService } from "./shipping/ShippingService";
 export type { PendingOrderService } from "./pendingOrders/PendingOrderService";
 export type { PromotionEvaluationService } from "./promotions/PromotionEvaluationService";
 export type { CustomerService } from "./customers/CustomerService";
+export type { VoucherService } from "./vouchers/VoucherService";
