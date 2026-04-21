@@ -314,6 +314,19 @@ export default function CheckoutPage() {
     }
   };
 
+  if (cartItems.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+        <h1 className="text-lg font-bold">Giỏ hàng đang trống</h1>
+        <p className="text-sm text-muted-foreground mt-1">Thêm sản phẩm vào giỏ trước khi thanh toán.</p>
+        <Link to="/products" className="mt-4 inline-flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-semibold">
+          Mua sắm ngay
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-storefront-bg min-h-screen pb-24 lg:pb-10">
       <div className="max-w-6xl mx-auto px-4 py-6">
