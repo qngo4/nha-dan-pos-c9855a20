@@ -43,6 +43,7 @@ export default function AdminPOS() {
   const [promotionId, setPromotionId] = useState<string>("");
   const [shippingZoneCode, setShippingZoneCode] = useState<string>("");
   const [shippingZones, setShippingZones] = useState<ShippingZoneRule[]>([]);
+  const [paymentType, setPaymentType] = useState<Invoice["paymentType"]>("cash");
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
   const customerCountRef = useState({ n: customers.length })[0];
