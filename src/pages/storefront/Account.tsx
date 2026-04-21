@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatVND, formatDateTime } from "@/lib/format";
-import { Clock, LogOut, Save, Loader2, MapPin, User as UserIcon } from "lucide-react";
+import { Clock, LogOut, Save, Loader2, MapPin, User as UserIcon, Users, Plus, Check } from "lucide-react";
 import { currentCustomerActions, useCurrentCustomer } from "@/lib/current-customer";
-import { pendingOrders } from "@/services";
-import type { PendingOrder, ShippingAddress } from "@/services/types";
+import { customers as customersService, pendingOrders } from "@/services";
+import type { Customer, PendingOrder, ShippingAddress } from "@/services/types";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
 import { toast } from "sonner";
 
