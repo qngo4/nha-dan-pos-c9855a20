@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { formatVND } from "@/lib/format";
 import {
   CreditCard,
@@ -14,28 +14,25 @@ import {
   Truck,
   AlertTriangle,
   Loader2,
+  Tag,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { pendingOrders, promotions, shipping } from "@/services";
+import { pendingOrders, promotions, shipping, vouchers } from "@/services";
 import type {
   CartContext,
-  CartLine,
   EvaluatedPromotion,
   PaymentMethod,
   PendingOrderLine,
   PromotionSnapshot,
   ShippingAddress,
   ShippingQuote,
+  VoucherSnapshot,
 } from "@/services/types";
 import { invoiceActions } from "@/lib/store";
+import { useCart, cartActions } from "@/lib/cart";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
-
-const orderItems = [
-  { name: "Mì Hảo Hảo - Tôm chua cay", qty: 10, price: 5000 },
-  { name: "Coca-Cola - Lon 330ml", qty: 6, price: 10000 },
-  { name: "Sữa Vinamilk - Hộp 1L", qty: 2, price: 32000 },
-];
 
 const paymentMethods = [
   { id: "cash", label: "Tiền mặt khi nhận", icon: Banknote, desc: "COD — hóa đơn lập ngay khi xác nhận" },
@@ -57,6 +54,7 @@ const EMPTY_ADDR: AddressSelectValue = {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const cartItems = useCart();
   const [payment, setPayment] = useState<PaymentId>("cash");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -67,9 +65,15 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
   const [addr, setAddr] = useState<AddressSelectValue>(EMPTY_ADDR);
 
+  // Voucher state — input + the validated snapshot once a code is applied.
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucherSnap, setVoucherSnap] = useState<VoucherSnapshot | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherChecking, setVoucherChecking] = useState(false);
+
   const subtotal = useMemo(
-    () => orderItems.reduce((s, i) => s + i.price * i.qty, 0),
-    []
+    () => cartItems.reduce((s, i) => s + i.lineSubtotal, 0),
+    [cartItems],
   );
 
   const [quote, setQuote] = useState<ShippingQuote>({ status: "incomplete" });
@@ -115,30 +119,22 @@ export default function CheckoutPage() {
 
   const baseShippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
 
-  // Evaluate the best promotion whenever the cart subtotal or shipping fee changes.
-  const cartLines: CartLine[] = useMemo(
-    () =>
-      orderItems.map((it, i) => ({
-        id: `tmp-${i}`,
-        productId: `tmp-p-${i}`,
-        variantId: `tmp-v-${i}`,
-        productName: it.name,
-        qty: it.qty,
-        unitPrice: it.price,
-        lineSubtotal: it.qty * it.price,
-      })),
-    []
-  );
-
+  // Promotion engine reads cart lines directly — they already carry the real
+  // productId / variantId / categoryId from the shared cart store.
   const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
 
   useEffect(() => {
     let cancel = false;
+    if (!cartItems.length) {
+      setBestPromo(null);
+      return;
+    }
     const ctx: CartContext = {
-      lines: cartLines,
+      lines: cartItems,
       subtotal,
       shippingAddress: shippingAddress ?? undefined,
       shippingQuote: quote,
+      voucherCode: voucherSnap?.code,
     };
     void promotions.pickBest(ctx).then((p) => {
       if (!cancel) setBestPromo(p);
@@ -146,20 +142,72 @@ export default function CheckoutPage() {
     return () => {
       cancel = true;
     };
-  }, [cartLines, subtotal, shippingAddress, quote]);
+  }, [cartItems, subtotal, shippingAddress, quote, voucherSnap]);
+
+  // Re-validate any applied voucher when the subtotal changes (e.g. cart edits
+  // could push the order under a min-spend threshold).
+  useEffect(() => {
+    if (!voucherSnap) return;
+    let cancel = false;
+    void vouchers
+      .validate(voucherSnap.code, { lines: cartItems, subtotal })
+      .then((res) => {
+        if (cancel) return;
+        if (!res.valid) {
+          setVoucherSnap(null);
+          setVoucherError(res.reasonIfInvalid ?? "Mã không còn áp dụng được");
+        } else if (res.snapshot && res.snapshot.discountAmount !== voucherSnap.discountAmount) {
+          setVoucherSnap(res.snapshot);
+        }
+      });
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, cartItems]);
 
   const promoDiscount = bestPromo?.discountAmount ?? 0;
+  const voucherDiscount = Math.min(voucherSnap?.discountAmount ?? 0, Math.max(0, subtotal - promoDiscount));
   const shippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
   const shippingFee = Math.max(0, baseShippingFee - shippingDiscount);
-  const total = Math.max(0, subtotal - promoDiscount + shippingFee);
+  const total = Math.max(0, subtotal - promoDiscount - voucherDiscount + shippingFee);
   const isOnline = payment !== "cash";
 
   const phoneOk = /^[\d+]{9,12}$/.test(phone.replace(/\s/g, ""));
   const canSubmit =
+    cartItems.length > 0 &&
     name.trim().length > 0 &&
     phoneOk &&
     quote.status === "quoted" &&
     !submitting;
+
+  const applyVoucher = async () => {
+    const code = voucherInput.trim();
+    if (!code) {
+      setVoucherError("Vui lòng nhập mã giảm giá");
+      return;
+    }
+    setVoucherChecking(true);
+    setVoucherError(null);
+    try {
+      const res = await vouchers.validate(code, { lines: cartItems, subtotal });
+      if (res.valid && res.snapshot) {
+        setVoucherSnap(res.snapshot);
+        setVoucherInput("");
+        toast.success(`Áp dụng ${res.snapshot.code} — giảm ${formatVND(res.snapshot.discountAmount)}`);
+      } else {
+        setVoucherSnap(null);
+        setVoucherError(res.reasonIfInvalid ?? "Mã không hợp lệ");
+      }
+    } finally {
+      setVoucherChecking(false);
+    }
+  };
+
+  const removeVoucher = () => {
+    setVoucherSnap(null);
+    setVoucherError(null);
+  };
 
   const submit = async () => {
     if (!name.trim() || !phoneOk) {
@@ -172,16 +220,18 @@ export default function CheckoutPage() {
     }
     setSubmitting(true);
     try {
+      const lines: PendingOrderLine[] = cartItems.map((it) => ({
+        id: it.id,
+        productId: it.productId,
+        variantId: it.variantId,
+        productName: it.productName,
+        variantName: it.variantName,
+        qty: it.qty,
+        unitPrice: it.unitPrice,
+        lineSubtotal: it.lineSubtotal,
+      }));
+
       if (isOnline) {
-        const lines: PendingOrderLine[] = orderItems.map((it, i) => ({
-          id: `tmp-${i}`,
-          productId: "",
-          variantId: "",
-          productName: it.name,
-          qty: it.qty,
-          unitPrice: it.price,
-          lineSubtotal: it.qty * it.price,
-        }));
         const promotionSnapshot: PromotionSnapshot | null = bestPromo
           ? {
               promotionId: bestPromo.promotionId,
@@ -202,7 +252,7 @@ export default function CheckoutPage() {
           paymentReference: "",
           lines,
           promotionSnapshot,
-          voucherSnapshot: null,
+          voucherSnapshot: voucherSnap,
           shippingQuoteSnapshot: {
             source: quote.source ?? "zone_fallback",
             zoneCode: quote.zoneCode,
@@ -213,7 +263,7 @@ export default function CheckoutPage() {
             subtotal,
             manualDiscount: 0,
             promotionDiscount: promoDiscount,
-            voucherDiscount: 0,
+            voucherDiscount,
             shippingFee: baseShippingFee,
             shippingDiscount,
             vat: 0,
@@ -221,6 +271,7 @@ export default function CheckoutPage() {
           },
           note: note.trim() || undefined,
         });
+        cartActions.clear();
         toast.success("Đã tạo đơn — chuyển sang trang chờ thanh toán");
         navigate(`/pending-payment/${order.id}`);
       } else {
@@ -234,11 +285,11 @@ export default function CheckoutPage() {
           paymentType: "cash",
           status: "active",
           createdBy: "online",
-          itemCount: orderItems.length,
+          itemCount: cartItems.length,
           breakdown: {
             subtotal,
             manualDiscount: 0,
-            promoDiscount: promoDiscount,
+            promoDiscount: promoDiscount + voucherDiscount,
             shippingFee: baseShippingFee,
             shippingDiscount,
             shippingPayable: shippingFee,
@@ -247,8 +298,14 @@ export default function CheckoutPage() {
             vatAmount: 0,
             total,
           },
-          lines: orderItems.map((i) => ({ name: i.name, code: "", qty: i.qty, price: i.price })),
+          lines: cartItems.map((i) => ({
+            name: i.variantName ? `${i.productName} - ${i.variantName}` : i.productName,
+            code: i.variantCode ?? i.productCode ?? "",
+            qty: i.qty,
+            price: i.unitPrice,
+          })),
         });
+        cartActions.clear();
         toast.success(`Đã tạo hóa đơn ${inv.number}`);
         navigate("/account");
       }
@@ -256,6 +313,19 @@ export default function CheckoutPage() {
       setSubmitting(false);
     }
   };
+
+  if (cartItems.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <Package className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+        <h1 className="text-lg font-bold">Giỏ hàng đang trống</h1>
+        <p className="text-sm text-muted-foreground mt-1">Thêm sản phẩm vào giỏ trước khi thanh toán.</p>
+        <Link to="/products" className="mt-4 inline-flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-semibold">
+          Mua sắm ngay
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-storefront-bg min-h-screen pb-24 lg:pb-10">
@@ -336,31 +406,83 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2 mt-5 lg:mt-0">
             <div className="bg-storefront-surface rounded-2xl border p-5 lg:sticky lg:top-20 sf-shadow">
               <button className="flex items-center justify-between w-full lg:cursor-default" onClick={() => setSummaryOpen(!summaryOpen)}>
-                <h2 className="font-bold text-base">Đơn hàng ({orderItems.length})</h2>
+                <h2 className="font-bold text-base">Đơn hàng ({cartItems.length})</h2>
                 <span className="lg:hidden">{summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
               </button>
               <div className={cn("mt-3.5 space-y-2.5", !summaryOpen && "hidden lg:block")}>
-                {orderItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm gap-2">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between text-sm gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-10 w-10 bg-gradient-to-br from-muted to-storefront-soft rounded-lg flex items-center justify-center shrink-0">
                         <Package className="h-4 w-4 text-muted-foreground/40" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate">{item.name}</p>
-                        <p className="text-[11px] text-muted-foreground">{item.qty} × {formatVND(item.price)}</p>
+                        <p className="text-xs font-semibold truncate">
+                          {item.productName}{item.variantName ? ` · ${item.variantName}` : ""}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{item.qty} × {formatVND(item.unitPrice)}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold shrink-0">{formatVND(item.price * item.qty)}</span>
+                    <span className="text-xs font-semibold shrink-0">{formatVND(item.lineSubtotal)}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Voucher input */}
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-center gap-2 mb-2">
+                  <Tag className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-xs font-semibold">Mã giảm giá</p>
+                </div>
+                {voucherSnap ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl bg-success-soft/40 border border-success/30 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-success font-mono">{voucherSnap.code}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{voucherSnap.ruleSummary}</p>
+                    </div>
+                    <button
+                      onClick={removeVoucher}
+                      className="p-1 -m-1 text-muted-foreground hover:text-danger shrink-0"
+                      aria-label="Bỏ mã"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        value={voucherInput}
+                        onChange={(e) => { setVoucherInput(e.target.value); setVoucherError(null); }}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyVoucher())}
+                        placeholder="VD: NHADAN10"
+                        className="flex-1 h-10 px-3.5 text-sm border rounded-full bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                      />
+                      <button
+                        onClick={applyVoucher}
+                        disabled={voucherChecking}
+                        className="px-4 h-10 rounded-full bg-foreground text-background text-xs font-semibold hover:bg-primary transition-colors disabled:opacity-50"
+                      >
+                        {voucherChecking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Áp dụng"}
+                      </button>
+                    </div>
+                    {voucherError && <p className="mt-1.5 text-[11px] text-danger">{voucherError}</p>}
+                  </>
+                )}
+              </div>
+
               <div className="border-t mt-4 pt-4 space-y-2 text-sm">
                 <Row label="Tạm tính" value={formatVND(subtotal)} />
                 {bestPromo && promoDiscount > 0 && (
                   <Row
                     label={`Khuyến mãi: ${bestPromo.name}`}
                     value={<span className="text-success">−{formatVND(promoDiscount)}</span>}
+                  />
+                )}
+                {voucherSnap && voucherDiscount > 0 && (
+                  <Row
+                    label={`Voucher: ${voucherSnap.code}`}
+                    value={<span className="text-success">−{formatVND(voucherDiscount)}</span>}
                   />
                 )}
                 <Row
