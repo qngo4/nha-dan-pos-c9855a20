@@ -66,9 +66,39 @@ export default function AdminPendingOrders() {
     setLoading(false);
   }, []);
 
+  // Live refresh: re-poll every 5s, on tab focus, and on cross-tab storage events,
+  // so admin sees a new "Hóa đơn chờ xử lý" the instant a customer submits.
+  const lastSeenIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     void reload();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key && e.key.includes("pending_orders")) void reload();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = window.setInterval(() => void reload(), 5000);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(poll);
+    };
   }, [reload]);
+
+  // Toast on newly arrived pending orders.
+  useEffect(() => {
+    if (loading) return;
+    const seen = lastSeenIdsRef.current;
+    const incoming = orderList.filter(
+      (o) => (o.status === "pending_payment" || o.status === "waiting_confirm") && !seen.has(o.id),
+    );
+    if (seen.size > 0 && incoming.length > 0) {
+      toast.info(`Hóa đơn chờ xử lý: ${incoming.length} đơn mới`);
+    }
+    orderList.forEach((o) => seen.add(o.id));
+  }, [orderList, loading]);
 
   const tabs = useMemo(() => ([
     { id: "all" as TabId, label: "Tất cả", count: orderList.length },
