@@ -679,6 +679,32 @@ export default function AdminPOS() {
               </div>
             </div>
 
+            {/* Shipping zone (printed on receipt for delivery verification) */}
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                <Truck className="h-3 w-3" /> Vùng giao hàng
+              </label>
+              <select
+                value={shippingZoneCode}
+                onChange={(e) => setShippingZoneCode(e.target.value)}
+                disabled={!!lastInvoice}
+                className="mt-1 w-full h-8 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
+              >
+                <option value="">— Không gắn vùng —</option>
+                {shippingZones.map((z) => (
+                  <option key={z.zoneCode} value={z.zoneCode}>
+                    {z.zoneCode} · {z.label} ({z.etaDays.min}–{z.etaDays.max} ngày)
+                  </option>
+                ))}
+              </select>
+              {selectedShippingZone && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  In trên hóa đơn: <span className="font-mono">{selectedShippingZone.zoneCode}</span> · giao{" "}
+                  {selectedShippingZone.etaDays.min}–{selectedShippingZone.etaDays.max} ngày
+                </p>
+              )}
+            </div>
+
             {/* Shipping + VAT */}
             <div className="grid grid-cols-2 gap-2">
               <div>
