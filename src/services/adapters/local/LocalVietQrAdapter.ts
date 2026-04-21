@@ -1,15 +1,11 @@
-import type {
-  StoreSettingsService,
-  VietQrRequest,
-  VietQrResult,
-  VietQrService,
-  VietQrTemplate,
-} from "@/services/types";
+import type { StoreSettingsService } from "@/services/storeSettings/StoreSettingsService";
+import type { VietQrService } from "@/services/vietQr/VietQrService";
+import type { VietQrRequest, VietQrResult, VietQrTemplate } from "@/services/types";
 
 /**
  * VietQR image generator using img.vietqr.io.
- * URL pattern: https://img.vietqr.io/image/{bank}-{account}-{template}.png?amount=&addInfo=&accountName=
- * Bank code = NAPAS code (e.g. VCB, TCB, ACB, MB).
+ * Reads bank settings from StoreSettingsService — does not own them.
+ * URL: https://img.vietqr.io/image/{bank}-{account}-{template}.png?amount=&addInfo=&accountName=
  */
 export class LocalVietQrAdapter implements VietQrService {
   constructor(private settings: StoreSettingsService) {}

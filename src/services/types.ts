@@ -1,6 +1,6 @@
-// Canonical service-layer types for frontend-first implementation.
-// Temporary adapter = localStorage. Future adapter = EC2 backend API.
-// UI components MUST import only from "@/services" and "@/services/types".
+// Canonical shared types for the service layer.
+// Source of truth for service contracts and data models.
+// No runtime logic. No localStorage. UI may import these types via "@/services/types".
 
 /* ========================= CORE / SHARED ========================= */
 
@@ -49,14 +49,6 @@ export interface StorePaymentSettings {
   qrTemplate?: VietQrTemplate;
 }
 
-export interface StoreSettingsService {
-  getPaymentSettings(): Promise<StorePaymentSettings | null>;
-  savePaymentSettings(input: StorePaymentSettings): Promise<StorePaymentSettings>;
-  subscribePaymentSettings(
-    cb: (settings: StorePaymentSettings | null) => void
-  ): () => void;
-}
-
 export interface VietQrRequest {
   amount: Money;
   transferContent: string;
@@ -71,10 +63,6 @@ export interface VietQrResult {
   amount: Money;
   transferContent: string;
   template: VietQrTemplate;
-}
-
-export interface VietQrService {
-  generate(request: VietQrRequest): Promise<VietQrResult>;
 }
 
 /* ========================= ADDRESS / SHIPPING ========================= */
@@ -96,12 +84,6 @@ export interface ShippingAddress {
   note?: string;
 }
 
-export interface AddressService {
-  listProvinces(): Promise<Province[]>;
-  listDistricts(provinceCode: string): Promise<District[]>;
-  listWards(districtCode: string): Promise<Ward[]>;
-}
-
 export type ShippingQuoteSource = "zone_fallback" | "carrier_api";
 export type ShippingQuoteStatus = "incomplete" | "loading" | "quoted" | "unavailable";
 
@@ -121,7 +103,7 @@ export interface ShippingZoneRule {
   baseFee: Money;
   freeShipThreshold?: Money;
   etaDays: { min: number; max: number };
-  /** Province codes assigned to this zone. "*" means catch-all. */
+  /** Province codes assigned to this zone. "*" = catch-all. */
   provinceCodes: string[];
 }
 
@@ -136,12 +118,6 @@ export interface ShippingQuoteInput {
   > & Partial<ShippingAddress>;
   subtotal: Money;
   weightGrams?: number;
-}
-
-export interface ShippingService {
-  getConfig(): Promise<ShippingConfig>;
-  saveConfig(input: ShippingConfig): Promise<ShippingConfig>;
-  quote(input: ShippingQuoteInput): Promise<ShippingQuote>;
 }
 
 /* ========================= PRODUCT / VARIANT ========================= */
@@ -204,26 +180,6 @@ export interface CustomerPointHistoryItem {
   reason: string;
   sourceType: CustomerPointSourceType;
   sourceId?: ID;
-}
-
-export interface CustomerService {
-  list(params?: ListQuery): Promise<PagedResult<Customer>>;
-  get(id: ID): Promise<Customer | null>;
-  upsert(input: Customer): Promise<Customer>;
-  addPoints(
-    customerId: ID,
-    delta: number,
-    reason: string,
-    sourceType: CustomerPointSourceType,
-    sourceId?: ID
-  ): Promise<Customer>;
-  redeemPoints(
-    customerId: ID,
-    delta: number,
-    reason: string,
-    sourceId?: ID
-  ): Promise<Customer>;
-  history(customerId: ID): Promise<CustomerPointHistoryItem[]>;
 }
 
 /* ========================= CART / PROMOTION / VOUCHER ========================= */
@@ -315,11 +271,6 @@ export interface CartContext {
   shippingQuote?: ShippingQuote;
 }
 
-export interface PromotionEvaluationService {
-  evaluateAll(ctx: CartContext): Promise<EvaluatedPromotion[]>;
-  pickBest(ctx: CartContext): Promise<EvaluatedPromotion | null>;
-}
-
 /* ========================= ORDER / PENDING PAYMENT ========================= */
 
 export type PaymentMethod = "cash" | "bank_transfer" | "momo" | "zalopay";
@@ -409,15 +360,4 @@ export interface CreatePendingOrderInput {
 
 export interface PendingOrderListParams extends ListQuery {
   status?: PendingOrderStatus;
-}
-
-export interface PendingOrderService {
-  list(params?: PendingOrderListParams): Promise<PagedResult<PendingOrder>>;
-  get(id: ID): Promise<PendingOrder | null>;
-  create(input: CreatePendingOrderInput): Promise<PendingOrder>;
-  update(
-    id: ID,
-    patch: Partial<CreatePendingOrderInput> & { status?: PendingOrderStatus }
-  ): Promise<PendingOrder>;
-  remove(id: ID): Promise<void>;
 }
