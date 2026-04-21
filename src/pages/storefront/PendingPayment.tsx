@@ -132,6 +132,35 @@ export default function PendingPaymentPage() {
     order.paymentMethod === "momo" ? "MoMo" :
     order.paymentMethod === "zalopay" ? "ZaloPay" : "tiền mặt";
 
+  // Per-method QR readiness: locks the "Tôi đã thanh toán" button if admin
+  // hasn't configured the static wallet QR (MoMo/ZaloPay) or VietQR (bank_transfer).
+  const isWalletMethod = order.paymentMethod === "momo" || order.paymentMethod === "zalopay";
+  const walletImageForMethod =
+    order.paymentMethod === "momo" ? bank?.momoQrImage :
+    order.paymentMethod === "zalopay" ? bank?.zalopayQrImage : "";
+  const paymentReady = order.paymentMethod === "cash"
+    ? true
+    : isWalletMethod
+      ? Boolean(walletImageForMethod)
+      : Boolean(bank?.qrEnabled && bank?.accountNumber);
+
+  const [confirming, setConfirming] = useState(false);
+  const onCustomerConfirm = async () => {
+    if (!order || !paymentReady) return;
+    setConfirming(true);
+    try {
+      await pendingOrdersService.update(order.id, { status: "waiting_confirm" });
+      toast.success("Đã ghi nhận. Cửa hàng sẽ kiểm tra và xác nhận.");
+      const fresh = await pendingOrdersService.get(order.id);
+      if (fresh) setOrder(fresh);
+    } catch {
+      toast.error("Không gửi được xác nhận, vui lòng thử lại");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="text-center mb-6">
