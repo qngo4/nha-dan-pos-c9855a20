@@ -357,6 +357,12 @@ export default function CheckoutPage() {
               </div>
               <div className="border-t mt-4 pt-4 space-y-2 text-sm">
                 <Row label="Tạm tính" value={formatVND(subtotal)} />
+                {bestPromo && promoDiscount > 0 && (
+                  <Row
+                    label={`Khuyến mãi: ${bestPromo.name}`}
+                    value={<span className="text-success">−{formatVND(promoDiscount)}</span>}
+                  />
+                )}
                 <Row
                   label="Phí giao hàng"
                   value={
@@ -367,6 +373,20 @@ export default function CheckoutPage() {
                     quote.status === "quoted" ? formatVND(shippingFee) : "—"
                   }
                 />
+                {shippingDiscount > 0 && (
+                  <Row
+                    label="Giảm phí giao hàng"
+                    value={<span className="text-success">−{formatVND(shippingDiscount)}</span>}
+                  />
+                )}
+                {bestPromo && bestPromo.giftLines.length > 0 && (
+                  <div className="rounded-lg bg-success-soft/40 px-3 py-2 text-xs text-success space-y-0.5">
+                    <p className="font-semibold">🎁 Quà tặng kèm</p>
+                    {bestPromo.giftLines.map((g, i) => (
+                      <p key={i}>• {g.productName} ×{g.qty}</p>
+                    ))}
+                  </div>
+                )}
                 <div className="border-t pt-3 flex justify-between items-baseline">
                   <span className="font-bold">Tổng cộng</span>
                   <span className="font-bold text-foreground text-xl">{formatVND(total)}</span>
