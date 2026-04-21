@@ -29,8 +29,7 @@ import type {
   ShippingQuoteSnapshot,
   VoucherSnapshot,
 } from "@/services/types";
-import { invoices as legacyInvoices } from "@/lib/mock-data";
-import { invoiceActions } from "@/lib/store";
+import { getStoreState } from "@/lib/store";
 
 const ADDRESS: ShippingAddress = {
   receiverName: "Nguyễn Văn An",
@@ -193,7 +192,10 @@ describe("COD pending-order → admin confirm → invoice", () => {
     expect(inv.breakdown?.freeItems).toEqual([
       { productName: "Trà Lipton - Hộp 25 gói", quantity: 1 },
     ]);
-    expect(legacyInvoices.find((i) => i.id === inv.id)).toBeTruthy();
+    // The in-memory store should now contain this invoice (admin /invoices reads from here).
+    const stored = getStoreState().invoices.find((i) => i.id === inv.id);
+    expect(stored).toBeTruthy();
+    expect(stored?.number).toBe(inv.number);
     expect(inv.lines?.some((l) => l.reward)).toBe(true);
 
     expect(updated.status).toBe("confirmed");
