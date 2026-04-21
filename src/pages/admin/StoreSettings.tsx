@@ -247,7 +247,32 @@ export default function StoreSettingsPage() {
         onPhone={(v) => update("zalopayPhone", v)}
       />
 
-      <div className="flex justify-end">
+      <div className="bg-card border rounded-lg p-4 space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium text-muted-foreground">Dung lượng cấu hình lưu trữ</span>
+          <span className="text-muted-foreground">
+            ~{(usedBytes / 1024).toFixed(0)} KB / {(STORAGE_BUDGET / 1024 / 1024).toFixed(0)} MB ({usedPct}%)
+          </span>
+        </div>
+        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all ${usageTone}`}
+            style={{ width: `${Math.max(2, usedPct)}%` }}
+          />
+        </div>
+        {usedPct >= 80 && (
+          <p className="text-[11px] text-danger flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" /> Sắp đầy bộ nhớ trình duyệt — hãy giảm kích thước ảnh QR hoặc xoá bớt.
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end gap-3">
+        {savedAt && !saving && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-success animate-in fade-in">
+            <Check className="h-3.5 w-3.5" /> Đã lưu cấu hình
+          </span>
+        )}
         <button
           onClick={onSave}
           disabled={saving}
