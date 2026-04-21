@@ -144,9 +144,7 @@ export default function PendingPaymentPage() {
     : isWalletMethod
       ? Boolean(walletImageForMethod)
       : Boolean(bank?.qrEnabled && bank?.accountNumber);
-
-
-
+  const onCustomerConfirm = async () => {
     if (!order || !paymentReady) return;
     setConfirming(true);
     try {
