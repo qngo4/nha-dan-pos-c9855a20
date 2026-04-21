@@ -393,31 +393,83 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2 mt-5 lg:mt-0">
             <div className="bg-storefront-surface rounded-2xl border p-5 lg:sticky lg:top-20 sf-shadow">
               <button className="flex items-center justify-between w-full lg:cursor-default" onClick={() => setSummaryOpen(!summaryOpen)}>
-                <h2 className="font-bold text-base">Đơn hàng ({orderItems.length})</h2>
+                <h2 className="font-bold text-base">Đơn hàng ({cartItems.length})</h2>
                 <span className="lg:hidden">{summaryOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
               </button>
               <div className={cn("mt-3.5 space-y-2.5", !summaryOpen && "hidden lg:block")}>
-                {orderItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm gap-2">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between text-sm gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="h-10 w-10 bg-gradient-to-br from-muted to-storefront-soft rounded-lg flex items-center justify-center shrink-0">
                         <Package className="h-4 w-4 text-muted-foreground/40" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate">{item.name}</p>
-                        <p className="text-[11px] text-muted-foreground">{item.qty} × {formatVND(item.price)}</p>
+                        <p className="text-xs font-semibold truncate">
+                          {item.productName}{item.variantName ? ` · ${item.variantName}` : ""}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">{item.qty} × {formatVND(item.unitPrice)}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-semibold shrink-0">{formatVND(item.price * item.qty)}</span>
+                    <span className="text-xs font-semibold shrink-0">{formatVND(item.lineSubtotal)}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Voucher input */}
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-center gap-2 mb-2">
+                  <Tag className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-xs font-semibold">Mã giảm giá</p>
+                </div>
+                {voucherSnap ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl bg-success-soft/40 border border-success/30 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-success font-mono">{voucherSnap.code}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{voucherSnap.ruleSummary}</p>
+                    </div>
+                    <button
+                      onClick={removeVoucher}
+                      className="p-1 -m-1 text-muted-foreground hover:text-danger shrink-0"
+                      aria-label="Bỏ mã"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        value={voucherInput}
+                        onChange={(e) => { setVoucherInput(e.target.value); setVoucherError(null); }}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyVoucher())}
+                        placeholder="VD: NHADAN10"
+                        className="flex-1 h-10 px-3.5 text-sm border rounded-full bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                      />
+                      <button
+                        onClick={applyVoucher}
+                        disabled={voucherChecking}
+                        className="px-4 h-10 rounded-full bg-foreground text-background text-xs font-semibold hover:bg-primary transition-colors disabled:opacity-50"
+                      >
+                        {voucherChecking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Áp dụng"}
+                      </button>
+                    </div>
+                    {voucherError && <p className="mt-1.5 text-[11px] text-danger">{voucherError}</p>}
+                  </>
+                )}
+              </div>
+
               <div className="border-t mt-4 pt-4 space-y-2 text-sm">
                 <Row label="Tạm tính" value={formatVND(subtotal)} />
                 {bestPromo && promoDiscount > 0 && (
                   <Row
                     label={`Khuyến mãi: ${bestPromo.name}`}
                     value={<span className="text-success">−{formatVND(promoDiscount)}</span>}
+                  />
+                )}
+                {voucherSnap && voucherDiscount > 0 && (
+                  <Row
+                    label={`Voucher: ${voucherSnap.code}`}
+                    value={<span className="text-success">−{formatVND(voucherDiscount)}</span>}
                   />
                 )}
                 <Row
