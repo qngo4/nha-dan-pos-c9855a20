@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { storeSettings } from "@/services";
 import type { StorePaymentSettings, VietQrTemplate } from "@/services/types";
 import { toast } from "sonner";
-import { Building2, Save, QrCode, Upload, X, Wallet } from "lucide-react";
+import { Building2, Save, QrCode, Upload, X, Wallet, Check, AlertTriangle } from "lucide-react";
 import { resizeImageFile, approxDataUrlBytes } from "@/lib/image-resize";
+import { inspectQrImageFile } from "@/lib/qr-image-check";
 
 const VIETQR_BANKS: { code: string; name: string }[] = [
   { code: "VCB", name: "Vietcombank" },
@@ -52,6 +53,7 @@ export default function StoreSettingsPage() {
   const [form, setForm] = useState<StorePaymentSettings>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     storeSettings.getPaymentSettings().then((s) => {
@@ -60,13 +62,29 @@ export default function StoreSettingsPage() {
     });
   }, []);
 
-  const update = <K extends keyof StorePaymentSettings>(k: K, v: StorePaymentSettings[K]) =>
+  const update = <K extends keyof StorePaymentSettings>(k: K, v: StorePaymentSettings[K]) => {
     setForm((f) => ({ ...f, [k]: v }));
+    setSavedAt(null);
+  };
 
   const handleBankSelect = (code: string) => {
     const bank = VIETQR_BANKS.find((b) => b.code === code);
     setForm((f) => ({ ...f, vietQrBankCode: code, bankName: bank?.name ?? f.bankName }));
+    setSavedAt(null);
   };
+
+  // Browsers usually allow ~5MB per origin in localStorage; the wallet QR
+  // data URLs dwarf everything else, so we treat them as the budget proxy.
+  const STORAGE_BUDGET = 5 * 1024 * 1024;
+  const usedBytes = useMemo(() => {
+    return (
+      approxDataUrlBytes(form.momoQrImage ?? "") +
+      approxDataUrlBytes(form.zalopayQrImage ?? "")
+    );
+  }, [form.momoQrImage, form.zalopayQrImage]);
+  const usedPct = Math.min(100, Math.round((usedBytes / STORAGE_BUDGET) * 100));
+  const usageTone =
+    usedPct >= 80 ? "bg-danger" : usedPct >= 60 ? "bg-warning" : "bg-success";
 
   const onSave = async () => {
     if (form.qrEnabled) {
@@ -77,7 +95,10 @@ export default function StoreSettingsPage() {
     setSaving(true);
     try {
       await storeSettings.savePaymentSettings(form);
-      toast.success("Đã lưu cài đặt cửa hàng");
+      setSavedAt(Date.now());
+      toast.success("Đã lưu cấu hình thanh toán");
+    } catch {
+      toast.error("Lưu cấu hình thất bại");
     } finally {
       setSaving(false);
     }
@@ -226,7 +247,32 @@ export default function StoreSettingsPage() {
         onPhone={(v) => update("zalopayPhone", v)}
       />
 
-      <div className="flex justify-end">
+      <div className="bg-card border rounded-lg p-4 space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium text-muted-foreground">Dung lượng cấu hình lưu trữ</span>
+          <span className="text-muted-foreground">
+            ~{(usedBytes / 1024).toFixed(0)} KB / {(STORAGE_BUDGET / 1024 / 1024).toFixed(0)} MB ({usedPct}%)
+          </span>
+        </div>
+        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all ${usageTone}`}
+            style={{ width: `${Math.max(2, usedPct)}%` }}
+          />
+        </div>
+        {usedPct >= 80 && (
+          <p className="text-[11px] text-danger flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" /> Sắp đầy bộ nhớ trình duyệt — hãy giảm kích thước ảnh QR hoặc xoá bớt.
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end gap-3">
+        {savedAt && !saving && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-success animate-in fade-in">
+            <Check className="h-3.5 w-3.5" /> Đã lưu cấu hình
+          </span>
+        )}
         <button
           onClick={onSave}
           disabled={saving}
@@ -267,6 +313,12 @@ function EWalletQrSection(props: {
     if (!f.type.startsWith("image/")) return toast.error("Vui lòng chọn file ảnh");
     setBusy(true);
     try {
+      // Reject obviously-not-a-QR images BEFORE we spend cycles re-encoding.
+      const check = await inspectQrImageFile(f, { minDim: 200 });
+      if (!check.ok) {
+        toast.error(check.reason ?? "Ảnh không hợp lệ");
+        return;
+      }
       // Always resize to keep data URL small enough for localStorage.
       const resized = await resizeImageFile(f, {
         maxDim: QR_TARGET_DIM,

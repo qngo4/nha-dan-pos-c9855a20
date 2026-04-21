@@ -27,6 +27,11 @@ export default function PendingPaymentPage() {
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // Bumping this re-mounts the wallet <img> so a failed/missing static QR
+  // can be re-attempted without leaving the page.
+  const [walletQrAttempt, setWalletQrAttempt] = useState(0);
+  const [walletImgFailed, setWalletImgFailed] = useState(false);
+  const [changingMethod, setChangingMethod] = useState(false);
 
   // Reload the order whenever:
   //  - the route id changes
@@ -216,8 +221,37 @@ export default function PendingPaymentPage() {
               </div>
             ) : isWallet ? (
               <div className="grid sm:grid-cols-[244px_1fr] gap-4">
-                <div className="flex justify-center">
-                  <img src={walletImage!} alt={`QR ${paymentLabelShort}`} className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
+                <div className="flex flex-col items-center gap-2">
+                  {!bank ? (
+                    // Settings still loading: show skeleton.
+                    <div className="h-60 w-60 rounded-md border bg-muted animate-pulse" />
+                  ) : walletImgFailed ? (
+                    <div className="h-60 w-60 border rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span>Không tải được ảnh QR.</span>
+                      <button
+                        onClick={() => { setWalletImgFailed(false); setWalletQrAttempt((n) => n + 1); }}
+                        className="px-2.5 py-1 rounded border border-danger/50 text-danger text-[11px] hover:bg-danger/5"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
+                  ) : (
+                    <img
+                      key={`wallet-qr-${walletQrAttempt}`}
+                      src={walletImage!}
+                      alt={`QR ${paymentLabelShort}`}
+                      onError={() => setWalletImgFailed(true)}
+                      onLoad={() => setWalletImgFailed(false)}
+                      className="h-60 w-60 object-contain border rounded-md bg-white p-2"
+                    />
+                  )}
+                  <button
+                    onClick={() => { setWalletImgFailed(false); setWalletQrAttempt((n) => n + 1); }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  >
+                    Tải lại mã QR
+                  </button>
                 </div>
                 <div className="space-y-1.5 text-sm">
                   {[
@@ -241,13 +275,35 @@ export default function PendingPaymentPage() {
               </div>
             ) : (
               <div className="grid sm:grid-cols-[244px_1fr] gap-4">
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-2">
                   {qr ? (
                     <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
                   ) : qrError ? (
-                    <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-danger text-center px-2">{qrError}</div>
+                    <div className="h-60 w-60 border rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span>{qrError}</span>
+                      <button
+                        onClick={async () => {
+                          if (!order) return;
+                          setQrError(null);
+                          try {
+                            const result = await vietQr.generate({
+                              amount: order.pricingBreakdownSnapshot.total,
+                              transferContent: order.paymentReference,
+                            });
+                            setQr(result);
+                          } catch (e: any) {
+                            setQrError(e?.message ?? "Không thể tạo mã QR");
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded border border-danger/50 text-danger text-[11px] hover:bg-danger/5"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
                   ) : (
-                    <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
+                    // Real skeleton instead of plain text while VietQR is generating.
+                    <div className="h-60 w-60 rounded-md border bg-muted animate-pulse" />
                   )}
                 </div>
                 <div className="space-y-1.5 text-sm">
@@ -271,6 +327,31 @@ export default function PendingPaymentPage() {
                 </div>
               </div>
             )}
+
+            {/* Method switcher: lets the customer pick another payment method
+                without losing the order — useful when the wallet QR is missing
+                or won't load and they need a working alternative. */}
+            <MethodSwitcher
+              currentMethod={method}
+              busy={changingMethod}
+              onChange={async (next) => {
+                if (!order || next === order.paymentMethod) return;
+                setChangingMethod(true);
+                try {
+                  await pendingOrdersService.update(order.id, { paymentMethod: next });
+                  const fresh = await pendingOrdersService.get(order.id);
+                  if (fresh) setOrder(fresh);
+                  setQr(null);
+                  setQrError(null);
+                  setWalletImgFailed(false);
+                  toast.success(`Đã chuyển sang ${PAYMENT_LABEL[next]}`);
+                } catch {
+                  toast.error("Không đổi được phương thức, thử lại sau");
+                } finally {
+                  setChangingMethod(false);
+                }
+              }}
+            />
 
             {order.expiresAt && (
               <div className="mt-4 p-2.5 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
@@ -406,6 +487,48 @@ function SummaryRow({ label, value }: { label: React.ReactNode; value: React.Rea
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+// Inline switcher used by the bank/wallet panel so the customer can recover
+// from a missing or broken QR without abandoning the order.
+function MethodSwitcher({
+  currentMethod,
+  busy,
+  onChange,
+}: {
+  currentMethod: PaymentMethod;
+  busy: boolean;
+  onChange: (next: PaymentMethod) => void;
+}) {
+  const options: PaymentMethod[] = ["bank_transfer", "momo", "zalopay"];
+  return (
+    <div className="mt-4 pt-3 border-t">
+      <p className="text-[11px] font-medium text-muted-foreground mb-2">
+        Không quét được QR? Đổi phương thức thanh toán:
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((m) => {
+          const active = m === currentMethod;
+          return (
+            <button
+              key={m}
+              type="button"
+              disabled={busy || active}
+              onClick={() => onChange(m)}
+              className={
+                "text-xs px-3 py-1.5 rounded-full border transition-colors " +
+                (active
+                  ? "bg-primary text-primary-foreground border-primary cursor-default"
+                  : "bg-background hover:bg-muted border-input disabled:opacity-50")
+              }
+            >
+              {PAYMENT_LABEL[m]}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
