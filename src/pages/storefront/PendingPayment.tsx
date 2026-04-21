@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
@@ -6,13 +6,10 @@ import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/
 import type {
   PaymentMethod,
   PendingOrder,
-  PendingOrderStatus,
   StorePaymentSettings,
   VietQrResult,
 } from "@/services/types";
 import { toast } from "sonner";
-import { useStore } from "@/lib/store";
-import type { PendingOrder as LegacyPendingOrder } from "@/lib/mock-data";
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "Tiền mặt",
@@ -21,118 +18,34 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   zalopay: "ZaloPay",
 };
 
-/**
- * TEMPORARY bridge — Checkout still creates orders via the legacy in-memory store
- * (`pendingOrderActions`). Until that is rewired through `pendingOrders.create()`,
- * we map the legacy shape into the canonical PendingOrder for display only.
- * This bridge lives in the page (not in adapters) on purpose: the service layer
- * stays clean, and removing this whole block is the only change needed once
- * Checkout is migrated.
- */
-function legacyToCanonical(o: LegacyPendingOrder): PendingOrder {
-  const paymentMethod: PaymentMethod =
-    o.paymentMethod === "transfer" ? "bank_transfer" : o.paymentMethod;
-  const status: PendingOrderStatus =
-    o.status === "pending"
-      ? "pending_payment"
-      : o.status === "expired"
-        ? "cancelled"
-        : (o.status as PendingOrderStatus);
-  const subtotal = o.subtotal ?? Math.max(0, o.total - (o.shippingFee ?? 0));
-  return {
-    id: o.id,
-    code: o.orderNumber,
-    createdAt: o.createdAt,
-    expiresAt: o.expiresAt,
-    status,
-    customerId: o.customerId,
-    customerName: o.customerName,
-    customerPhone: o.customerPhone,
-    shippingAddress: o.shippingAddress
-      ? {
-          receiverName: o.customerName,
-          phone: o.customerPhone ?? "",
-          provinceCode: "",
-          provinceName: o.shippingAddress.province,
-          districtCode: "",
-          districtName: o.shippingAddress.district,
-          wardCode: "",
-          wardName: o.shippingAddress.ward,
-          street: o.shippingAddress.street ?? "",
-        }
-      : undefined,
-    paymentMethod,
-    paymentReference: o.orderNumber.replace(/-/g, ""),
-    lines: (o.items ?? []).map((it, i) => ({
-      id: `${o.id}-${i}`,
-      productId: "",
-      variantId: "",
-      productName: it.name,
-      qty: it.qty,
-      unitPrice: it.price,
-      lineSubtotal: it.qty * it.price,
-    })),
-    giftLinesSnapshot: [],
-    promotionSnapshot: null,
-    voucherSnapshot: null,
-    shippingQuoteSnapshot:
-      o.shippingFee !== undefined
-        ? { source: "zone_fallback", fee: o.shippingFee }
-        : null,
-    pricingBreakdownSnapshot: {
-      subtotal,
-      manualDiscount: 0,
-      promotionDiscount: 0,
-      voucherDiscount: 0,
-      shippingFee: o.shippingFee ?? 0,
-      shippingDiscount: 0,
-      vat: 0,
-      total: o.total,
-    },
-    note: o.note,
-  };
-}
-
 export default function PendingPaymentPage() {
   const { id } = useParams();
-  const { pendingOrders: legacyOrders } = useStore();
   const [order, setOrder] = useState<PendingOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
 
-  // Look up via service first; fall back to legacy in-memory store.
-  const legacyMatch = useMemo(() => {
-    if (!id) return null;
-    return legacyOrders.find((o) => o.id === id) ?? null;
-  }, [id, legacyOrders]);
-
   useEffect(() => {
     let alive = true;
     (async () => {
       const fromService = id ? await pendingOrdersService.get(id) : null;
-      const finalOrder: PendingOrder | null =
-        fromService ??
-        (legacyMatch ? legacyToCanonical(legacyMatch) : null) ??
-        (legacyOrders[0] ? legacyToCanonical(legacyOrders[0]) : null);
-
       const settings = await storeSettings.getPaymentSettings();
       if (!alive) return;
-      setOrder(finalOrder);
+      setOrder(fromService);
       setBank(settings);
       setLoading(false);
 
       if (
-        finalOrder &&
-        finalOrder.paymentMethod === "bank_transfer" &&
-        finalOrder.status === "pending_payment" &&
+        fromService &&
+        fromService.paymentMethod === "bank_transfer" &&
+        fromService.status === "pending_payment" &&
         settings?.qrEnabled
       ) {
         try {
           const result = await vietQr.generate({
-            amount: finalOrder.pricingBreakdownSnapshot.total,
-            transferContent: finalOrder.paymentReference,
+            amount: fromService.pricingBreakdownSnapshot.total,
+            transferContent: fromService.paymentReference,
           });
           if (alive) setQr(result);
         } catch (e: any) {
@@ -143,7 +56,7 @@ export default function PendingPaymentPage() {
     return () => {
       alive = false;
     };
-  }, [id, legacyMatch, legacyOrders]);
+  }, [id]);
 
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
