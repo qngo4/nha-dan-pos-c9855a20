@@ -162,60 +162,97 @@ export default function PendingPaymentPage() {
         />
       </div>
 
-      {showBankPanel && (
-        <div className="bg-card rounded-lg border p-4 mb-4">
-          <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-primary" /> Thông tin thanh toán ({paymentLabelShort})
-          </h2>
+      {showBankPanel && (() => {
+        const method = order.paymentMethod;
+        const isWallet = method === "momo" || method === "zalopay";
+        const walletImage = method === "momo" ? bank?.momoQrImage : method === "zalopay" ? bank?.zalopayQrImage : "";
+        const walletHolder = method === "momo" ? bank?.momoAccountName : method === "zalopay" ? bank?.zalopayAccountName : "";
+        const walletPhone = method === "momo" ? bank?.momoPhone : method === "zalopay" ? bank?.zalopayPhone : "";
 
-          {!bank?.qrEnabled || !bank?.accountNumber ? (
-            <div className="p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>
-                Cửa hàng chưa cấu hình thông tin thanh toán VietQR. Vào <strong>Cài đặt cửa hàng</strong> để bổ sung.
-              </span>
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-[244px_1fr] gap-4">
-              <div className="flex justify-center">
-                {qr ? (
-                  <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
-                ) : qrError ? (
-                  <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-danger text-center px-2">{qrError}</div>
-                ) : (
-                  <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
-                )}
+        const hasBankCfg = bank?.qrEnabled && bank?.accountNumber;
+        const hasWalletCfg = isWallet && walletImage;
+        const configured = isWallet ? hasWalletCfg : hasBankCfg;
+
+        return (
+          <div className="bg-card rounded-lg border p-4 mb-4">
+            <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-primary" /> Thông tin thanh toán ({paymentLabelShort})
+            </h2>
+
+            {!configured ? (
+              <div className="p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Cửa hàng chưa cấu hình QR cho phương thức này. Vào <strong>Cài đặt cửa hàng</strong> để bổ sung.
+                </span>
               </div>
-              <div className="space-y-1.5 text-sm">
-                {[
-                  { label: "Ngân hàng", value: bank.bankName },
-                  { label: "Số tài khoản", value: bank.accountNumber },
-                  { label: "Chủ tài khoản", value: bank.accountName },
-                  { label: "Nội dung CK", value: order.paymentReference },
-                  { label: "Số tiền", value: formatVND(breakdown.total) },
-                ].map((row) => (
-                  <div key={row.label} className="flex items-center justify-between py-1 border-b last:border-0">
-                    <span className="text-muted-foreground text-xs">{row.label}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-xs">{row.value}</span>
-                      <button onClick={() => copy(String(row.value), row.label)} className="text-muted-foreground hover:text-foreground">
-                        <Copy className="h-3 w-3" />
-                      </button>
+            ) : isWallet ? (
+              <div className="grid sm:grid-cols-[244px_1fr] gap-4">
+                <div className="flex justify-center">
+                  <img src={walletImage!} alt={`QR ${paymentLabelShort}`} className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
+                </div>
+                <div className="space-y-1.5 text-sm">
+                  {[
+                    { label: "Phương thức", value: PAYMENT_LABEL[method] },
+                    ...(walletHolder ? [{ label: "Chủ tài khoản", value: walletHolder }] : []),
+                    ...(walletPhone ? [{ label: "Số điện thoại", value: walletPhone }] : []),
+                    { label: "Nội dung CK", value: order.paymentReference },
+                    { label: "Số tiền", value: formatVND(breakdown.total) },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between py-1 border-b last:border-0">
+                      <span className="text-muted-foreground text-xs">{row.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-xs">{row.value}</span>
+                        <button onClick={() => copy(String(row.value), row.label)} className="text-muted-foreground hover:text-foreground">
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="grid sm:grid-cols-[244px_1fr] gap-4">
+                <div className="flex justify-center">
+                  {qr ? (
+                    <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
+                  ) : qrError ? (
+                    <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-danger text-center px-2">{qrError}</div>
+                  ) : (
+                    <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
+                  )}
+                </div>
+                <div className="space-y-1.5 text-sm">
+                  {[
+                    { label: "Ngân hàng", value: bank!.bankName },
+                    { label: "Số tài khoản", value: bank!.accountNumber },
+                    { label: "Chủ tài khoản", value: bank!.accountName },
+                    { label: "Nội dung CK", value: order.paymentReference },
+                    { label: "Số tiền", value: formatVND(breakdown.total) },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between py-1 border-b last:border-0">
+                      <span className="text-muted-foreground text-xs">{row.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-xs">{row.value}</span>
+                        <button onClick={() => copy(String(row.value), row.label)} className="text-muted-foreground hover:text-foreground">
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {order.expiresAt && (
-            <div className="mt-4 p-2.5 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
-              <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>Đơn hàng sẽ hết hạn lúc {formatDateTime(order.expiresAt)}. Vui lòng thanh toán trước thời hạn.</span>
-            </div>
-          )}
-        </div>
-      )}
+            {order.expiresAt && (
+              <div className="mt-4 p-2.5 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
+                <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>Đơn hàng sẽ hết hạn lúc {formatDateTime(order.expiresAt)}. Vui lòng thanh toán trước thời hạn.</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="bg-card rounded-lg border p-4 mb-4">
         <h2 className="font-semibold text-sm mb-3">Chi tiết đơn hàng</h2>
