@@ -2,18 +2,31 @@ import { Link, useLocation } from "react-router-dom";
 import { Home, Search, ShoppingCart, User, Layers, Menu, X, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useCart } from "@/lib/cart";
 
-const navItems = [
+interface NavItem {
+  path: string;
+  icon: typeof Home;
+  label: string;
+  badge?: number;
+}
+
+const navItemsBase: NavItem[] = [
   { path: "/", icon: Home, label: "Trang chủ" },
   { path: "/products", icon: Search, label: "Sản phẩm" },
   { path: "/combos", icon: Layers, label: "Combo" },
-  { path: "/cart", icon: ShoppingCart, label: "Giỏ hàng", badge: 3 },
+  { path: "/cart", icon: ShoppingCart, label: "Giỏ hàng" },
   { path: "/account", icon: User, label: "Tài khoản" },
 ];
 
 export function StorefrontNav() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const cartItems = useCart();
+  const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
+  const navItems = navItemsBase.map((item) =>
+    item.path === "/cart" ? { ...item, badge: cartCount > 0 ? cartCount : undefined } : item,
+  );
   const isActive = (path: string) => path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
   return (
@@ -59,9 +72,13 @@ export function StorefrontNav() {
           </div>
 
           {/* Cart */}
-          <Link to="/cart" className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors">
+          <Link to="/cart" className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors" aria-label={`Giỏ hàng (${cartCount} sản phẩm)`}>
             <ShoppingCart className="h-5 w-5" />
-            <span className="absolute top-0 right-0 h-4 w-4 bg-storefront-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">3</span>
+            {cartCount > 0 && (
+              <span className="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-storefront-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
           </Link>
 
           {/* Account */}

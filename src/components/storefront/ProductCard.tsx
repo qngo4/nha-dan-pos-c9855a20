@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { toast } from "sonner";
 import type { products } from "@/lib/mock-data";
 import { resolveProductImage } from "@/lib/product-image";
+import { cartActions } from "@/lib/cart";
 
 type Product = (typeof products)[number];
 
@@ -30,6 +31,19 @@ export function ProductCard({ product, compact = false }: { product: Product; co
       toast.error("Sản phẩm đã hết hàng");
       return;
     }
+    cartActions.add({
+      productId: product.id,
+      variantId: dv.id,
+      productCode: product.code,
+      variantCode: dv.code,
+      productName: product.name,
+      variantName: dv.name,
+      categoryId: product.categoryId,
+      categoryName: product.categoryName,
+      qty: 1,
+      unitPrice: dv.sellPrice,
+      stock: dv.stock,
+    });
     toast.success(`Đã thêm ${product.name} vào giỏ`);
   };
 

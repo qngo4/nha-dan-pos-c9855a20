@@ -30,6 +30,7 @@ const navGroups = [
       { path: "/admin/invoices", icon: Receipt, label: "Hóa đơn" },
       { path: "/admin/pending-orders", icon: Clock, label: "Đơn chờ thanh toán", badge: 2 },
       { path: "/admin/promotions", icon: Tags, label: "Khuyến mãi" },
+      { path: "/admin/vouchers", icon: Tags, label: "Voucher" },
     ]
   },
   {
