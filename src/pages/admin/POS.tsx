@@ -19,6 +19,7 @@ import { triggerPrint } from "@/lib/print";
 import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
+import { PosQrDialog, type PosQrPaymentType } from "@/components/pos/PosQrDialog";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
 import { applyPromotionToCart, formatPromotionSummary, getPromotionProgress, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
 import { shipping } from "@/services";
@@ -46,6 +47,7 @@ export default function AdminPOS() {
   const [paymentType, setPaymentType] = useState<Invoice["paymentType"]>("cash");
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const customerCountRef = useState({ n: customers.length })[0];
   const barcodeRef = useRef<HTMLInputElement>(null);
 
@@ -662,7 +664,12 @@ export default function AdminPOS() {
             </div>
 
             {/* Payment method */}
-            <PaymentMethodPicker value={paymentType} onChange={setPaymentType} disabled={!!lastInvoice} />
+            <PaymentMethodPicker
+              value={paymentType}
+              onChange={setPaymentType}
+              disabled={!!lastInvoice}
+              onOpenQr={paymentType !== "cash" && totals.total > 0 ? () => setQrDialogOpen(true) : undefined}
+            />
 
             {/* Promotion */}
             <PromotionBlock />
@@ -792,7 +799,12 @@ export default function AdminPOS() {
                   options={customers.filter((c) => c.active).map((c) => ({ id: c.id, label: c.name, sub: `${c.code} · ${c.phone}` }))}
                   onCreateNew={() => setCustomerDrawerOpen(true)} createLabel="Tạo khách hàng mới" />
               </div>
-              <PaymentMethodPicker value={paymentType} onChange={setPaymentType} disabled={!!lastInvoice} />
+              <PaymentMethodPicker
+                value={paymentType}
+                onChange={setPaymentType}
+                disabled={!!lastInvoice}
+                onOpenQr={paymentType !== "cash" && totals.total > 0 ? () => setQrDialogOpen(true) : undefined}
+              />
               <PromotionBlock />
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -826,6 +838,15 @@ export default function AdminPOS() {
         <Printable58Invoice invoice={printableInvoice} lines={printableLines.length ? printableLines : [{ name: "Hóa đơn trống", code: "-", qty: 0, price: 0 }]} />
       )}
       <CustomerFormDrawer open={customerDrawerOpen} onClose={() => setCustomerDrawerOpen(false)} />
+      {paymentType !== "cash" && (
+        <PosQrDialog
+          open={qrDialogOpen}
+          onOpenChange={setQrDialogOpen}
+          amount={totals.total}
+          paymentType={paymentType as PosQrPaymentType}
+          reference={lastInvoice?.number}
+        />
+      )}
     </>
   );
 }
@@ -850,14 +871,25 @@ function PaymentMethodPicker({
   value,
   onChange,
   disabled,
+  onOpenQr,
 }: {
   value: Invoice["paymentType"];
   onChange: (v: Invoice["paymentType"]) => void;
   disabled?: boolean;
+  /** When set, renders a "Mở QR khách quét" action below the picker. */
+  onOpenQr?: () => void;
 }) {
+  const activeMeta = PAYMENT_METHODS.find((m) => m.value === value);
   return (
     <div>
-      <label className="text-[11px] font-medium text-muted-foreground">Phương thức thanh toán</label>
+      <div className="flex items-center justify-between">
+        <label className="text-[11px] font-medium text-muted-foreground">Phương thức thanh toán</label>
+        {activeMeta && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+            {activeMeta.label}
+          </span>
+        )}
+      </div>
       <div className="mt-1 grid grid-cols-2 gap-1.5">
         {PAYMENT_METHODS.map((m) => {
           const Icon = m.icon;
@@ -882,6 +914,16 @@ function PaymentMethodPicker({
           );
         })}
       </div>
+      {onOpenQr && (
+        <button
+          type="button"
+          onClick={onOpenQr}
+          className="mt-1.5 w-full h-8 px-2 text-xs font-medium rounded-md border border-primary/40 text-primary bg-primary/5 hover:bg-primary/10 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <ScanLine className="h-3.5 w-3.5" />
+          Mở QR cho khách quét
+        </button>
+      )}
     </div>
   );
 }
