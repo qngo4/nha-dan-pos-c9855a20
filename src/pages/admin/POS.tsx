@@ -661,6 +661,9 @@ export default function AdminPOS() {
                 className="mt-1 w-full h-8 px-2 text-sm bg-background border rounded-md focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60" />
             </div>
 
+            {/* Payment method */}
+            <PaymentMethodPicker value={paymentType} onChange={setPaymentType} disabled={!!lastInvoice} />
+
             {/* Promotion */}
             <PromotionBlock />
 
