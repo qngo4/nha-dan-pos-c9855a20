@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { OrderTimeline } from "@/components/shared/OrderTimeline";
 import { pendingOrders as pendingOrdersService } from "@/services";
 import type { PendingOrder, PendingOrderStatus, PaymentMethod } from "@/services/types";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   Clock, Eye, Check, X, AlertTriangle, CreditCard, User, Calendar,
-  CheckCircle2, XCircle, MapPin, Gift, Tag, Truck, Receipt,
+  MapPin, Gift, Tag, Truck, Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -290,27 +291,6 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
   const gifts = order.giftLinesSnapshot ?? [];
   const ship = order.shippingQuoteSnapshot;
 
-  const timelineSteps = [
-    { id: "created", label: "Đã đặt đơn", icon: Calendar, done: true, time: order.createdAt },
-    { id: "pending", label: "Chờ xác nhận thanh toán", icon: Clock, done: !isPendingLike, current: isPendingLike },
-    {
-      id: "final",
-      label:
-        order.status === "confirmed" ? "Đã xác nhận — Hóa đơn đã tạo" :
-        order.status === "cancelled" ? "Đã hủy" :
-        "Chờ xử lý",
-      icon:
-        order.status === "confirmed" ? CheckCircle2 :
-        order.status === "cancelled" ? XCircle :
-        Clock,
-      done: !isPendingLike,
-      variant:
-        order.status === "confirmed" ? "success" :
-        order.status === "cancelled" ? "danger" :
-        undefined,
-    },
-  ];
-
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm" onClick={onClose} />
@@ -350,30 +330,13 @@ function PendingOrderDetail({ order, onClose, onConfirm, onCancel }: {
 
           {/* Timeline */}
           <Section title="Tiến trình" icon={Clock}>
-            <div className="space-y-3">
-              {timelineSteps.map((step) => {
-                const Icon = step.icon;
-                const variant = (step as { variant?: string }).variant;
-                const current = (step as { current?: boolean }).current;
-                return (
-                  <div key={step.id} className="flex gap-3">
-                    <div className={cn(
-                      "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
-                      variant === "success" ? "bg-success-soft text-success" :
-                      variant === "danger" ? "bg-danger-soft text-danger" :
-                      step.done ? "bg-primary-soft text-primary" :
-                      current ? "bg-warning-soft text-warning animate-pulse-soft" :
-                      "bg-muted text-muted-foreground"
-                    )}>
-                      <Icon className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="flex-1 pt-0.5">
-                      <p className="text-sm font-medium">{step.label}</p>
-                      {step.time && <p className="text-xs text-muted-foreground">{formatDateTime(step.time)}</p>}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="border rounded-lg p-3">
+              <OrderTimeline
+                paymentMethod={order.paymentMethod}
+                status={order.status}
+                createdAt={order.createdAt}
+                expiresAt={order.expiresAt}
+              />
             </div>
           </Section>
 
