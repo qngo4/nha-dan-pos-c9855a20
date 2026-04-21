@@ -17,10 +17,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { pendingOrders, shipping } from "@/services";
+import { pendingOrders, promotions, shipping } from "@/services";
 import type {
+  CartContext,
+  CartLine,
+  EvaluatedPromotion,
   PaymentMethod,
   PendingOrderLine,
+  PromotionSnapshot,
   ShippingAddress,
   ShippingQuote,
 } from "@/services/types";
@@ -109,8 +113,45 @@ export default function CheckoutPage() {
     };
   }, [shippingAddress, subtotal]);
 
-  const shippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
-  const total = subtotal + shippingFee;
+  const baseShippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
+
+  // Evaluate the best promotion whenever the cart subtotal or shipping fee changes.
+  const cartLines: CartLine[] = useMemo(
+    () =>
+      orderItems.map((it, i) => ({
+        id: `tmp-${i}`,
+        productId: `tmp-p-${i}`,
+        variantId: `tmp-v-${i}`,
+        productName: it.name,
+        qty: it.qty,
+        unitPrice: it.price,
+        lineSubtotal: it.qty * it.price,
+      })),
+    []
+  );
+
+  const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
+
+  useEffect(() => {
+    let cancel = false;
+    const ctx: CartContext = {
+      lines: cartLines,
+      subtotal,
+      shippingAddress: shippingAddress ?? undefined,
+      shippingQuote: quote,
+    };
+    void promotions.pickBest(ctx).then((p) => {
+      if (!cancel) setBestPromo(p);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [cartLines, subtotal, shippingAddress, quote]);
+
+  const promoDiscount = bestPromo?.discountAmount ?? 0;
+  const shippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
+  const shippingFee = Math.max(0, baseShippingFee - shippingDiscount);
+  const total = Math.max(0, subtotal - promoDiscount + shippingFee);
   const isOnline = payment !== "cash";
 
   const phoneOk = /^[\d+]{9,12}$/.test(phone.replace(/\s/g, ""));
@@ -141,6 +182,18 @@ export default function CheckoutPage() {
           unitPrice: it.price,
           lineSubtotal: it.qty * it.price,
         }));
+        const promotionSnapshot: PromotionSnapshot | null = bestPromo
+          ? {
+              promotionId: bestPromo.promotionId,
+              name: bestPromo.name,
+              type: bestPromo.type,
+              ruleSummary: bestPromo.ruleSummary,
+              discountAmount: bestPromo.discountAmount,
+              shippingDiscountAmount: shippingDiscount,
+              affectedLines: bestPromo.affectedLines,
+              giftLines: bestPromo.giftLines,
+            }
+          : null;
         const order = await pendingOrders.create({
           customerName: name.trim(),
           customerPhone: phone.trim(),
@@ -148,19 +201,21 @@ export default function CheckoutPage() {
           paymentMethod: payment as PaymentMethod,
           paymentReference: "",
           lines,
+          promotionSnapshot,
+          voucherSnapshot: null,
           shippingQuoteSnapshot: {
             source: quote.source ?? "zone_fallback",
             zoneCode: quote.zoneCode,
-            fee: shippingFee,
+            fee: baseShippingFee,
             etaDays: quote.etaDays,
           },
           pricingBreakdownSnapshot: {
             subtotal,
             manualDiscount: 0,
-            promotionDiscount: 0,
+            promotionDiscount: promoDiscount,
             voucherDiscount: 0,
-            shippingFee,
-            shippingDiscount: 0,
+            shippingFee: baseShippingFee,
+            shippingDiscount,
             vat: 0,
             total,
           },
@@ -183,9 +238,9 @@ export default function CheckoutPage() {
           breakdown: {
             subtotal,
             manualDiscount: 0,
-            promoDiscount: 0,
-            shippingFee,
-            shippingDiscount: 0,
+            promoDiscount: promoDiscount,
+            shippingFee: baseShippingFee,
+            shippingDiscount,
             shippingPayable: shippingFee,
             vatPercent: 0,
             vatBase: subtotal,
@@ -302,6 +357,12 @@ export default function CheckoutPage() {
               </div>
               <div className="border-t mt-4 pt-4 space-y-2 text-sm">
                 <Row label="Tạm tính" value={formatVND(subtotal)} />
+                {bestPromo && promoDiscount > 0 && (
+                  <Row
+                    label={`Khuyến mãi: ${bestPromo.name}`}
+                    value={<span className="text-success">−{formatVND(promoDiscount)}</span>}
+                  />
+                )}
                 <Row
                   label="Phí giao hàng"
                   value={
@@ -312,6 +373,20 @@ export default function CheckoutPage() {
                     quote.status === "quoted" ? formatVND(shippingFee) : "—"
                   }
                 />
+                {shippingDiscount > 0 && (
+                  <Row
+                    label="Giảm phí giao hàng"
+                    value={<span className="text-success">−{formatVND(shippingDiscount)}</span>}
+                  />
+                )}
+                {bestPromo && bestPromo.giftLines.length > 0 && (
+                  <div className="rounded-lg bg-success-soft/40 px-3 py-2 text-xs text-success space-y-0.5">
+                    <p className="font-semibold">🎁 Quà tặng kèm</p>
+                    {bestPromo.giftLines.map((g, i) => (
+                      <p key={i}>• {g.productName} ×{g.qty}</p>
+                    ))}
+                  </div>
+                )}
                 <div className="border-t pt-3 flex justify-between items-baseline">
                   <span className="font-bold">Tổng cộng</span>
                   <span className="font-bold text-foreground text-xl">{formatVND(total)}</span>

@@ -64,6 +64,9 @@ const setState = (updater: (s: State) => State) => {
 export const useStore = () =>
   useSyncExternalStore(subscribe, () => state, () => state);
 
+// Imperative read access for non-React consumers (e.g. service adapters).
+export const getStoreState = (): State => state;
+
 const uid = (prefix = "") => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // ===== Categories =====
