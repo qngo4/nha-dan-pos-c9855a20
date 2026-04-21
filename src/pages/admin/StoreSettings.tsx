@@ -313,6 +313,12 @@ function EWalletQrSection(props: {
     if (!f.type.startsWith("image/")) return toast.error("Vui lòng chọn file ảnh");
     setBusy(true);
     try {
+      // Reject obviously-not-a-QR images BEFORE we spend cycles re-encoding.
+      const check = await inspectQrImageFile(f, { minDim: 200 });
+      if (!check.ok) {
+        toast.error(check.reason ?? "Ảnh không hợp lệ");
+        return;
+      }
       // Always resize to keep data URL small enough for localStorage.
       const resized = await resizeImageFile(f, {
         maxDim: QR_TARGET_DIM,
