@@ -238,9 +238,9 @@ export default function CheckoutPage() {
           breakdown: {
             subtotal,
             manualDiscount: 0,
-            promoDiscount: 0,
-            shippingFee,
-            shippingDiscount: 0,
+            promoDiscount: promoDiscount,
+            shippingFee: baseShippingFee,
+            shippingDiscount,
             shippingPayable: shippingFee,
             vatPercent: 0,
             vatBase: subtotal,
