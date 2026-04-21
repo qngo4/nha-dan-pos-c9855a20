@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { pendingOrders, promotions, shipping, vouchers } from "@/services";
+import { invoices, pendingOrders, promotions, shipping, vouchers } from "@/services";
 import type {
   CartContext,
   EvaluatedPromotion,
@@ -30,9 +30,9 @@ import type {
   ShippingQuote,
   VoucherSnapshot,
 } from "@/services/types";
-import { invoiceActions } from "@/lib/store";
 import { useCart, cartActions } from "@/lib/cart";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
+import { currentCustomerActions, useCurrentCustomer } from "@/lib/current-customer";
 
 const paymentMethods = [
   { id: "cash", label: "Tiền mặt khi nhận", icon: Banknote, desc: "COD — hóa đơn lập ngay khi xác nhận" },
