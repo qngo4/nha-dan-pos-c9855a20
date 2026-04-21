@@ -55,6 +55,7 @@ const EMPTY_ADDR: AddressSelectValue = {
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const cartItems = useCart();
+  const { customer, defaultAddress } = useCurrentCustomer();
   const [payment, setPayment] = useState<PaymentId>("cash");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +65,28 @@ export default function CheckoutPage() {
   const [street, setStreet] = useState("");
   const [note, setNote] = useState("");
   const [addr, setAddr] = useState<AddressSelectValue>(EMPTY_ADDR);
+  const [prefilled, setPrefilled] = useState(false);
+
+  // One-shot pre-fill from the persistent customer profile.
+  useEffect(() => {
+    if (prefilled) return;
+    if (!customer && !defaultAddress) return;
+    if (customer?.name && !name) setName(customer.name);
+    if (customer?.phone && !phone) setPhone(customer.phone);
+    if (defaultAddress) {
+      setAddr({
+        provinceCode: defaultAddress.provinceCode,
+        provinceName: defaultAddress.provinceName,
+        districtCode: defaultAddress.districtCode,
+        districtName: defaultAddress.districtName,
+        wardCode: defaultAddress.wardCode,
+        wardName: defaultAddress.wardName,
+      });
+      if (defaultAddress.street && !street) setStreet(defaultAddress.street);
+    }
+    setPrefilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer, defaultAddress]);
 
   // Voucher state — input + the validated snapshot once a code is applied.
   const [voucherInput, setVoucherInput] = useState("");
