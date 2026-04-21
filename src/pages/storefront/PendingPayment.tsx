@@ -27,21 +27,38 @@ export default function PendingPaymentPage() {
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
 
+  // Reload the order whenever:
+  //  - the route id changes
+  //  - another tab writes to localStorage (admin confirms in /admin/pending-orders)
+  //  - the user returns to this tab (visibilitychange)
+  //  - a 5s poll fires while the order is still pending
   useEffect(() => {
+    if (!id) return;
     let alive = true;
-    (async () => {
-      const fromService = id ? await pendingOrdersService.get(id) : null;
+
+    const fetchAll = async () => {
+      const fromService = await pendingOrdersService.get(id);
       const settings = await storeSettings.getPaymentSettings();
       if (!alive) return;
+      const prevStatus = order?.status;
       setOrder(fromService);
       setBank(settings);
       setLoading(false);
+
+      if (fromService && prevStatus && prevStatus !== fromService.status) {
+        if (fromService.status === "confirmed") {
+          toast.success("Thanh toán đã được xác nhận!");
+        } else if (fromService.status === "cancelled") {
+          toast.error("Đơn hàng đã bị hủy");
+        }
+      }
 
       if (
         fromService &&
         fromService.paymentMethod === "bank_transfer" &&
         fromService.status === "pending_payment" &&
-        settings?.qrEnabled
+        settings?.qrEnabled &&
+        !qr
       ) {
         try {
           const result = await vietQr.generate({
@@ -53,10 +70,34 @@ export default function PendingPaymentPage() {
           if (alive) setQrError(e?.message ?? "Không thể tạo mã QR");
         }
       }
-    })();
+    };
+
+    void fetchAll();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key && e.key.includes("pending_orders")) void fetchAll();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void fetchAll();
+    };
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = window.setInterval(() => {
+      // Stop polling once the order has resolved.
+      setOrder((cur) => {
+        if (cur && (cur.status === "confirmed" || cur.status === "cancelled")) return cur;
+        void fetchAll();
+        return cur;
+      });
+    }, 5000);
+
     return () => {
       alive = false;
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(poll);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (loading) {

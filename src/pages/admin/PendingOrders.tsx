@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
-import { pendingOrders as pendingOrdersService } from "@/services";
+import { pendingOrders as pendingOrdersService, invoices as invoiceService } from "@/services";
 import type { PendingOrder, PendingOrderStatus, PaymentMethod } from "@/services/types";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -84,10 +84,41 @@ export default function AdminPendingOrders() {
   const handleConfirm = async () => {
     if (!confirmTarget) return;
     const o = orderList.find(x => x.id === confirmTarget);
-    const updated = await pendingOrdersService.update(confirmTarget, { status: "confirmed" });
-    setOrderList(prev => prev.map(x => x.id === confirmTarget ? updated : x));
-    if (detailOrder?.id === confirmTarget) setDetailOrder(updated);
-    toast.success(`Đã xác nhận thanh toán ${o?.code ?? ""}. Hóa đơn đã được tạo.`);
+    if (!o) { setConfirmTarget(null); return; }
+    try {
+      // 1) Materialise an Invoice with the same promotion / voucher / gift snapshot
+      //    so it shows up in /admin/invoices and can be reprinted later.
+      const paymentType =
+        o.paymentMethod === "cash" ? "cash" :
+        o.paymentMethod === "bank_transfer" ? "transfer" :
+        o.paymentMethod; // momo | zalopay
+      const inv = await invoiceService.create({
+        customerId: o.customerId,
+        customerName: o.customerName ?? "Khách lẻ",
+        customerPhone: o.customerPhone,
+        shippingAddress: o.shippingAddress,
+        paymentType,
+        createdBy: "admin",
+        note: o.note,
+        lines: o.lines,
+        giftLines: o.giftLinesSnapshot,
+        promotionSnapshot: o.promotionSnapshot,
+        voucherSnapshot: o.voucherSnapshot,
+        shippingQuoteSnapshot: o.shippingQuoteSnapshot,
+        pricingBreakdownSnapshot: o.pricingBreakdownSnapshot,
+      });
+      // 2) Flip pending order status — note the invoice number on the pending order so
+      //    the storefront /pending-payment view can link to it.
+      const updated = await pendingOrdersService.update(confirmTarget, {
+        status: "confirmed",
+        note: [o.note, `Hóa đơn: ${inv.number}`].filter(Boolean).join(" · "),
+      });
+      setOrderList(prev => prev.map(x => x.id === confirmTarget ? updated : x));
+      if (detailOrder?.id === confirmTarget) setDetailOrder(updated);
+      toast.success(`Đã xác nhận thanh toán ${o.code}. Hóa đơn ${inv.number} đã được tạo.`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Không thể tạo hóa đơn");
+    }
     setConfirmTarget(null);
   };
 
