@@ -19,6 +19,7 @@ import { triggerPrint } from "@/lib/print";
 import type { Invoice } from "@/lib/mock-data";
 import { resolveScannedCode, normalizeScanCode } from "@/lib/pos-scan";
 import { CameraScanner } from "@/components/pos/CameraScanner";
+import { PosQrDialog, type PosQrPaymentType } from "@/components/pos/PosQrDialog";
 import { computeInvoice, type POSCartLine } from "@/lib/pos-invoice";
 import { applyPromotionToCart, formatPromotionSummary, getPromotionProgress, PROMOTION_TYPE_LABELS, type Cart, type Promotion } from "@/lib/promotions";
 import { shipping } from "@/services";
@@ -46,6 +47,7 @@ export default function AdminPOS() {
   const [paymentType, setPaymentType] = useState<Invoice["paymentType"]>("cash");
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const customerCountRef = useState({ n: customers.length })[0];
   const barcodeRef = useRef<HTMLInputElement>(null);
 
