@@ -1,34 +1,122 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
 import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
-import type { PendingOrder, StorePaymentSettings, VietQrResult } from "@/services/types";
+import type {
+  PaymentMethod,
+  PendingOrder,
+  PendingOrderStatus,
+  StorePaymentSettings,
+  VietQrResult,
+} from "@/services/types";
 import { toast } from "sonner";
+import { useStore } from "@/lib/store";
+import type { PendingOrder as LegacyPendingOrder } from "@/lib/mock-data";
 
-const PAYMENT_LABEL: Record<PendingOrder["paymentMethod"], string> = {
+const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "Tiền mặt",
   bank_transfer: "Chuyển khoản ngân hàng",
   momo: "Ví MoMo",
   zalopay: "ZaloPay",
 };
 
+/**
+ * TEMPORARY bridge — Checkout still creates orders via the legacy in-memory store
+ * (`pendingOrderActions`). Until that is rewired through `pendingOrders.create()`,
+ * we map the legacy shape into the canonical PendingOrder for display only.
+ * This bridge lives in the page (not in adapters) on purpose: the service layer
+ * stays clean, and removing this whole block is the only change needed once
+ * Checkout is migrated.
+ */
+function legacyToCanonical(o: LegacyPendingOrder): PendingOrder {
+  const paymentMethod: PaymentMethod =
+    o.paymentMethod === "transfer" ? "bank_transfer" : o.paymentMethod;
+  const status: PendingOrderStatus =
+    o.status === "pending"
+      ? "pending_payment"
+      : o.status === "expired"
+        ? "cancelled"
+        : (o.status as PendingOrderStatus);
+  const subtotal = o.subtotal ?? Math.max(0, o.total - (o.shippingFee ?? 0));
+  return {
+    id: o.id,
+    code: o.orderNumber,
+    createdAt: o.createdAt,
+    expiresAt: o.expiresAt,
+    status,
+    customerId: o.customerId,
+    customerName: o.customerName,
+    customerPhone: o.customerPhone,
+    shippingAddress: o.shippingAddress
+      ? {
+          receiverName: o.customerName,
+          phone: o.customerPhone ?? "",
+          provinceCode: "",
+          provinceName: o.shippingAddress.province,
+          districtCode: "",
+          districtName: o.shippingAddress.district,
+          wardCode: "",
+          wardName: o.shippingAddress.ward,
+          street: o.shippingAddress.street ?? "",
+        }
+      : undefined,
+    paymentMethod,
+    paymentReference: o.orderNumber.replace(/-/g, ""),
+    lines: (o.items ?? []).map((it, i) => ({
+      id: `${o.id}-${i}`,
+      productId: "",
+      variantId: "",
+      productName: it.name,
+      qty: it.qty,
+      unitPrice: it.price,
+      lineSubtotal: it.qty * it.price,
+    })),
+    giftLinesSnapshot: [],
+    promotionSnapshot: null,
+    voucherSnapshot: null,
+    shippingQuoteSnapshot:
+      o.shippingFee !== undefined
+        ? { source: "zone_fallback", fee: o.shippingFee }
+        : null,
+    pricingBreakdownSnapshot: {
+      subtotal,
+      manualDiscount: 0,
+      promotionDiscount: 0,
+      voucherDiscount: 0,
+      shippingFee: o.shippingFee ?? 0,
+      shippingDiscount: 0,
+      vat: 0,
+      total: o.total,
+    },
+    note: o.note,
+  };
+}
+
 export default function PendingPaymentPage() {
   const { id } = useParams();
+  const { pendingOrders: legacyOrders } = useStore();
   const [order, setOrder] = useState<PendingOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
 
+  // Look up via service first; fall back to legacy in-memory store.
+  const legacyMatch = useMemo(() => {
+    if (!id) return null;
+    return legacyOrders.find((o) => o.id === id) ?? null;
+  }, [id, legacyOrders]);
+
   useEffect(() => {
     let alive = true;
     (async () => {
-      const o = id ? await pendingOrdersService.get(id) : null;
-      const fallback = !o
-        ? (await pendingOrdersService.list({ pageSize: 1 })).items[0] ?? null
-        : null;
-      const finalOrder = o ?? fallback;
+      const fromService = id ? await pendingOrdersService.get(id) : null;
+      const finalOrder: PendingOrder | null =
+        fromService ??
+        (legacyMatch ? legacyToCanonical(legacyMatch) : null) ??
+        (legacyOrders[0] ? legacyToCanonical(legacyOrders[0]) : null);
+
       const settings = await storeSettings.getPaymentSettings();
       if (!alive) return;
       setOrder(finalOrder);
@@ -55,7 +143,7 @@ export default function PendingPaymentPage() {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, legacyMatch, legacyOrders]);
 
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
@@ -107,7 +195,6 @@ export default function PendingPaymentPage() {
         </p>
       </div>
 
-      {/* Timeline */}
       <div className="flex items-center justify-between mb-8 px-4">
         {steps.map((step, i) => (
           <div key={i} className="flex flex-col items-center gap-1 relative">
@@ -119,7 +206,6 @@ export default function PendingPaymentPage() {
         ))}
       </div>
 
-      {/* Bank transfer + VietQR panel */}
       {showBankPanel && (
         <div className="bg-card rounded-lg border p-4 mb-4">
           <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
@@ -175,7 +261,6 @@ export default function PendingPaymentPage() {
         </div>
       )}
 
-      {/* Order summary */}
       <div className="bg-card rounded-lg border p-4 mb-4">
         <h2 className="font-semibold text-sm mb-3">Chi tiết đơn hàng</h2>
         {items.length > 0 ? (
@@ -212,26 +297,26 @@ export default function PendingPaymentPage() {
         )}
 
         <div className="mt-3 pt-3 border-t space-y-1.5 text-xs">
-          <Row label="Tạm tính" value={formatVND(breakdown.subtotal)} />
-          {breakdown.manualDiscount > 0 && <Row label="Giảm giá thủ công" value={`-${formatVND(breakdown.manualDiscount)}`} />}
+          <SummaryRow label="Tạm tính" value={formatVND(breakdown.subtotal)} />
+          {breakdown.manualDiscount > 0 && <SummaryRow label="Giảm giá thủ công" value={`-${formatVND(breakdown.manualDiscount)}`} />}
           {breakdown.promotionDiscount > 0 && (
-            <Row
+            <SummaryRow
               label={`Khuyến mãi${order.promotionSnapshot ? ` (${order.promotionSnapshot.name})` : ""}`}
               value={`-${formatVND(breakdown.promotionDiscount)}`}
             />
           )}
           {breakdown.voucherDiscount > 0 && (
-            <Row
+            <SummaryRow
               label={`Voucher${order.voucherSnapshot ? ` (${order.voucherSnapshot.code})` : ""}`}
               value={`-${formatVND(breakdown.voucherDiscount)}`}
             />
           )}
-          <Row
+          <SummaryRow
             label="Phí giao hàng"
             value={breakdown.shippingFee === 0 ? <span className="text-success">Miễn phí</span> : formatVND(breakdown.shippingFee)}
           />
-          {breakdown.shippingDiscount > 0 && <Row label="Giảm phí giao hàng" value={`-${formatVND(breakdown.shippingDiscount)}`} />}
-          {breakdown.vat > 0 && <Row label="VAT" value={formatVND(breakdown.vat)} />}
+          {breakdown.shippingDiscount > 0 && <SummaryRow label="Giảm phí giao hàng" value={`-${formatVND(breakdown.shippingDiscount)}`} />}
+          {breakdown.vat > 0 && <SummaryRow label="VAT" value={formatVND(breakdown.vat)} />}
         </div>
 
         <div className="border-t mt-3 pt-2 flex justify-between font-bold">
@@ -273,7 +358,7 @@ export default function PendingPaymentPage() {
   );
 }
 
-function Row({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
+function SummaryRow({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>
