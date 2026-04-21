@@ -46,6 +46,7 @@ const EMPTY: StorePaymentSettings = {
 };
 
 const MAX_QR_BYTES = 800 * 1024; // ~800KB safety cap for localStorage
+const QR_TARGET_DIM = 768; // px, longest side after auto-resize
 
 export default function StoreSettingsPage() {
   const [form, setForm] = useState<StorePaymentSettings>(EMPTY);
@@ -258,15 +259,49 @@ function EWalletQrSection(props: {
   onPhone: (v: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
-  const onFile = (f: File | null) => {
+  const onFile = async (f: File | null) => {
     if (!f) return;
     if (!f.type.startsWith("image/")) return toast.error("Vui lòng chọn file ảnh");
-    if (f.size > MAX_QR_BYTES) return toast.error("Ảnh quá lớn (tối đa ~800KB). Vui lòng nén trước khi tải lên.");
-    const reader = new FileReader();
-    reader.onload = () => props.onImage(String(reader.result ?? ""));
-    reader.onerror = () => toast.error("Không đọc được file ảnh");
-    reader.readAsDataURL(f);
+    setBusy(true);
+    try {
+      // Always resize to keep data URL small enough for localStorage.
+      const resized = await resizeImageFile(f, {
+        maxDim: QR_TARGET_DIM,
+        mime: "image/png",
+      });
+      const bytes = approxDataUrlBytes(resized);
+      if (bytes > MAX_QR_BYTES) {
+        // Try a JPEG fallback for very dense images.
+        const jpeg = await resizeImageFile(f, {
+          maxDim: 640,
+          mime: "image/jpeg",
+          quality: 0.85,
+        });
+        if (approxDataUrlBytes(jpeg) > MAX_QR_BYTES) {
+          toast.error("Ảnh vẫn quá lớn sau khi nén. Vui lòng dùng ảnh nhỏ hơn.");
+          return;
+        }
+        props.onImage(jpeg);
+        toast.success("Đã nén ảnh QR");
+        return;
+      }
+      props.onImage(resized);
+      toast.success("Đã tải ảnh QR");
+    } catch {
+      toast.error("Không xử lý được file ảnh");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void onFile(file);
   };
 
   return (
@@ -276,27 +311,45 @@ function EWalletQrSection(props: {
       </h2>
       <p className="text-xs text-muted-foreground">
         Tải ảnh mã QR tĩnh của ví {props.title}. Khi khách chọn phương thức này, trang thanh toán sẽ hiển thị ảnh QR bạn đã tải lên thay cho VietQR ngân hàng.
+        Ảnh sẽ tự động được nén về tối đa {QR_TARGET_DIM}px cạnh dài.
       </p>
 
-      <div className="grid sm:grid-cols-[200px_1fr] gap-4 items-start">
+      <div className="grid sm:grid-cols-[300px_1fr] gap-4 items-start">
         <div className="flex flex-col items-center gap-2">
-          {props.imageValue ? (
-            <div className="relative">
-              <img src={props.imageValue} alt={`QR ${props.title}`} className="h-48 w-48 object-contain border rounded bg-white p-2" />
-              <button
-                type="button"
-                onClick={() => props.onImage("")}
-                className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-danger text-danger-foreground flex items-center justify-center shadow"
-                aria-label="Xoá ảnh QR"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div className="h-48 w-48 border-2 border-dashed rounded flex items-center justify-center text-xs text-muted-foreground text-center px-3">
-              Chưa có ảnh QR
-            </div>
-          )}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => inputRef.current?.click()}
+            className={`relative h-72 w-72 rounded border-2 border-dashed cursor-pointer transition-colors flex items-center justify-center ${
+              dragOver ? "border-primary bg-primary/5" : "border-border bg-muted/30 hover:bg-muted/50"
+            }`}
+          >
+            {props.imageValue ? (
+              <>
+                <img
+                  src={props.imageValue}
+                  alt={`QR ${props.title}`}
+                  className="h-full w-full object-contain p-3 bg-white rounded"
+                />
+                {/* Safe-zone guide: QR scanners need padding around the code */}
+                <div className="pointer-events-none absolute inset-3 border border-dashed border-primary/40 rounded" />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); props.onImage(""); }}
+                  className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-danger text-danger-foreground flex items-center justify-center shadow"
+                  aria-label="Xoá ảnh QR"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <div className="text-center px-4 text-xs text-muted-foreground">
+                <Upload className="h-6 w-6 mx-auto mb-2 opacity-60" />
+                {busy ? "Đang xử lý..." : "Kéo-thả ảnh vào đây hoặc bấm để chọn file"}
+              </div>
+            )}
+          </div>
           <input
             ref={inputRef}
             type="file"
@@ -307,10 +360,16 @@ function EWalletQrSection(props: {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-muted"
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border hover:bg-muted disabled:opacity-60"
           >
             <Upload className="h-3.5 w-3.5" /> {props.imageValue ? "Thay ảnh" : "Tải ảnh QR"}
           </button>
+          {props.imageValue && (
+            <p className="text-[10px] text-muted-foreground">
+              ~{Math.round(approxDataUrlBytes(props.imageValue) / 1024)} KB
+            </p>
+          )}
         </div>
 
         <div className="space-y-3">
