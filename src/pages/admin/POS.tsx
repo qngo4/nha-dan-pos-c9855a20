@@ -223,6 +223,10 @@ export default function AdminPOS() {
       shippingFee: totals.shippingFee,
       shippingDiscount: totals.shippingDiscount,
       shippingPayable: totals.shippingPayable,
+      shippingZoneCode: selectedShippingZone?.zoneCode,
+      shippingZoneLabel: selectedShippingZone?.label,
+      shippingEtaMin: selectedShippingZone?.etaDays.min,
+      shippingEtaMax: selectedShippingZone?.etaDays.max,
       vatPercent,
       vatBase: totals.vatBase,
       vatAmount: totals.vatAmount,
@@ -251,6 +255,7 @@ export default function AdminPOS() {
     setLines([]); setNote(""); setSelectedCustomer(""); setLastInvoice(null);
     setDiscountValue(0); setDiscountMode("amount");
     setShippingFee(0); setVatPercent(0); setPromotionId("");
+    setShippingZoneCode("");
     barcodeRef.current?.focus();
   };
 
@@ -259,6 +264,8 @@ export default function AdminPOS() {
     triggerPrint(lastInvoice?.number ?? "hóa đơn nháp", "pos58", { targetId: "print-root-invoice-pos58" });
   };
 
+  // In-memory invoice used for the live preview / print of the current draft.
+  // Mirror the same breakdown so the printed receipt shows zone + ETA before saving.
   const printableInvoice: Invoice = {
     id: "pos-current",
     number: lastInvoice?.number ?? "HD-NHAP",
@@ -267,6 +274,24 @@ export default function AdminPOS() {
     customerName: customers.find((c) => c.id === selectedCustomer)?.name || "Khách lẻ",
     total: lastInvoice?.total ?? totals.total,
     paymentType: "cash", status: "active", createdBy: "admin", itemCount: totalItems,
+    breakdown: {
+      subtotal: totals.subtotal,
+      manualDiscount: totals.manualDiscount,
+      promoDiscount: totals.promoDiscount,
+      promoName: selectedPromotion?.name,
+      shippingFee: totals.shippingFee,
+      shippingDiscount: totals.shippingDiscount,
+      shippingPayable: totals.shippingPayable,
+      shippingZoneCode: selectedShippingZone?.zoneCode,
+      shippingZoneLabel: selectedShippingZone?.label,
+      shippingEtaMin: selectedShippingZone?.etaDays.min,
+      shippingEtaMax: selectedShippingZone?.etaDays.max,
+      vatPercent,
+      vatBase: totals.vatBase,
+      vatAmount: totals.vatAmount,
+      total: totals.total,
+      freeItems: totals.freeItems.map((g) => ({ productName: g.productName, quantity: g.quantity })),
+    },
   };
   const printableLines = lines.map((l) => ({
     name: `${l.productName} - ${l.variantName}${l.reward ? " (Quà tặng)" : ""}`,
