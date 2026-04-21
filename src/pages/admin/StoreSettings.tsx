@@ -203,6 +203,27 @@ export default function StoreSettingsPage() {
         )}
       </div>
 
+      <EWalletQrSection
+        title="Ví MoMo"
+        color="text-[#A50064]"
+        imageValue={form.momoQrImage ?? ""}
+        accountName={form.momoAccountName ?? ""}
+        phone={form.momoPhone ?? ""}
+        onImage={(v) => update("momoQrImage", v)}
+        onAccountName={(v) => update("momoAccountName", v)}
+        onPhone={(v) => update("momoPhone", v)}
+      />
+      <EWalletQrSection
+        title="ZaloPay"
+        color="text-[#0068FF]"
+        imageValue={form.zalopayQrImage ?? ""}
+        accountName={form.zalopayAccountName ?? ""}
+        phone={form.zalopayPhone ?? ""}
+        onImage={(v) => update("zalopayQrImage", v)}
+        onAccountName={(v) => update("zalopayAccountName", v)}
+        onPhone={(v) => update("zalopayPhone", v)}
+      />
+
       <div className="flex justify-end">
         <button
           onClick={onSave}
