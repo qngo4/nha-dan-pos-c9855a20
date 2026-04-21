@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { pendingOrders, promotions, shipping, vouchers } from "@/services";
+import { invoices, pendingOrders, promotions, shipping, vouchers } from "@/services";
 import type {
   CartContext,
   EvaluatedPromotion,
@@ -30,9 +30,9 @@ import type {
   ShippingQuote,
   VoucherSnapshot,
 } from "@/services/types";
-import { invoiceActions } from "@/lib/store";
 import { useCart, cartActions } from "@/lib/cart";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
+import { currentCustomerActions, useCurrentCustomer } from "@/lib/current-customer";
 
 const paymentMethods = [
   { id: "cash", label: "Tiền mặt khi nhận", icon: Banknote, desc: "COD — hóa đơn lập ngay khi xác nhận" },
@@ -55,6 +55,7 @@ const EMPTY_ADDR: AddressSelectValue = {
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const cartItems = useCart();
+  const { customer, defaultAddress } = useCurrentCustomer();
   const [payment, setPayment] = useState<PaymentId>("cash");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +65,28 @@ export default function CheckoutPage() {
   const [street, setStreet] = useState("");
   const [note, setNote] = useState("");
   const [addr, setAddr] = useState<AddressSelectValue>(EMPTY_ADDR);
+  const [prefilled, setPrefilled] = useState(false);
+
+  // One-shot pre-fill from the persistent customer profile.
+  useEffect(() => {
+    if (prefilled) return;
+    if (!customer && !defaultAddress) return;
+    if (customer?.name && !name) setName(customer.name);
+    if (customer?.phone && !phone) setPhone(customer.phone);
+    if (defaultAddress) {
+      setAddr({
+        provinceCode: defaultAddress.provinceCode,
+        provinceName: defaultAddress.provinceName,
+        districtCode: defaultAddress.districtCode,
+        districtName: defaultAddress.districtName,
+        wardCode: defaultAddress.wardCode,
+        wardName: defaultAddress.wardName,
+      });
+      if (defaultAddress.street && !street) setStreet(defaultAddress.street);
+    }
+    setPrefilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer, defaultAddress]);
 
   // Voucher state — input + the validated snapshot once a code is applied.
   const [voucherInput, setVoucherInput] = useState("");
@@ -231,19 +254,46 @@ export default function CheckoutPage() {
         lineSubtotal: it.lineSubtotal,
       }));
 
+      const promotionSnapshot: PromotionSnapshot | null = bestPromo
+        ? {
+            promotionId: bestPromo.promotionId,
+            name: bestPromo.name,
+            type: bestPromo.type,
+            ruleSummary: bestPromo.ruleSummary,
+            discountAmount: bestPromo.discountAmount,
+            shippingDiscountAmount: shippingDiscount,
+            affectedLines: bestPromo.affectedLines,
+            giftLines: bestPromo.giftLines,
+          }
+        : null;
+
+      const pricingBreakdownSnapshot = {
+        subtotal,
+        manualDiscount: 0,
+        promotionDiscount: promoDiscount,
+        voucherDiscount,
+        shippingFee: baseShippingFee,
+        shippingDiscount,
+        vat: 0,
+        total,
+      };
+
+      const shippingQuoteSnapshot = {
+        source: quote.source ?? ("zone_fallback" as const),
+        zoneCode: quote.zoneCode,
+        fee: baseShippingFee,
+        etaDays: quote.etaDays,
+      };
+
+      // Persist the storefront customer profile + default address so /account
+      // and the next checkout pre-fill from real data.
+      void currentCustomerActions.save({
+        name: name.trim(),
+        phone: phone.trim(),
+      });
+      currentCustomerActions.saveDefaultAddress(shippingAddress);
+
       if (isOnline) {
-        const promotionSnapshot: PromotionSnapshot | null = bestPromo
-          ? {
-              promotionId: bestPromo.promotionId,
-              name: bestPromo.name,
-              type: bestPromo.type,
-              ruleSummary: bestPromo.ruleSummary,
-              discountAmount: bestPromo.discountAmount,
-              shippingDiscountAmount: shippingDiscount,
-              affectedLines: bestPromo.affectedLines,
-              giftLines: bestPromo.giftLines,
-            }
-          : null;
         const order = await pendingOrders.create({
           customerName: name.trim(),
           customerPhone: phone.trim(),
@@ -253,57 +303,29 @@ export default function CheckoutPage() {
           lines,
           promotionSnapshot,
           voucherSnapshot: voucherSnap,
-          shippingQuoteSnapshot: {
-            source: quote.source ?? "zone_fallback",
-            zoneCode: quote.zoneCode,
-            fee: baseShippingFee,
-            etaDays: quote.etaDays,
-          },
-          pricingBreakdownSnapshot: {
-            subtotal,
-            manualDiscount: 0,
-            promotionDiscount: promoDiscount,
-            voucherDiscount,
-            shippingFee: baseShippingFee,
-            shippingDiscount,
-            vat: 0,
-            total,
-          },
+          shippingQuoteSnapshot,
+          pricingBreakdownSnapshot,
           note: note.trim() || undefined,
         });
         cartActions.clear();
         toast.success("Đã tạo đơn — chuyển sang trang chờ thanh toán");
         navigate(`/pending-payment/${order.id}`);
       } else {
-        // Cash / COD — create invoice immediately (legacy invoice store still in use)
-        const inv = invoiceActions.create({
-          number: `HD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 900 + 100)}`,
-          date: new Date().toISOString(),
-          customerId: "",
+        // Cash / COD — go through the new InvoiceService so promotion + voucher
+        // are snapshotted the same way pendingOrders does.
+        const inv = await invoices.create({
           customerName: name.trim(),
-          total,
+          customerPhone: phone.trim(),
+          shippingAddress,
           paymentType: "cash",
-          status: "active",
           createdBy: "online",
-          itemCount: cartItems.length,
-          breakdown: {
-            subtotal,
-            manualDiscount: 0,
-            promoDiscount: promoDiscount + voucherDiscount,
-            shippingFee: baseShippingFee,
-            shippingDiscount,
-            shippingPayable: shippingFee,
-            vatPercent: 0,
-            vatBase: subtotal,
-            vatAmount: 0,
-            total,
-          },
-          lines: cartItems.map((i) => ({
-            name: i.variantName ? `${i.productName} - ${i.variantName}` : i.productName,
-            code: i.variantCode ?? i.productCode ?? "",
-            qty: i.qty,
-            price: i.unitPrice,
-          })),
+          lines,
+          giftLines: bestPromo?.giftLines ?? [],
+          promotionSnapshot,
+          voucherSnapshot: voucherSnap,
+          shippingQuoteSnapshot,
+          pricingBreakdownSnapshot,
+          note: note.trim() || undefined,
         });
         cartActions.clear();
         toast.success(`Đã tạo hóa đơn ${inv.number}`);
