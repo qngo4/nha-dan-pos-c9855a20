@@ -1,13 +1,13 @@
+import type { ShippingService } from "@/services/shipping/ShippingService";
 import type {
   ShippingConfig,
   ShippingQuote,
   ShippingQuoteInput,
-  ShippingService,
   ShippingZoneRule,
 } from "@/services/types";
 import { readJson, writeJson } from "./storage";
 
-const KEY = "shipping_config";
+const KEY = "shipping_config:v1";
 
 const DEFAULT_CONFIG: ShippingConfig = {
   zoneRules: [

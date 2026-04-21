@@ -1,14 +1,17 @@
+import type { PendingOrderService } from "@/services/pendingOrders/PendingOrderService";
 import type {
   CreatePendingOrderInput,
+  MultiSortRule,
   PagedResult,
   PendingOrder,
   PendingOrderListParams,
-  PendingOrderService,
   PendingOrderStatus,
 } from "@/services/types";
-import { readJson, uid, writeJson } from "./storage";
+import { readJson, writeJson } from "./storage";
+import { generateOrderCode, uid } from "@/services/utils/ids";
+import { addHoursIso, nowIso } from "@/services/utils/date";
 
-const KEY = "pending_orders";
+const KEY = "pending_orders:v1";
 
 function load(): PendingOrder[] {
   return readJson<PendingOrder[]>(KEY, []);
@@ -48,14 +51,12 @@ export class LocalPendingOrderAdapter implements PendingOrderService {
 
   async create(input: CreatePendingOrderInput): Promise<PendingOrder> {
     const id = uid("po_");
-    const code = generateOrderCode();
-    const now = new Date();
-    const expiresAt = input.expiresAt ?? new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+    const code = generateOrderCode("DH");
     const order: PendingOrder = {
       id,
       code,
-      createdAt: now.toISOString(),
-      expiresAt,
+      createdAt: nowIso(),
+      expiresAt: input.expiresAt ?? addHoursIso(12),
       status: "pending_payment",
       paymentReference: input.paymentReference || code,
       giftLinesSnapshot: input.promotionSnapshot?.giftLines ?? [],
@@ -93,16 +94,7 @@ export class LocalPendingOrderAdapter implements PendingOrderService {
   }
 }
 
-function generateOrderCode(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const seq = String(Math.floor(Math.random() * 9000) + 1000);
-  return `DH-${y}${m}${day}-${seq}`;
-}
-
-function applySort<T>(items: T[], sort?: { field: string; direction: "asc" | "desc" }[]): T[] {
+function applySort<T>(items: T[], sort?: MultiSortRule[]): T[] {
   if (!sort?.length) return items;
   const arr = [...items];
   arr.sort((a: any, b: any) => {

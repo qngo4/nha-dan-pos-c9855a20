@@ -1,10 +1,8 @@
-import type {
-  StorePaymentSettings,
-  StoreSettingsService,
-} from "@/services/types";
+import type { StoreSettingsService } from "@/services/storeSettings/StoreSettingsService";
+import type { StorePaymentSettings } from "@/services/types";
 import { readJson, writeJson } from "./storage";
 
-const KEY = "store_payment_settings";
+const KEY = "store_payment_settings:v1";
 
 const DEFAULT_SETTINGS: StorePaymentSettings = {
   shopName: "Nhã Đan Shop",
@@ -23,8 +21,7 @@ export class LocalStoreSettingsAdapter implements StoreSettingsService {
 
   async getPaymentSettings(): Promise<StorePaymentSettings | null> {
     const stored = readJson<StorePaymentSettings | null>(KEY, null);
-    if (stored) return stored;
-    return DEFAULT_SETTINGS;
+    return stored ?? DEFAULT_SETTINGS;
   }
 
   async savePaymentSettings(input: StorePaymentSettings): Promise<StorePaymentSettings> {
