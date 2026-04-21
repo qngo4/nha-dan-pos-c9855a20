@@ -10,6 +10,7 @@ import {
   Search, Barcode, Camera, Keyboard, ShoppingCart, Receipt,
   AlertTriangle, Printer, X, Check, CheckCircle2, ScanLine,
   Tag, Gift, Truck, ChevronUp, ChevronDown,
+  Banknote, Landmark, Wallet, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
