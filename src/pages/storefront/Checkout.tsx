@@ -54,6 +54,7 @@ const EMPTY_ADDR: AddressSelectValue = {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const cartItems = useCart();
   const [payment, setPayment] = useState<PaymentId>("cash");
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -64,9 +65,15 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
   const [addr, setAddr] = useState<AddressSelectValue>(EMPTY_ADDR);
 
+  // Voucher state — input + the validated snapshot once a code is applied.
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucherSnap, setVoucherSnap] = useState<VoucherSnapshot | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherChecking, setVoucherChecking] = useState(false);
+
   const subtotal = useMemo(
-    () => orderItems.reduce((s, i) => s + i.price * i.qty, 0),
-    []
+    () => cartItems.reduce((s, i) => s + i.lineSubtotal, 0),
+    [cartItems],
   );
 
   const [quote, setQuote] = useState<ShippingQuote>({ status: "incomplete" });
