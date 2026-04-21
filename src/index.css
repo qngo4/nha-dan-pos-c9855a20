@@ -201,6 +201,9 @@
   .sf-eyebrow {
     @apply text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground;
   }
+  .input-base {
+    @apply w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:bg-muted disabled:text-muted-foreground;
+  }
 }
 
 .print-area,

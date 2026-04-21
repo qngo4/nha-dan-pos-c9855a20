@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FolderTree, Package, Layers, FileInput, Receipt,
   ShoppingCart, Clock, Tags, Users, Truck, ClipboardCheck,
   BarChart3, TrendingUp, DollarSign, UserCog, Shield,
-  ChevronLeft, ChevronRight, Menu, X, Store
+  ChevronLeft, ChevronRight, Menu, X, Store, Settings
 } from "lucide-react";
 
 const navGroups = [
@@ -57,6 +57,7 @@ const navGroups = [
   {
     label: "Hệ thống",
     items: [
+      { path: "/admin/store-settings", icon: Settings, label: "Cài đặt cửa hàng" },
       { path: "/admin/users", icon: UserCog, label: "Người dùng" },
       { path: "/admin/security", icon: Shield, label: "Bảo mật" },
     ]

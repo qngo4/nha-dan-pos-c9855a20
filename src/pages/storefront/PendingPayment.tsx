@@ -1,27 +1,65 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { formatVND, formatDateTime } from "@/lib/format";
-import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
+import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
+import type { PendingOrder, StorePaymentSettings, VietQrResult } from "@/services/types";
 import { toast } from "sonner";
-import type { PendingOrder } from "@/lib/mock-data";
-
-const BANK_INFO = {
-  bank: "Vietcombank",
-  account: "0123456789",
-  name: "NHADAN SHOP",
-};
 
 const PAYMENT_LABEL: Record<PendingOrder["paymentMethod"], string> = {
-  transfer: "Chuyển khoản ngân hàng",
+  cash: "Tiền mặt",
+  bank_transfer: "Chuyển khoản ngân hàng",
   momo: "Ví MoMo",
   zalopay: "ZaloPay",
 };
 
 export default function PendingPaymentPage() {
   const { id } = useParams();
-  const { pendingOrders } = useStore();
-  // Lookup by store id; fall back to first order so the route also works without an id (legacy entry).
-  const order = (id && pendingOrders.find((o) => o.id === id)) || pendingOrders[0];
+  const [order, setOrder] = useState<PendingOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [bank, setBank] = useState<StorePaymentSettings | null>(null);
+  const [qr, setQr] = useState<VietQrResult | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const o = id ? await pendingOrdersService.get(id) : null;
+      const fallback = !o
+        ? (await pendingOrdersService.list({ pageSize: 1 })).items[0] ?? null
+        : null;
+      const finalOrder = o ?? fallback;
+      const settings = await storeSettings.getPaymentSettings();
+      if (!alive) return;
+      setOrder(finalOrder);
+      setBank(settings);
+      setLoading(false);
+
+      if (
+        finalOrder &&
+        finalOrder.paymentMethod === "bank_transfer" &&
+        finalOrder.status === "pending_payment" &&
+        settings?.qrEnabled
+      ) {
+        try {
+          const result = await vietQr.generate({
+            amount: finalOrder.pricingBreakdownSnapshot.total,
+            transferContent: finalOrder.paymentReference,
+          });
+          if (alive) setQr(result);
+        } catch (e: any) {
+          if (alive) setQrError(e?.message ?? "Không thể tạo mã QR");
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  if (loading) {
+    return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
+  }
 
   if (!order) {
     return (
@@ -35,35 +73,37 @@ export default function PendingPaymentPage() {
     );
   }
 
-  const transferContent = order.orderNumber.replace(/-/g, "");
-  const items = order.items ?? [];
+  const breakdown = order.pricingBreakdownSnapshot;
+  const items = order.lines;
 
   const steps = [
-    { label: "Tạo đơn", done: true },
-    { label: "Chờ thanh toán", done: false, active: order.status === "pending" },
-    { label: "Xác nhận", done: order.status === "confirmed" },
-    { label: "Hoàn tất", done: order.status === "confirmed" },
+    { label: "Tạo đơn", done: true, active: false },
+    { label: "Chờ thanh toán", done: false, active: order.status === "pending_payment" },
+    { label: "Xác nhận", done: order.status === "confirmed" || order.status === "waiting_confirm", active: order.status === "waiting_confirm" },
+    { label: "Hoàn tất", done: order.status === "confirmed", active: false },
   ];
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`Đã sao chép ${label}`));
   };
 
+  const showBankPanel = order.paymentMethod === "bank_transfer" && order.status === "pending_payment";
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="text-center mb-6">
-        {order.status === "pending" && <Clock className="h-12 w-12 text-warning mx-auto mb-3" />}
+        {order.status === "pending_payment" && <Clock className="h-12 w-12 text-warning mx-auto mb-3" />}
+        {order.status === "waiting_confirm" && <Clock className="h-12 w-12 text-warning mx-auto mb-3" />}
         {order.status === "confirmed" && <CheckCircle className="h-12 w-12 text-success mx-auto mb-3" />}
         {order.status === "cancelled" && <XCircle className="h-12 w-12 text-danger mx-auto mb-3" />}
-        {order.status === "expired" && <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />}
         <h1 className="text-xl font-bold">
-          {order.status === "pending" && "Đang chờ xác nhận thanh toán"}
+          {order.status === "pending_payment" && "Đang chờ thanh toán"}
+          {order.status === "waiting_confirm" && "Đang chờ xác nhận"}
           {order.status === "confirmed" && "Thanh toán đã được xác nhận"}
           {order.status === "cancelled" && "Đơn hàng đã bị hủy"}
-          {order.status === "expired" && "Đơn hàng đã hết hạn"}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Mã đơn: <span className="font-medium text-foreground">{order.orderNumber}</span> · {PAYMENT_LABEL[order.paymentMethod]}
+          Mã đơn: <span className="font-medium text-foreground">{order.code}</span> · {PAYMENT_LABEL[order.paymentMethod]}
         </p>
       </div>
 
@@ -75,41 +115,63 @@ export default function PendingPaymentPage() {
             <span className={`text-[10px] font-medium ${step.done ? "text-success" : step.active ? "text-warning" : "text-muted-foreground"}`}>
               {step.label}
             </span>
-            {i < steps.length - 1 && (
-              <div className={`absolute top-1.5 left-full w-[calc(100%-6px)] h-0.5 -translate-x-1/2 ${step.done ? "bg-success" : "bg-border"}`} style={{ width: "60px", left: "14px" }} />
-            )}
           </div>
         ))}
       </div>
 
-      {/* Payment instructions */}
-      {order.status === "pending" && (
+      {/* Bank transfer + VietQR panel */}
+      {showBankPanel && (
         <div className="bg-card rounded-lg border p-4 mb-4">
-          <h2 className="font-semibold text-sm mb-3">Thông tin thanh toán</h2>
-          <div className="space-y-2 text-sm">
-            {[
-              { label: "Ngân hàng", value: BANK_INFO.bank },
-              { label: "Số tài khoản", value: BANK_INFO.account },
-              { label: "Chủ tài khoản", value: BANK_INFO.name },
-              { label: "Nội dung CK", value: transferContent },
-              { label: "Số tiền", value: formatVND(order.total) },
-            ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between py-1.5 border-b last:border-0">
-                <span className="text-muted-foreground">{row.label}</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium">{row.value}</span>
-                  <button onClick={() => copy(String(row.value), row.label)} className="text-muted-foreground hover:text-foreground">
-                    <Copy className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
+            <QrCode className="h-4 w-4 text-primary" /> Thông tin chuyển khoản
+          </h2>
 
-          <div className="mt-4 p-2.5 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
-            <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>Đơn hàng sẽ hết hạn lúc {formatDateTime(order.expiresAt)}. Vui lòng thanh toán trước thời hạn.</span>
-          </div>
+          {!bank?.qrEnabled || !bank?.accountNumber ? (
+            <div className="p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Cửa hàng chưa cấu hình thông tin thanh toán VietQR. Vào <strong>Cài đặt cửa hàng</strong> để bổ sung.
+              </span>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-[160px_1fr] gap-4">
+              <div className="flex justify-center">
+                {qr ? (
+                  <img src={qr.imageUrl} alt="VietQR" className="h-40 w-40 object-contain border rounded-md bg-white" />
+                ) : qrError ? (
+                  <div className="h-40 w-40 border rounded-md flex items-center justify-center text-[10px] text-danger text-center px-2">{qrError}</div>
+                ) : (
+                  <div className="h-40 w-40 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
+                )}
+              </div>
+              <div className="space-y-1.5 text-sm">
+                {[
+                  { label: "Ngân hàng", value: bank.bankName },
+                  { label: "Số tài khoản", value: bank.accountNumber },
+                  { label: "Chủ tài khoản", value: bank.accountName },
+                  { label: "Nội dung CK", value: order.paymentReference },
+                  { label: "Số tiền", value: formatVND(breakdown.total) },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between py-1 border-b last:border-0">
+                    <span className="text-muted-foreground text-xs">{row.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-xs">{row.value}</span>
+                      <button onClick={() => copy(String(row.value), row.label)} className="text-muted-foreground hover:text-foreground">
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {order.expiresAt && (
+            <div className="mt-4 p-2.5 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
+              <Clock className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>Đơn hàng sẽ hết hạn lúc {formatDateTime(order.expiresAt)}. Vui lòng thanh toán trước thời hạn.</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -118,55 +180,84 @@ export default function PendingPaymentPage() {
         <h2 className="font-semibold text-sm mb-3">Chi tiết đơn hàng</h2>
         {items.length > 0 ? (
           <div className="space-y-2">
-            {items.map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 bg-muted rounded flex items-center justify-center shrink-0">
                     <Package className="h-3.5 w-3.5 text-muted-foreground/40" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium">{item.name}</p>
+                    <p className="text-xs font-medium">{item.productName}{item.variantName ? ` · ${item.variantName}` : ""}</p>
                     <p className="text-[11px] text-muted-foreground">x{item.qty}</p>
                   </div>
                 </div>
-                <span className="text-xs font-medium">{formatVND(item.price * item.qty)}</span>
+                <span className="text-xs font-medium">{formatVND(item.lineSubtotal)}</span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">Tổng {order.itemCount} sản phẩm.</p>
+          <p className="text-xs text-muted-foreground">Không có sản phẩm.</p>
         )}
 
-        {(order.subtotal !== undefined || order.shippingFee !== undefined) && (
-          <div className="mt-3 pt-3 border-t space-y-1.5 text-sm">
-            {order.subtotal !== undefined && (
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Tạm tính</span>
-                <span>{formatVND(order.subtotal)}</span>
+        {order.giftLinesSnapshot.length > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <p className="text-xs font-medium text-success mb-1.5">Quà tặng kèm</p>
+            {order.giftLinesSnapshot.map((g, i) => (
+              <div key={i} className="flex justify-between text-xs">
+                <span>{g.productName} {g.variantName ? `· ${g.variantName}` : ""} x{g.qty}</span>
+                <span className="text-success">Tặng</span>
               </div>
-            )}
-            {order.shippingFee !== undefined && (
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Phí giao hàng</span>
-                <span>{order.shippingFee === 0 ? <span className="text-success">Miễn phí</span> : formatVND(order.shippingFee)}</span>
-              </div>
-            )}
+            ))}
           </div>
         )}
 
+        <div className="mt-3 pt-3 border-t space-y-1.5 text-xs">
+          <Row label="Tạm tính" value={formatVND(breakdown.subtotal)} />
+          {breakdown.manualDiscount > 0 && <Row label="Giảm giá thủ công" value={`-${formatVND(breakdown.manualDiscount)}`} />}
+          {breakdown.promotionDiscount > 0 && (
+            <Row
+              label={`Khuyến mãi${order.promotionSnapshot ? ` (${order.promotionSnapshot.name})` : ""}`}
+              value={`-${formatVND(breakdown.promotionDiscount)}`}
+            />
+          )}
+          {breakdown.voucherDiscount > 0 && (
+            <Row
+              label={`Voucher${order.voucherSnapshot ? ` (${order.voucherSnapshot.code})` : ""}`}
+              value={`-${formatVND(breakdown.voucherDiscount)}`}
+            />
+          )}
+          <Row
+            label="Phí giao hàng"
+            value={breakdown.shippingFee === 0 ? <span className="text-success">Miễn phí</span> : formatVND(breakdown.shippingFee)}
+          />
+          {breakdown.shippingDiscount > 0 && <Row label="Giảm phí giao hàng" value={`-${formatVND(breakdown.shippingDiscount)}`} />}
+          {breakdown.vat > 0 && <Row label="VAT" value={formatVND(breakdown.vat)} />}
+        </div>
+
         <div className="border-t mt-3 pt-2 flex justify-between font-bold">
           <span>Tổng cộng</span>
-          <span className="text-primary">{formatVND(order.total)}</span>
+          <span className="text-primary">{formatVND(breakdown.total)}</span>
         </div>
       </div>
 
       {order.shippingAddress && (
         <div className="bg-card rounded-lg border p-4 mb-4 text-sm">
           <h2 className="font-semibold text-sm mb-2">Giao đến</h2>
-          <p className="font-medium">{order.customerName} · {order.customerPhone}</p>
+          <p className="font-medium">{order.shippingAddress.receiverName} · {order.shippingAddress.phone}</p>
           <p className="text-muted-foreground text-xs mt-1">
-            {[order.shippingAddress.street, order.shippingAddress.ward, order.shippingAddress.district, order.shippingAddress.province].filter(Boolean).join(", ")}
+            {[
+              order.shippingAddress.street,
+              order.shippingAddress.wardName,
+              order.shippingAddress.districtName,
+              order.shippingAddress.provinceName,
+            ].filter(Boolean).join(", ")}
           </p>
+          {order.shippingQuoteSnapshot?.etaDays && (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Dự kiến giao trong {order.shippingQuoteSnapshot.etaDays.min}-{order.shippingQuoteSnapshot.etaDays.max} ngày
+              {order.shippingQuoteSnapshot.zoneCode ? ` · ${order.shippingQuoteSnapshot.zoneCode}` : ""}
+            </p>
+          )}
         </div>
       )}
 
@@ -178,6 +269,15 @@ export default function PendingPaymentPage() {
           Xem đơn hàng
         </Link>
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span>{value}</span>
     </div>
   );
 }

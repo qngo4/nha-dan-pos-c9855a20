@@ -38,6 +38,7 @@ import AdminRevenueReport from "@/pages/admin/RevenueReport";
 import AdminProfitReport from "@/pages/admin/ProfitReport";
 import AdminUsers from "@/pages/admin/UsersManagement";
 import AdminSecurity from "@/pages/admin/Security";
+import AdminStoreSettings from "@/pages/admin/StoreSettings";
 
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import NotFound from "@/pages/NotFound";
@@ -91,6 +92,7 @@ const App = () => (
             <Route path="suppliers" element={<AdminSuppliers />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="security" element={<AdminSecurity />} />
+            <Route path="store-settings" element={<AdminStoreSettings />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
