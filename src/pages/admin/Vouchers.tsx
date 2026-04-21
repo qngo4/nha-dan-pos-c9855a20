@@ -69,7 +69,7 @@ export default function VouchersPage() {
     <div>
       <PageHeader
         title="Voucher / Mã giảm giá"
-        subtitle="Quản lý mã giảm giá khách nhập trong trang thanh toán"
+        description="Quản lý mã giảm giá khách nhập trong trang thanh toán"
         actions={
           <button
             onClick={startCreate}
@@ -145,7 +145,12 @@ export default function VouchersPage() {
         open={open}
         onClose={() => setOpen(false)}
         title={editing ? `Sửa voucher ${editing.code}` : "Thêm voucher mới"}
-        onSave={save}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setOpen(false)} className="h-9 px-3 rounded-md border text-sm">Hủy</button>
+            <button onClick={save} className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium">Lưu</button>
+          </div>
+        }
       >
         <div className="space-y-4">
           <div>
@@ -222,11 +227,11 @@ export default function VouchersPage() {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        onCancel={() => setConfirmDelete(null)}
+        onClose={() => setConfirmDelete(null)}
         onConfirm={doDelete}
         title="Xóa voucher?"
         description={confirmDelete ? `Mã ${confirmDelete.code} sẽ bị xóa. Hành động không thể hoàn tác.` : ""}
-        confirmText="Xóa"
+        confirmLabel="Xóa"
         variant="danger"
       />
     </div>

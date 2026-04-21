@@ -4,7 +4,14 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useCart } from "@/lib/cart";
 
-const navItemsBase = [
+interface NavItem {
+  path: string;
+  icon: typeof Home;
+  label: string;
+  badge?: number;
+}
+
+const navItemsBase: NavItem[] = [
   { path: "/", icon: Home, label: "Trang chủ" },
   { path: "/products", icon: Search, label: "Sản phẩm" },
   { path: "/combos", icon: Layers, label: "Combo" },
