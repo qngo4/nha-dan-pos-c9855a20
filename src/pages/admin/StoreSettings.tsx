@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { storeSettings } from "@/services";
 import type { StorePaymentSettings, VietQrTemplate } from "@/services/types";
 import { toast } from "sonner";
-import { Building2, Save, QrCode } from "lucide-react";
+import { Building2, Save, QrCode, Upload, X, Wallet } from "lucide-react";
 
 const VIETQR_BANKS: { code: string; name: string }[] = [
   { code: "VCB", name: "Vietcombank" },
@@ -36,7 +36,15 @@ const EMPTY: StorePaymentSettings = {
   branch: "",
   transferPrefix: "DH",
   qrTemplate: "compact2",
+  momoQrImage: "",
+  momoAccountName: "",
+  momoPhone: "",
+  zalopayQrImage: "",
+  zalopayAccountName: "",
+  zalopayPhone: "",
 };
+
+const MAX_QR_BYTES = 800 * 1024; // ~800KB safety cap for localStorage
 
 export default function StoreSettingsPage() {
   const [form, setForm] = useState<StorePaymentSettings>(EMPTY);
