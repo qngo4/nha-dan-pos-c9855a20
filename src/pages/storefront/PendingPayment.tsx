@@ -490,3 +490,45 @@ function SummaryRow({ label, value }: { label: React.ReactNode; value: React.Rea
     </div>
   );
 }
+
+// Inline switcher used by the bank/wallet panel so the customer can recover
+// from a missing or broken QR without abandoning the order.
+function MethodSwitcher({
+  currentMethod,
+  busy,
+  onChange,
+}: {
+  currentMethod: PaymentMethod;
+  busy: boolean;
+  onChange: (next: PaymentMethod) => void;
+}) {
+  const options: PaymentMethod[] = ["bank_transfer", "momo", "zalopay"];
+  return (
+    <div className="mt-4 pt-3 border-t">
+      <p className="text-[11px] font-medium text-muted-foreground mb-2">
+        Không quét được QR? Đổi phương thức thanh toán:
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((m) => {
+          const active = m === currentMethod;
+          return (
+            <button
+              key={m}
+              type="button"
+              disabled={busy || active}
+              onClick={() => onChange(m)}
+              className={
+                "text-xs px-3 py-1.5 rounded-full border transition-colors " +
+                (active
+                  ? "bg-primary text-primary-foreground border-primary cursor-default"
+                  : "bg-background hover:bg-muted border-input disabled:opacity-50")
+              }
+            >
+              {PAYMENT_LABEL[m]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
