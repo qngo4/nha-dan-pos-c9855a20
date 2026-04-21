@@ -275,13 +275,35 @@ export default function PendingPaymentPage() {
               </div>
             ) : (
               <div className="grid sm:grid-cols-[244px_1fr] gap-4">
-                <div className="flex justify-center">
+                <div className="flex flex-col items-center gap-2">
                   {qr ? (
                     <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
                   ) : qrError ? (
-                    <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-danger text-center px-2">{qrError}</div>
+                    <div className="h-60 w-60 border rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span>{qrError}</span>
+                      <button
+                        onClick={async () => {
+                          if (!order) return;
+                          setQrError(null);
+                          try {
+                            const result = await vietQr.generate({
+                              amount: order.pricingBreakdownSnapshot.total,
+                              transferContent: order.paymentReference,
+                            });
+                            setQr(result);
+                          } catch (e: any) {
+                            setQrError(e?.message ?? "Không thể tạo mã QR");
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded border border-danger/50 text-danger text-[11px] hover:bg-danger/5"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
                   ) : (
-                    <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
+                    // Real skeleton instead of plain text while VietQR is generating.
+                    <div className="h-60 w-60 rounded-md border bg-muted animate-pulse" />
                   )}
                 </div>
                 <div className="space-y-1.5 text-sm">
@@ -305,6 +327,31 @@ export default function PendingPaymentPage() {
                 </div>
               </div>
             )}
+
+            {/* Method switcher: lets the customer pick another payment method
+                without losing the order — useful when the wallet QR is missing
+                or won't load and they need a working alternative. */}
+            <MethodSwitcher
+              currentMethod={method}
+              busy={changingMethod}
+              onChange={async (next) => {
+                if (!order || next === order.paymentMethod) return;
+                setChangingMethod(true);
+                try {
+                  await pendingOrdersService.update(order.id, { paymentMethod: next });
+                  const fresh = await pendingOrdersService.get(order.id);
+                  if (fresh) setOrder(fresh);
+                  setQr(null);
+                  setQrError(null);
+                  setWalletImgFailed(false);
+                  toast.success(`Đã chuyển sang ${PAYMENT_LABEL[next]}`);
+                } catch {
+                  toast.error("Không đổi được phương thức, thử lại sau");
+                } finally {
+                  setChangingMethod(false);
+                }
+              }}
+            />
 
             {order.expiresAt && (
               <div className="mt-4 p-2.5 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
