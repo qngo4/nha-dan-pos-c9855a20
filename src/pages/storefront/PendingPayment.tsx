@@ -176,14 +176,14 @@ export default function PendingPaymentPage() {
               </span>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-[160px_1fr] gap-4">
+            <div className="grid sm:grid-cols-[244px_1fr] gap-4">
               <div className="flex justify-center">
                 {qr ? (
-                  <img src={qr.imageUrl} alt="VietQR" className="h-40 w-40 object-contain border rounded-md bg-white" />
+                  <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
                 ) : qrError ? (
-                  <div className="h-40 w-40 border rounded-md flex items-center justify-center text-[10px] text-danger text-center px-2">{qrError}</div>
+                  <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-danger text-center px-2">{qrError}</div>
                 ) : (
-                  <div className="h-40 w-40 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
+                  <div className="h-60 w-60 border rounded-md flex items-center justify-center text-xs text-muted-foreground">Đang tạo QR...</div>
                 )}
               </div>
               <div className="space-y-1.5 text-sm">
