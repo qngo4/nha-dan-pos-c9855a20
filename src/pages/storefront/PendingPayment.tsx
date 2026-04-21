@@ -221,8 +221,37 @@ export default function PendingPaymentPage() {
               </div>
             ) : isWallet ? (
               <div className="grid sm:grid-cols-[244px_1fr] gap-4">
-                <div className="flex justify-center">
-                  <img src={walletImage!} alt={`QR ${paymentLabelShort}`} className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
+                <div className="flex flex-col items-center gap-2">
+                  {!bank ? (
+                    // Settings still loading: show skeleton.
+                    <div className="h-60 w-60 rounded-md border bg-muted animate-pulse" />
+                  ) : walletImgFailed ? (
+                    <div className="h-60 w-60 border rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span>Không tải được ảnh QR.</span>
+                      <button
+                        onClick={() => { setWalletImgFailed(false); setWalletQrAttempt((n) => n + 1); }}
+                        className="px-2.5 py-1 rounded border border-danger/50 text-danger text-[11px] hover:bg-danger/5"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
+                  ) : (
+                    <img
+                      key={`wallet-qr-${walletQrAttempt}`}
+                      src={walletImage!}
+                      alt={`QR ${paymentLabelShort}`}
+                      onError={() => setWalletImgFailed(true)}
+                      onLoad={() => setWalletImgFailed(false)}
+                      className="h-60 w-60 object-contain border rounded-md bg-white p-2"
+                    />
+                  )}
+                  <button
+                    onClick={() => { setWalletImgFailed(false); setWalletQrAttempt((n) => n + 1); }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  >
+                    Tải lại mã QR
+                  </button>
                 </div>
                 <div className="space-y-1.5 text-sm">
                   {[
