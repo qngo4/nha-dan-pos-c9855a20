@@ -664,7 +664,12 @@ export default function AdminPOS() {
             </div>
 
             {/* Payment method */}
-            <PaymentMethodPicker value={paymentType} onChange={setPaymentType} disabled={!!lastInvoice} />
+            <PaymentMethodPicker
+              value={paymentType}
+              onChange={setPaymentType}
+              disabled={!!lastInvoice}
+              onOpenQr={paymentType !== "cash" && totals.total > 0 ? () => setQrDialogOpen(true) : undefined}
+            />
 
             {/* Promotion */}
             <PromotionBlock />
