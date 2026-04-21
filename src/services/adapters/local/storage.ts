@@ -1,7 +1,7 @@
 // Tiny localStorage helper used ONLY by adapters under src/services/adapters/local/**.
 // UI must NEVER import this file.
 
-const PREFIX = "ndshop:v1:";
+const PREFIX = "ndshop:";
 
 export function readJson<T>(key: string, fallback: T): T {
   try {
@@ -29,8 +29,4 @@ export function removeKey(key: string): void {
   } catch {
     /* ignore */
   }
-}
-
-export function uid(prefix = ""): string {
-  return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
