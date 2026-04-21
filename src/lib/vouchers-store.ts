@@ -18,15 +18,43 @@ export interface VoucherDef {
   /** Fixed amount for non-percent vouchers (used when percent === 0). */
   fixedAmount: Money;
   active: boolean;
+  /** Optional ISO date (yyyy-mm-dd or full ISO). When set, voucher is invalid before this. */
+  startAt?: string;
+  /** Optional ISO date. When set, voucher is invalid after end-of-day on this date. */
+  endAt?: string;
 }
 
-const STORAGE_KEY = "nhadan.vouchers.v1";
+const STORAGE_KEY = "nhadan.vouchers.v2";
 
 const defaults: VoucherDef[] = [
   { id: "v-nhadan10", code: "NHADAN10", ruleSummary: "Giảm 10% đơn hàng (tối đa 50.000đ)", minSubtotal: 0, percent: 10, cap: 50_000, fixedAmount: 0, active: true },
   { id: "v-nhadan20", code: "NHADAN20", ruleSummary: "Giảm 20% cho đơn từ 200.000đ (tối đa 100.000đ)", minSubtotal: 200_000, percent: 20, cap: 100_000, fixedAmount: 0, active: true },
   { id: "v-giam50k", code: "GIAM50K", ruleSummary: "Giảm 50.000đ cho đơn từ 300.000đ", minSubtotal: 300_000, percent: 0, cap: 0, fixedAmount: 50_000, active: true },
 ];
+
+/** Returns true when the voucher's date window includes `now`. */
+export function isWithinActiveWindow(v: VoucherDef, now: Date = new Date()): boolean {
+  if (v.startAt) {
+    const start = new Date(v.startAt);
+    if (!Number.isNaN(start.getTime()) && now < start) return false;
+  }
+  if (v.endAt) {
+    const end = new Date(v.endAt);
+    // Treat plain yyyy-mm-dd as end-of-day so the last day is fully usable.
+    if (!Number.isNaN(end.getTime())) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v.endAt)) end.setHours(23, 59, 59, 999);
+      if (now > end) return false;
+    }
+  }
+  return true;
+}
+
+/** Returns true when the code is already taken by a *different* voucher. */
+export function isCodeTaken(code: string, excludeId?: string): boolean {
+  const upper = code.trim().toUpperCase();
+  if (!upper) return false;
+  return state.some((v) => v.code.toUpperCase() === upper && v.id !== excludeId);
+}
 
 function load(): VoucherDef[] {
   if (typeof window === "undefined") return [...defaults];
