@@ -367,6 +367,28 @@ export default function PendingPaymentPage() {
         </div>
       )}
 
+      {order.status === "pending_payment" && order.paymentMethod !== "cash" && (
+        <div className="mb-3 space-y-2">
+          {!paymentReady && (
+            <div className="p-3 rounded-md border border-warning/40 bg-warning-soft text-xs text-warning flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                {isWalletMethod
+                  ? `Cửa hàng chưa cấu hình QR ${paymentLabelShort}. Vui lòng liên hệ cửa hàng hoặc chọn phương thức khác — nút xác nhận sẽ mở khi QR sẵn sàng.`
+                  : "Cửa hàng chưa bật VietQR. Vui lòng liên hệ cửa hàng để được hướng dẫn chuyển khoản."}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={onCustomerConfirm}
+            disabled={!paymentReady || confirming}
+            className="w-full py-2.5 rounded-md bg-success text-success-foreground text-sm font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {confirming ? "Đang gửi..." : "Tôi đã thanh toán — gửi xác nhận"}
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-2">
         <Link to="/" className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
           <ArrowLeft className="h-4 w-4" /> Quay lại mua sắm
