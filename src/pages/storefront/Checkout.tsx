@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { formatVND } from "@/lib/format";
 import {
   CreditCard,
@@ -14,28 +14,25 @@ import {
   Truck,
   AlertTriangle,
   Loader2,
+  Tag,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { pendingOrders, promotions, shipping } from "@/services";
+import { pendingOrders, promotions, shipping, vouchers } from "@/services";
 import type {
   CartContext,
-  CartLine,
   EvaluatedPromotion,
   PaymentMethod,
   PendingOrderLine,
   PromotionSnapshot,
   ShippingAddress,
   ShippingQuote,
+  VoucherSnapshot,
 } from "@/services/types";
 import { invoiceActions } from "@/lib/store";
+import { useCart, cartActions } from "@/lib/cart";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
-
-const orderItems = [
-  { name: "Mì Hảo Hảo - Tôm chua cay", qty: 10, price: 5000 },
-  { name: "Coca-Cola - Lon 330ml", qty: 6, price: 10000 },
-  { name: "Sữa Vinamilk - Hộp 1L", qty: 2, price: 32000 },
-];
 
 const paymentMethods = [
   { id: "cash", label: "Tiền mặt khi nhận", icon: Banknote, desc: "COD — hóa đơn lập ngay khi xác nhận" },
