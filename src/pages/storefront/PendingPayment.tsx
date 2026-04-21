@@ -26,6 +26,7 @@ export default function PendingPaymentPage() {
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   // Reload the order whenever:
   //  - the route id changes
@@ -144,8 +145,8 @@ export default function PendingPaymentPage() {
       ? Boolean(walletImageForMethod)
       : Boolean(bank?.qrEnabled && bank?.accountNumber);
 
-  const [confirming, setConfirming] = useState(false);
-  const onCustomerConfirm = async () => {
+
+
     if (!order || !paymentReady) return;
     setConfirming(true);
     try {
