@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatVND } from "@/lib/format";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -12,54 +12,51 @@ import {
   AlertTriangle,
   ShieldCheck,
   Truck,
-  Tag,
+  Gift,
 } from "lucide-react";
 import { toast } from "sonner";
-
-interface CartItemData {
-  id: string;
-  productName: string;
-  variantName: string;
-  price: number;
-  quantity: number;
-  stock: number;
-}
-
-const mockCart: CartItemData[] = [
-  { id: "1", productName: "Mì Hảo Hảo", variantName: "Tôm chua cay", price: 5000, quantity: 10, stock: 245 },
-  { id: "2", productName: "Coca-Cola", variantName: "Lon 330ml", price: 10000, quantity: 6, stock: 180 },
-  { id: "3", productName: "Sữa Vinamilk 100%", variantName: "Hộp 1L", price: 32000, quantity: 2, stock: 8 },
-  { id: "4", productName: "Giấy vệ sinh Pulppy", variantName: "Gói 6 cuộn", price: 55000, quantity: 2, stock: 3 },
-];
+import { useCart, cartActions, type CartItem } from "@/lib/cart";
+import { promotions } from "@/services";
+import type { CartContext, EvaluatedPromotion } from "@/services/types";
 
 export default function CartPage() {
-  const [items, setItems] = useState(mockCart);
-  const [coupon, setCoupon] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const items = useCart();
 
-  const updateQty = (id: string, qty: number) =>
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, quantity: qty } : i)));
-  const removeItem = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    toast.success("Đã xóa sản phẩm");
-  };
+  const subtotal = useMemo(
+    () => items.reduce((s, i) => s + i.lineSubtotal, 0),
+    [items],
+  );
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discount = appliedCoupon?.discount ?? 0;
-  const shipping = subtotal >= 200000 ? 0 : 20000;
-  const total = Math.max(0, subtotal - discount + shipping);
-  const hasStockIssue = items.some((i) => i.quantity > i.stock);
+  // Evaluate the best promotion for the current cart so users can see the
+  // deal *before* heading to checkout. Voucher discounts are intentionally
+  // applied later, on the Checkout page (where the input lives).
+  const [bestPromo, setBestPromo] = useState<EvaluatedPromotion | null>(null);
+  useEffect(() => {
+    let cancel = false;
+    if (!items.length) {
+      setBestPromo(null);
+      return;
+    }
+    const ctx: CartContext = { lines: items, subtotal };
+    void promotions.pickBest(ctx).then((p) => {
+      if (!cancel) setBestPromo(p);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [items, subtotal]);
+
+  const promoDiscount = bestPromo?.discountAmount ?? 0;
+  const baseShipping = subtotal >= 200000 ? 0 : 20000;
+  const promoShipFree = bestPromo?.type === "free_shipping";
+  const shippingFee = promoShipFree ? 0 : baseShipping;
+  const total = Math.max(0, subtotal - promoDiscount + shippingFee);
+  const hasStockIssue = items.some((i) => i.qty > i.stock);
   const freeShippingGap = Math.max(0, 200000 - subtotal);
 
-  const applyCoupon = () => {
-    if (!coupon.trim()) return toast.error("Nhập mã giảm giá");
-    if (coupon.toUpperCase() === "NHADAN10") {
-      const d = Math.floor(subtotal * 0.1);
-      setAppliedCoupon({ code: "NHADAN10", discount: d });
-      toast.success(`Áp dụng giảm ${formatVND(d)}`);
-    } else {
-      toast.error("Mã giảm giá không hợp lệ");
-    }
+  const removeItem = (id: string, name: string) => {
+    cartActions.remove(id);
+    toast.success(`Đã xóa ${name}`);
   };
 
   if (items.length === 0) {
@@ -93,7 +90,7 @@ export default function CartPage() {
         </div>
 
         {/* Free shipping progress */}
-        {freeShippingGap > 0 && (
+        {freeShippingGap > 0 && !promoShipFree && (
           <div className="mb-5 p-3 rounded-xl bg-primary-soft border border-primary/20 flex items-center gap-3">
             <Truck className="h-4 w-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
@@ -114,87 +111,41 @@ export default function CartPage() {
         <div className="lg:grid lg:grid-cols-3 lg:gap-6">
           {/* Items */}
           <div className="lg:col-span-2 space-y-3">
-            {items.map((item) => {
-              const overStock = item.quantity > item.stock;
-              const lowStock = item.stock <= 5;
-              return (
-                <div
-                  key={item.id}
-                  className={`bg-storefront-surface rounded-2xl border p-4 flex gap-3.5 sf-shadow ${
-                    overStock ? "border-danger/50" : ""
-                  }`}
-                >
-                  <div className="h-20 w-20 bg-gradient-to-br from-muted to-storefront-soft rounded-xl flex items-center justify-center shrink-0">
-                    <Package className="h-7 w-7 text-muted-foreground/40" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-semibold leading-tight">{item.productName}</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">{item.variantName}</p>
-                        <p className="text-sm font-bold text-foreground mt-1">{formatVND(item.price)}</p>
-                      </div>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="text-muted-foreground hover:text-danger shrink-0 p-1 -m-1"
-                        aria-label="Xóa"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                    {overStock && (
-                      <div className="flex items-center gap-1 mt-1.5 text-xs text-danger">
-                        <AlertTriangle className="h-3 w-3" />
-                        Chỉ còn {item.stock} sản phẩm trong kho
-                      </div>
-                    )}
-                    {!overStock && lowStock && (
-                      <div className="mt-1.5">
-                        <StatusBadge status="low-stock" label={`Còn ${item.stock}`} />
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between mt-3">
-                      <QuantityStepper
-                        value={item.quantity}
-                        onChange={(v) => updateQty(item.id, v)}
-                        max={item.stock}
-                        size="sm"
-                      />
-                      <p className="font-bold text-base text-foreground">
-                        {formatVND(item.price * item.quantity)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {items.map((item) => (
+              <CartRow key={item.id} item={item} onRemove={removeItem} />
+            ))}
 
-            {/* Coupon */}
-            <div className="bg-storefront-surface rounded-2xl border p-4 sf-shadow">
-              <div className="flex items-center gap-2 mb-2.5">
-                <Tag className="h-4 w-4 text-primary" />
-                <p className="text-sm font-semibold">Mã giảm giá</p>
+            {/* Promotion preview */}
+            {bestPromo && (
+              <div className="bg-success-soft/30 border border-success/30 rounded-2xl p-4">
+                <div className="flex items-start gap-2.5">
+                  <Gift className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-success">
+                      Áp dụng tự động: {bestPromo.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {bestPromo.ruleSummary}
+                    </p>
+                    {bestPromo.giftLines.length > 0 && (
+                      <ul className="mt-2 space-y-0.5 text-xs text-success">
+                        {bestPromo.giftLines.map((g, i) => (
+                          <li key={i}>🎁 {g.productName} ×{g.qty}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  {promoDiscount > 0 && (
+                    <span className="text-sm font-bold text-success shrink-0">
+                      −{formatVND(promoDiscount)}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <input
-                  value={coupon}
-                  onChange={(e) => setCoupon(e.target.value)}
-                  placeholder="Nhập mã (vd: NHADAN10)"
-                  className="flex-1 h-10 px-3.5 text-sm bg-background rounded-full border focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                />
-                <button
-                  onClick={applyCoupon}
-                  className="px-5 h-10 rounded-full bg-foreground text-background text-sm font-semibold hover:bg-primary transition-colors"
-                >
-                  Áp dụng
-                </button>
-              </div>
-              {appliedCoupon && (
-                <p className="mt-2 text-xs text-success font-medium">
-                  ✓ Đã áp dụng <span className="font-mono">{appliedCoupon.code}</span> — giảm{" "}
-                  {formatVND(appliedCoupon.discount)}
-                </p>
-              )}
+            )}
+
+            <div className="bg-storefront-surface rounded-2xl border p-4 sf-shadow text-xs text-muted-foreground">
+              💡 Mã giảm giá (voucher) có thể nhập ở bước thanh toán.
             </div>
           </div>
 
@@ -207,16 +158,16 @@ export default function CartPage() {
                   <span className="text-muted-foreground">Tạm tính ({items.length} sản phẩm)</span>
                   <span className="font-semibold">{formatVND(subtotal)}</span>
                 </div>
-                {discount > 0 && (
+                {promoDiscount > 0 && (
                   <div className="flex justify-between text-success">
-                    <span>Giảm giá</span>
-                    <span className="font-semibold">−{formatVND(discount)}</span>
+                    <span>Khuyến mãi {bestPromo ? `(${bestPromo.name})` : ""}</span>
+                    <span className="font-semibold">−{formatVND(promoDiscount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phí giao hàng</span>
+                  <span className="text-muted-foreground">Phí giao hàng (tạm tính)</span>
                   <span className="font-semibold">
-                    {shipping === 0 ? <span className="text-success">Miễn phí</span> : formatVND(shipping)}
+                    {shippingFee === 0 ? <span className="text-success">Miễn phí</span> : formatVND(shippingFee)}
                   </span>
                 </div>
                 <div className="border-t pt-3 mt-3 flex justify-between items-baseline">
@@ -257,6 +208,60 @@ export default function CartPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CartRow({ item, onRemove }: { item: CartItem; onRemove: (id: string, name: string) => void }) {
+  const overStock = item.qty > item.stock;
+  const lowStock = item.stock <= 5;
+  return (
+    <div
+      className={`bg-storefront-surface rounded-2xl border p-4 flex gap-3.5 sf-shadow ${
+        overStock ? "border-danger/50" : ""
+      }`}
+    >
+      <div className="h-20 w-20 bg-gradient-to-br from-muted to-storefront-soft rounded-xl flex items-center justify-center shrink-0">
+        <Package className="h-7 w-7 text-muted-foreground/40" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold leading-tight">{item.productName}</h3>
+            {item.variantName && (
+              <p className="text-xs text-muted-foreground mt-0.5">{item.variantName}</p>
+            )}
+            <p className="text-sm font-bold text-foreground mt-1">{formatVND(item.unitPrice)}</p>
+          </div>
+          <button
+            onClick={() => onRemove(item.id, item.productName)}
+            className="text-muted-foreground hover:text-danger shrink-0 p-1 -m-1"
+            aria-label="Xóa"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+        {overStock && (
+          <div className="flex items-center gap-1 mt-1.5 text-xs text-danger">
+            <AlertTriangle className="h-3 w-3" />
+            Chỉ còn {item.stock} sản phẩm trong kho
+          </div>
+        )}
+        {!overStock && lowStock && (
+          <div className="mt-1.5">
+            <StatusBadge status="low-stock" label={`Còn ${item.stock}`} />
+          </div>
+        )}
+        <div className="flex items-center justify-between mt-3">
+          <QuantityStepper
+            value={item.qty}
+            onChange={(v) => cartActions.setQty(item.id, v)}
+            max={item.stock}
+            size="sm"
+          />
+          <p className="font-bold text-base text-foreground">{formatVND(item.lineSubtotal)}</p>
         </div>
       </div>
     </div>
