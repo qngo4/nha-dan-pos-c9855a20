@@ -476,6 +476,14 @@ export default function PendingPaymentPage() {
 
       {order.status === "pending_payment" && order.paymentMethod !== "cash" && (
         <div className="mb-3 space-y-2">
+          {insufficientEvent && (
+            <div className="p-3 rounded-md border border-warning/40 bg-warning-soft text-xs text-warning flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Hệ thống đã nhận giao dịch <strong>{formatVND(insufficientEvent.amount)}</strong> nhưng chưa đủ số tiền đơn hàng (<strong>{formatVND(breakdown.total)}</strong>). Vui lòng chuyển bù phần còn thiếu hoặc liên hệ cửa hàng.
+              </span>
+            </div>
+          )}
           {!paymentReady && (
             <div className="p-3 rounded-md border border-warning/40 bg-warning-soft text-xs text-warning flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
