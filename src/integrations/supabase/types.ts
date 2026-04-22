@@ -14,6 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      invoices: {
+        Row: {
+          code: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          date: string
+          discount: number
+          gift_lines: Json
+          id: string
+          items: Json
+          note: string | null
+          number: string
+          paid_amount: number
+          payment_type: string
+          pending_order_id: string | null
+          pricing_breakdown_snapshot: Json | null
+          promotion_snapshot: Json | null
+          shipping_address: Json | null
+          shipping_fee: number
+          shipping_quote_snapshot: Json | null
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+          voucher_snapshot: Json | null
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          date?: string
+          discount?: number
+          gift_lines?: Json
+          id?: string
+          items?: Json
+          note?: string | null
+          number: string
+          paid_amount?: number
+          payment_type?: string
+          pending_order_id?: string | null
+          pricing_breakdown_snapshot?: Json | null
+          promotion_snapshot?: Json | null
+          shipping_address?: Json | null
+          shipping_fee?: number
+          shipping_quote_snapshot?: Json | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          voucher_snapshot?: Json | null
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          date?: string
+          discount?: number
+          gift_lines?: Json
+          id?: string
+          items?: Json
+          note?: string | null
+          number?: string
+          paid_amount?: number
+          payment_type?: string
+          pending_order_id?: string | null
+          pricing_breakdown_snapshot?: Json | null
+          promotion_snapshot?: Json | null
+          shipping_address?: Json | null
+          shipping_fee?: number
+          shipping_quote_snapshot?: Json | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          voucher_snapshot?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_pending_order_id_fkey"
+            columns: ["pending_order_id"]
+            isOneToOne: false
+            referencedRelation: "pending_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_events: {
         Row: {
           amount: number
@@ -68,6 +163,84 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_orders: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          discount: number
+          gift_lines: Json
+          id: string
+          items: Json
+          note: string | null
+          paid_amount: number
+          payment_type: string
+          pricing_breakdown_snapshot: Json | null
+          promotion_snapshot: Json | null
+          shipping_address: Json | null
+          shipping_fee: number
+          shipping_quote_snapshot: Json | null
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+          voucher_snapshot: Json | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          discount?: number
+          gift_lines?: Json
+          id?: string
+          items?: Json
+          note?: string | null
+          paid_amount?: number
+          payment_type?: string
+          pricing_breakdown_snapshot?: Json | null
+          promotion_snapshot?: Json | null
+          shipping_address?: Json | null
+          shipping_fee?: number
+          shipping_quote_snapshot?: Json | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          voucher_snapshot?: Json | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          discount?: number
+          gift_lines?: Json
+          id?: string
+          items?: Json
+          note?: string | null
+          paid_amount?: number
+          payment_type?: string
+          pricing_breakdown_snapshot?: Json | null
+          promotion_snapshot?: Json | null
+          shipping_address?: Json | null
+          shipping_fee?: number
+          shipping_quote_snapshot?: Json | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          voucher_snapshot?: Json | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -95,6 +268,22 @@ export type Database = {
     }
     Functions: {
       bootstrap_admin: { Args: never; Returns: boolean }
+      get_order_by_code: {
+        Args: { _code: string; _phone: string }
+        Returns: {
+          code: string
+          created_at: string
+          customer_name: string
+          customer_phone: string
+          id: string
+          items: Json
+          paid_amount: number
+          payment_type: string
+          shipping_address: Json
+          status: string
+          total: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
