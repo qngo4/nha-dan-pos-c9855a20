@@ -5,6 +5,10 @@ import type {
   ShippingQuoteInput,
 } from "@/services/types";
 
+interface ErrorWithLatency extends Error {
+  latencyMs?: number;
+}
+
 /**
  * Tries the carrier (GHN) adapter first; falls back to the local zone adapter
  * when the carrier is unconfigured, times out, or errors. Marks fallback
@@ -42,7 +46,7 @@ export class HybridShippingAdapter implements ShippingService {
     const now = Date.now();
     if (now < this.disabledUntil) {
       const q = await this.fallback.quote(input);
-      return decorateFallback(q, "carrier_disabled");
+      return decorateFallback(q, "carrier_disabled", undefined, new Date().toISOString());
     }
 
     try {
@@ -50,7 +54,9 @@ export class HybridShippingAdapter implements ShippingService {
       this.consecutiveFailures = 0;
       return q;
     } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
+      const e = err as ErrorWithLatency;
+      const reason = e?.message ?? String(err);
+      const latencyMs = e?.latencyMs;
       this.consecutiveFailures += 1;
 
       if (reason === "no_config") {
@@ -65,14 +71,19 @@ export class HybridShippingAdapter implements ShippingService {
         console.warn("[shipping] carrier quote failed, falling back to zones:", reason);
       }
       const q = await this.fallback.quote(input);
-      return decorateFallback(q, reason);
+      return decorateFallback(q, reason, latencyMs, new Date().toISOString());
     }
   }
 }
 
-function decorateFallback(q: ShippingQuote, reason: string): ShippingQuote {
+function decorateFallback(
+  q: ShippingQuote,
+  reason: string,
+  latencyMs: number | undefined,
+  attemptedAt: string,
+): ShippingQuote {
   // Don't mark "incomplete" or "unavailable" as a carrier-fallback —
   // those are address-state issues, not carrier failures.
   if (q.status !== "quoted") return q;
-  return { ...q, usedFallback: true, fallbackReason: reason };
+  return { ...q, usedFallback: true, fallbackReason: reason, latencyMs, attemptedAt };
 }

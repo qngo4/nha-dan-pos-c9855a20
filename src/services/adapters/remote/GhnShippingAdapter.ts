@@ -49,12 +49,18 @@ interface InvokeResp {
   error: { message?: string } | null;
 }
 
+interface ErrorWithLatency extends Error {
+  latencyMs?: number;
+}
+
 /**
  * GHN shipping adapter. Implements `ShippingService` over a Supabase edge
  * function. Includes:
  *   - 30-minute localStorage cache keyed on (province, district, ward, weight)
  *   - In-flight request deduplication (rapid address typing collapses to 1 call)
  *   - 8-second client-side timeout via AbortController → throws "timeout"
+ *   - Forwards `orderCode` so admin log rows can be traced to a draft order
+ *   - Records `latencyMs` + `attemptedAt` on each successful quote
  */
 export class GhnShippingAdapter implements ShippingService {
   private readonly local = new LocalShippingAdapter();
@@ -73,7 +79,7 @@ export class GhnShippingAdapter implements ShippingService {
   }
 
   async quote(input: ShippingQuoteInput): Promise<ShippingQuote> {
-    const { address, subtotal, weightGrams } = input;
+    const { address, subtotal, weightGrams, orderCode } = input;
     const provinceName = address.provinceName?.trim();
     const districtName = address.districtName?.trim();
     const wardName = address.wardName?.trim();
@@ -97,14 +103,15 @@ export class GhnShippingAdapter implements ShippingService {
         fee: freeShip ? 0 : cached.fee,
         etaDays: cached.etaDays,
         freeShipApplied: freeShip,
+        latencyMs: 0,
+        attemptedAt: new Date().toISOString(),
       };
     }
 
-    // Dedupe concurrent in-flight calls with the same key.
     const existing = this.inflight.get(key);
     if (existing) return existing;
 
-    const promise = this.fetchAndCache(key, provinceName, districtName, wardName, weight, subtotal, freeShip)
+    const promise = this.fetchAndCache(key, provinceName, districtName, wardName, weight, subtotal, freeShip, orderCode)
       .finally(() => this.inflight.delete(key));
     this.inflight.set(key, promise);
     return promise;
@@ -118,25 +125,41 @@ export class GhnShippingAdapter implements ShippingService {
     weight: number,
     subtotal: number,
     freeShip: boolean,
+    orderCode?: string,
   ): Promise<ShippingQuote> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
+    const startedAt = Date.now();
     let res: InvokeResp;
     try {
       res = (await supabase.functions.invoke("ghn-quote", {
-        body: { provinceName, districtName, wardName, weightGrams: weight, subtotal },
+        body: { provinceName, districtName, wardName, weightGrams: weight, subtotal, orderCode },
       })) as InvokeResp;
     } catch (err) {
-      if (ctrl.signal.aborted) throw new Error("timeout");
-      throw err instanceof Error ? err : new Error(String(err));
+      const latencyMs = Date.now() - startedAt;
+      if (ctrl.signal.aborted) {
+        const e: ErrorWithLatency = new Error("timeout");
+        e.latencyMs = latencyMs;
+        throw e;
+      }
+      const e: ErrorWithLatency = err instanceof Error ? err : new Error(String(err));
+      e.latencyMs = latencyMs;
+      throw e;
     } finally {
       clearTimeout(timer);
     }
 
-    if (res.error) throw new Error(res.error.message ?? "ghn_invoke_failed");
+    const latencyMs = Date.now() - startedAt;
+    if (res.error) {
+      const e: ErrorWithLatency = new Error(res.error.message ?? "ghn_invoke_failed");
+      e.latencyMs = latencyMs;
+      throw e;
+    }
     const data = res.data;
     if (!data || data.ok !== true) {
-      throw new Error((data && "reason" in data ? data.reason : null) ?? "ghn_unknown");
+      const e: ErrorWithLatency = new Error((data && "reason" in data ? data.reason : null) ?? "ghn_unknown");
+      e.latencyMs = latencyMs;
+      throw e;
     }
 
     writeCache(key, { at: Date.now(), fee: data.fee, etaDays: data.etaDays });
@@ -147,6 +170,8 @@ export class GhnShippingAdapter implements ShippingService {
       fee: freeShip ? 0 : data.fee,
       etaDays: data.etaDays,
       freeShipApplied: freeShip,
+      latencyMs,
+      attemptedAt: new Date().toISOString(),
     };
   }
 }

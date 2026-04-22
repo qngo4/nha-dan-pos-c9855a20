@@ -35,11 +35,39 @@ interface LogRow {
 
 const PAGE_SIZE = 50;
 
+type StatusFilter = "all" | "ok" | "fail";
+type ReasonFilter = "all" | "timeout" | "no_config" | "address_unmapped" | "ghn_error" | "no_service";
+
+const REASON_OPTIONS: { value: ReasonFilter; label: string }[] = [
+  { value: "all", label: "Tất cả lý do" },
+  { value: "timeout", label: "Timeout" },
+  { value: "no_config", label: "Chưa cấu hình" },
+  { value: "address_unmapped", label: "Địa chỉ không khớp" },
+  { value: "ghn_error", label: "Lỗi GHN" },
+  { value: "no_service", label: "Không có dịch vụ" },
+];
+
+interface SavedView {
+  id: string;
+  label: string;
+  status: StatusFilter;
+  reason: ReasonFilter;
+}
+
+const SAVED_VIEWS: SavedView[] = [
+  { id: "all", label: "Tất cả", status: "all", reason: "all" },
+  { id: "fails", label: "Chỉ lỗi", status: "fail", reason: "all" },
+  { id: "timeouts", label: "Timeout", status: "fail", reason: "timeout" },
+  { id: "unmapped", label: "Địa chỉ không khớp", status: "fail", reason: "address_unmapped" },
+  { id: "no_config", label: "Chưa cấu hình", status: "fail", reason: "no_config" },
+];
+
 export default function GhnQuoteLogsPage() {
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "ok" | "fail">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [reasonFilter, setReasonFilter] = useState<ReasonFilter>("all");
 
   const load = async () => {
     setLoading(true);
@@ -61,6 +89,7 @@ export default function GhnQuoteLogsPage() {
     return rows.filter((r) => {
       if (statusFilter === "ok" && !r.ok) return false;
       if (statusFilter === "fail" && r.ok) return false;
+      if (reasonFilter !== "all" && r.reason !== reasonFilter) return false;
       if (!q) return true;
       const hay = [
         r.province_name, r.district_name, r.ward_name,
@@ -68,7 +97,7 @@ export default function GhnQuoteLogsPage() {
       ].filter(Boolean).join(" ").toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, reasonFilter]);
 
   const stats = useMemo(() => {
     const total = rows.length;
@@ -78,6 +107,13 @@ export default function GhnQuoteLogsPage() {
       : 0;
     return { total, ok, fail: total - ok, avgLatency };
   }, [rows]);
+
+  const activeView = SAVED_VIEWS.find((v) => v.status === statusFilter && v.reason === reasonFilter)?.id ?? null;
+
+  const applyView = (v: SavedView) => {
+    setStatusFilter(v.status);
+    setReasonFilter(v.reason);
+  };
 
   return (
     <div className="space-y-4">
@@ -101,6 +137,22 @@ export default function GhnQuoteLogsPage() {
 
       <Card>
         <CardContent className="p-4 space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {SAVED_VIEWS.map((v) => (
+              <button
+                key={v.id}
+                onClick={() => applyView(v)}
+                className={`px-3 h-7 rounded-full border text-xs font-semibold transition-colors ${
+                  activeView === v.id
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-background border-border hover:border-foreground/40"
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <div className="relative flex-1 min-w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -111,7 +163,7 @@ export default function GhnQuoteLogsPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -119,6 +171,16 @@ export default function GhnQuoteLogsPage() {
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="ok">Thành công</SelectItem>
                 <SelectItem value="fail">Thất bại</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={reasonFilter} onValueChange={(v) => setReasonFilter(v as ReasonFilter)}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REASON_OPTIONS.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
