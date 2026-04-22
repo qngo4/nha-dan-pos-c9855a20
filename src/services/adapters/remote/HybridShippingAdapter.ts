@@ -6,8 +6,9 @@ import type {
 } from "@/services/types";
 
 /**
- * Tries the primary (carrier API) adapter first; falls back to the local
- * zone-based adapter when the carrier is unconfigured, times out, or errors.
+ * Tries the carrier (GHN) adapter first; falls back to the local zone adapter
+ * when the carrier is unconfigured, times out, or errors. Marks fallback
+ * results with `usedFallback` + `fallbackReason` so the UI can warn the user.
  *
  * Includes a tiny circuit breaker: after `no_config` or 3 consecutive failures,
  * the carrier path is disabled for 60s to avoid spamming the edge function.
@@ -30,10 +31,18 @@ export class HybridShippingAdapter implements ShippingService {
     return this.fallback.saveConfig(input);
   }
 
+  /** Force the next quote to retry the carrier even if circuit-breaker tripped. */
+  resetBreaker(): void {
+    this.disabledUntil = 0;
+    this.consecutiveFailures = 0;
+    this.warned = false;
+  }
+
   async quote(input: ShippingQuoteInput): Promise<ShippingQuote> {
     const now = Date.now();
     if (now < this.disabledUntil) {
-      return this.fallback.quote(input);
+      const q = await this.fallback.quote(input);
+      return decorateFallback(q, "carrier_disabled");
     }
 
     try {
@@ -41,10 +50,10 @@ export class HybridShippingAdapter implements ShippingService {
       this.consecutiveFailures = 0;
       return q;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const reason = err instanceof Error ? err.message : String(err);
       this.consecutiveFailures += 1;
 
-      if (message === "no_config") {
+      if (reason === "no_config") {
         this.disabledUntil = now + 60_000;
       } else if (this.consecutiveFailures >= 3) {
         this.disabledUntil = now + 60_000;
@@ -53,9 +62,17 @@ export class HybridShippingAdapter implements ShippingService {
 
       if (!this.warned) {
         this.warned = true;
-        console.warn("[shipping] carrier quote failed, falling back to zones:", message);
+        console.warn("[shipping] carrier quote failed, falling back to zones:", reason);
       }
-      return this.fallback.quote(input);
+      const q = await this.fallback.quote(input);
+      return decorateFallback(q, reason);
     }
   }
+}
+
+function decorateFallback(q: ShippingQuote, reason: string): ShippingQuote {
+  // Don't mark "incomplete" or "unavailable" as a carrier-fallback —
+  // those are address-state issues, not carrier failures.
+  if (q.status !== "quoted") return q;
+  return { ...q, usedFallback: true, fallbackReason: reason };
 }
