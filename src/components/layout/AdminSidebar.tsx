@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { paymentEvents } from "@/services";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, FolderTree, Package, Layers, FileInput, Receipt,
   ShoppingCart, Clock, Tags, Users, Truck, ClipboardCheck,
@@ -80,7 +81,7 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
   const location = useLocation();
   const [unmatchedCount, setUnmatchedCount] = useState(0);
 
-  // Refresh the unmatched-payments badge periodically. Cheap (count-only query).
+  // Live unmatched-payments badge via Supabase Realtime.
   useEffect(() => {
     let alive = true;
     const tick = async () => {
@@ -92,12 +93,17 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
       }
     };
     void tick();
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void tick();
-    }, 30000);
+    const channel = supabase
+      .channel("payment_events_badge")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_events" },
+        () => { void tick(); },
+      )
+      .subscribe();
     return () => {
       alive = false;
-      window.clearInterval(id);
+      supabase.removeChannel(channel);
     };
   }, []);
 
