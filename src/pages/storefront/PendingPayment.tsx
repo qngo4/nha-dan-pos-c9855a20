@@ -217,6 +217,17 @@ export default function PendingPaymentPage() {
               <QrCode className="h-4 w-4 text-primary" /> Thông tin thanh toán ({paymentLabelShort})
             </h2>
 
+            {showMinTransferWarning && (
+              <div className="mb-3 p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Số tiền <strong>{formatVND(breakdown.total)}</strong> thấp hơn mức tối thiểu (10.000đ)
+                  mà nhiều ngân hàng cho phép chuyển khoản 24/7. Nếu app báo "số tiền giao dịch tối thiểu",
+                  vui lòng đổi sang <strong>tiền mặt</strong> hoặc liên hệ cửa hàng.
+                </span>
+              </div>
+            )}
+
             {!configured ? (
               <div className="p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
