@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { paymentEvents } from "@/services";
 import {
   LayoutDashboard, FolderTree, Package, Layers, FileInput, Receipt,
   ShoppingCart, Clock, Tags, Users, Truck, ClipboardCheck,
   BarChart3, TrendingUp, DollarSign, UserCog, Shield,
-  ChevronLeft, ChevronRight, Menu, X, Store, Settings, MapPin
+  ChevronLeft, ChevronRight, Menu, X, Store, Settings, MapPin,
+  AlertCircle,
 } from "lucide-react";
 
 const navGroups = [
@@ -29,6 +31,7 @@ const navGroups = [
       { path: "/admin/pos", icon: ShoppingCart, label: "POS / Tạo hóa đơn" },
       { path: "/admin/invoices", icon: Receipt, label: "Hóa đơn" },
       { path: "/admin/pending-orders", icon: Clock, label: "Đơn chờ thanh toán", badge: 2 },
+      { path: "/admin/unmatched-payments", icon: AlertCircle, label: "Giao dịch chưa khớp", badgeKey: "unmatched" as const },
       { path: "/admin/promotions", icon: Tags, label: "Khuyến mãi" },
       { path: "/admin/vouchers", icon: Tags, label: "Voucher" },
     ]
