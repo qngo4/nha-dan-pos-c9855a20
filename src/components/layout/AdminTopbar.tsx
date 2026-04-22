@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { dashboardStats, products, invoices, customers } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { useAdminAuth } from "@/lib/admin-auth";
 
 interface AdminTopbarProps {
   onMenuClick: () => void;
@@ -15,6 +16,7 @@ type SearchHit =
   | { kind: "customer"; id: string; title: string; sub: string; href: string };
 
 export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
+  const { user, signOut } = useAdminAuth();
   const [userOpen, setUserOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
@@ -68,10 +70,11 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const notifications = baseNotifications.filter(n => !readIds.has(n.id));
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     toast.success("Đã đăng xuất");
     setUserOpen(false);
-    navigate("/login");
+    navigate("/admin/login");
   };
 
   // Build search results — grouped, lightweight
@@ -291,7 +294,7 @@ export function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
           {userOpen && (
             <div className="absolute right-0 top-full mt-1 w-56 bg-popover border rounded-md shadow-lg z-50 animate-fade-in">
               <div className="px-3 py-2 border-b">
-                <p className="text-sm font-medium">Nguyễn Nhã Đan</p>
+                <p className="text-sm font-medium">{user?.email ?? "Admin"}</p>
                 <p className="text-[11px] text-muted-foreground">admin · Quản trị viên</p>
               </div>
               <div className="py-1">
