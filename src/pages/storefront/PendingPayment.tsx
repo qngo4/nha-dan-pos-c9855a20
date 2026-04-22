@@ -114,18 +114,10 @@ export default function PendingPaymentPage() {
         fromService.paymentMethod === "bank_transfer" &&
         fromService.status === "pending_payment" &&
         settings?.qrEnabled &&
-        !qr
+        !qr &&
+        !qrLoading
       ) {
-        try {
-          const result = await vietQr.generate({
-            amount: fromService.pricingBreakdownSnapshot.total,
-            transferContent: fromService.paymentReference,
-            cacheKey: `${fromService.id}-${fromService.code}-${fromService.pricingBreakdownSnapshot.total}-${qrAttempt}`,
-          });
-          if (alive) setQr(result);
-        } catch (e: any) {
-          if (alive) setQrError(e?.message ?? "Không thể tạo mã QR");
-        }
+        await regenerateQr(fromService, settings, qrAttempt);
       }
     };
 
