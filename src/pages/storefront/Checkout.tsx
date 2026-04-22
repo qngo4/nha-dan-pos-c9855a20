@@ -222,7 +222,11 @@ export default function CheckoutPage() {
       if (res.valid && res.snapshot) {
         setVoucherSnap(res.snapshot);
         setVoucherInput("");
-        toast.success(`Áp dụng ${res.snapshot.code} — giảm ${formatVND(res.snapshot.discountAmount)}`);
+        const snap = res.snapshot;
+        const msg = snap.shippingDiscountAmount
+          ? `Áp dụng ${snap.code} — miễn phí giao hàng`
+          : `Áp dụng ${snap.code} — giảm ${formatVND(snap.discountAmount)}`;
+        toast.success(msg);
       } else {
         setVoucherSnap(null);
         setVoucherError(res.reasonIfInvalid ?? "Mã không hợp lệ");
