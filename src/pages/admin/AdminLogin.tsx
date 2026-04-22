@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAdminAuth } from "@/lib/admin-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function AdminLoginPage() {
-  const { signIn, signUp, session, isAdmin, loading } = useAdminAuth();
+  const { signIn, signUp, session, isAdmin, loading, refreshRole } = useAdminAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +35,20 @@ export default function AdminLoginPage() {
         setError(res.error);
         return;
       }
-      toast.success(mode === "signin" ? "Đăng nhập thành công" : "Đã tạo tài khoản — kiểm tra quyền admin");
+      // After signup, attempt to claim admin (no-op if one already exists).
+      if (mode === "signup") {
+        const { data, error: rpcError } = await supabase.rpc("bootstrap_admin");
+        if (rpcError) {
+          console.warn("bootstrap_admin failed", rpcError);
+        } else if (data === true) {
+          toast.success("Đã tạo tài khoản admin đầu tiên cho cửa hàng");
+        } else {
+          toast.success("Đã tạo tài khoản — chờ admin hiện tại cấp quyền");
+        }
+        await refreshRole();
+      } else {
+        toast.success("Đăng nhập thành công");
+      }
     } finally {
       setBusy(false);
     }
