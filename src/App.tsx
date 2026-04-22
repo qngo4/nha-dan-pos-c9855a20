@@ -45,6 +45,7 @@ import AdminUsers from "@/pages/admin/UsersManagement";
 import AdminSecurity from "@/pages/admin/Security";
 import AdminStoreSettings from "@/pages/admin/StoreSettings";
 import AdminShippingSettings from "@/pages/admin/ShippingSettings";
+import AdminGhnQuoteLogs from "@/pages/admin/GhnQuoteLogs";
 
 import PlaceholderPage from "@/pages/PlaceholderPage";
 import NotFound from "@/pages/NotFound";
@@ -113,6 +114,7 @@ const App = () => (
               <Route path="security" element={<AdminSecurity />} />
               <Route path="store-settings" element={<AdminStoreSettings />} />
               <Route path="shipping-settings" element={<AdminShippingSettings />} />
+              <Route path="ghn-quote-logs" element={<AdminGhnQuoteLogs />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

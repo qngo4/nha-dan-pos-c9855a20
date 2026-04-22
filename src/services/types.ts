@@ -106,6 +106,10 @@ export interface ShippingQuote {
   etaDays?: { min: number; max: number };
   reasonIfUnavailable?: string;
   freeShipApplied?: boolean;
+  /** True when the carrier API failed and the result came from the local zone fallback. */
+  usedFallback?: boolean;
+  /** Machine-readable reason set when usedFallback=true (e.g. "no_config", "address_unmapped", "ghn_error", "timeout"). */
+  fallbackReason?: string;
 }
 
 export interface ShippingZoneRule {

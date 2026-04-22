@@ -1,6 +1,8 @@
 // GHN Fee quote edge function.
 // Maps Province Open API names → GHN internal IDs and returns shipping fee.
+// Also writes a log row to public.ghn_quote_logs (uses service role to bypass RLS).
 import { z } from "https://esm.sh/zod@3.23.8";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +18,7 @@ const BodySchema = z.object({
   wardName: z.string().min(1),
   weightGrams: z.number().int().min(1).max(30000).optional(),
   subtotal: z.number().min(0),
+  orderCode: z.string().optional(),
 });
 
 type Province = { ProvinceID: number; ProvinceName: string; NameExtension?: string[] };
@@ -49,12 +52,10 @@ function matchByName<T extends { NameExtension?: string[] }>(
   getName: (t: T) => string,
 ): T | null {
   const n = norm(target);
-  // Exact
   for (const it of list) {
     if (norm(getName(it)) === n) return it;
     if (it.NameExtension?.some((e) => norm(e) === n)) return it;
   }
-  // Contains
   for (const it of list) {
     const nm = norm(getName(it));
     if (nm.includes(n) || n.includes(nm)) return it;
@@ -99,7 +100,58 @@ async function getWards(token: string, districtId: number): Promise<Ward[]> {
   return data;
 }
 
-function fail(reason: string, message: string) {
+function makeLogger() {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+}
+
+interface LogPayload {
+  provinceName: string;
+  districtName: string;
+  wardName: string;
+  weightGrams?: number;
+  subtotal?: number;
+  ok: boolean;
+  fee?: number;
+  etaMin?: number;
+  etaMax?: number;
+  serviceId?: number;
+  reason?: string;
+  message?: string;
+  latencyMs: number;
+  orderCode?: string;
+  rawResponse?: unknown;
+}
+
+async function writeLog(p: LogPayload): Promise<void> {
+  try {
+    const client = makeLogger();
+    if (!client) return;
+    await client.from("ghn_quote_logs").insert({
+      province_name: p.provinceName,
+      district_name: p.districtName,
+      ward_name: p.wardName,
+      weight_grams: p.weightGrams ?? null,
+      subtotal: p.subtotal ?? null,
+      ok: p.ok,
+      fee: p.fee ?? null,
+      eta_min: p.etaMin ?? null,
+      eta_max: p.etaMax ?? null,
+      service_id: p.serviceId ?? null,
+      reason: p.reason ?? null,
+      message: p.message ?? null,
+      latency_ms: Math.round(p.latencyMs),
+      order_code: p.orderCode ?? null,
+      raw_response: p.rawResponse ?? null,
+    });
+  } catch (err) {
+    console.error("ghn_quote_logs insert failed:", err);
+  }
+}
+
+function failResponse(reason: string, message: string) {
   return new Response(JSON.stringify({ ok: false, reason, message }), {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -109,65 +161,83 @@ function fail(reason: string, message: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  try {
-    const parsed = BodySchema.safeParse(await req.json());
-    if (!parsed.success) {
-      return new Response(JSON.stringify({ ok: false, reason: "bad_input", message: "Invalid input" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  const startedAt = Date.now();
+  let parsedBody: z.infer<typeof BodySchema> | null = null;
 
-    const { provinceName, districtName, wardName, weightGrams, subtotal } = parsed.data;
+  try {
+    const raw = await req.json();
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ ok: false, reason: "bad_input", message: "Invalid input" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    parsedBody = parsed.data;
+    const { provinceName, districtName, wardName, weightGrams, subtotal, orderCode } = parsed.data;
+
     const TOKEN = Deno.env.get("GHN_TOKEN");
     const SHOP_ID = Deno.env.get("GHN_SHOP_ID");
     const FROM_DISTRICT = Deno.env.get("GHN_FROM_DISTRICT_ID");
 
     if (!TOKEN || !SHOP_ID || !FROM_DISTRICT) {
-      return fail("no_config", "GHN secrets not configured");
+      const out = { reason: "no_config", message: "GHN secrets not configured" };
+      void writeLog({
+        provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
+        ok: false, ...out, latencyMs: Date.now() - startedAt,
+      });
+      return failResponse(out.reason, out.message);
     }
     const fromDistrictId = Number(FROM_DISTRICT);
     const shopId = Number(SHOP_ID);
-    if (!fromDistrictId || !shopId) return fail("no_config", "GHN_SHOP_ID / GHN_FROM_DISTRICT_ID must be numeric");
+    if (!fromDistrictId || !shopId) {
+      const out = { reason: "no_config", message: "GHN_SHOP_ID / GHN_FROM_DISTRICT_ID must be numeric" };
+      void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
+      return failResponse(out.reason, out.message);
+    }
 
-    // Map names → GHN IDs
     const provinces = await getProvinces(TOKEN);
     const province = matchByName(provinces, provinceName, (p) => p.ProvinceName);
-    if (!province) return fail("address_unmapped", `Province "${provinceName}" not found in GHN`);
+    if (!province) {
+      const out = { reason: "address_unmapped", message: `Province "${provinceName}" not found in GHN` };
+      void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
+      return failResponse(out.reason, out.message);
+    }
 
     const districts = await getDistricts(TOKEN, province.ProvinceID);
     const district = matchByName(districts, districtName, (d) => d.DistrictName);
-    if (!district) return fail("address_unmapped", `District "${districtName}" not found in GHN`);
+    if (!district) {
+      const out = { reason: "address_unmapped", message: `District "${districtName}" not found in GHN` };
+      void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
+      return failResponse(out.reason, out.message);
+    }
 
     const wards = await getWards(TOKEN, district.DistrictID);
     const ward = matchByName(wards, wardName, (w) => w.WardName);
-    if (!ward) return fail("address_unmapped", `Ward "${wardName}" not found in GHN`);
+    if (!ward) {
+      const out = { reason: "address_unmapped", message: `Ward "${wardName}" not found in GHN` };
+      void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
+      return failResponse(out.reason, out.message);
+    }
 
     const weight = weightGrams ?? 500;
 
-    // Pick available service
     const services = await ghnFetch<Array<{ service_id: number; service_type_id: number }>>(
       "/v2/shipping-order/available-services",
       TOKEN,
-      {
-        shop_id: shopId,
-        from_district: fromDistrictId,
-        to_district: district.DistrictID,
-      },
+      { shop_id: shopId, from_district: fromDistrictId, to_district: district.DistrictID },
       "POST",
     );
-    if (!services?.length) return fail("no_service", "No GHN service available for this route");
-    const service =
-      services.find((s) => s.service_type_id === 2) ?? services[0];
+    if (!services?.length) {
+      const out = { reason: "no_service", message: "No GHN service available for this route" };
+      void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
+      return failResponse(out.reason, out.message);
+    }
+    const service = services.find((s) => s.service_type_id === 2) ?? services[0];
 
-    // Fee
     const feeRes = await fetch(`${GHN_BASE}/v2/shipping-order/fee`, {
       method: "POST",
-      headers: {
-        Token: TOKEN,
-        ShopId: String(shopId),
-        "Content-Type": "application/json",
-      },
+      headers: { Token: TOKEN, ShopId: String(shopId), "Content-Type": "application/json" },
       body: JSON.stringify({
         service_id: service.service_id,
         service_type_id: service.service_type_id,
@@ -184,21 +254,44 @@ Deno.serve(async (req) => {
     const feeJson = await feeRes.json();
     if (!feeRes.ok || feeJson.code !== 200) {
       console.error("GHN fee error:", feeJson);
-      return fail("ghn_error", feeJson.message ?? "GHN fee API failed");
+      const out = { reason: "ghn_error", message: feeJson.message ?? "GHN fee API failed" };
+      void writeLog({
+        provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
+        ok: false, ...out, latencyMs: Date.now() - startedAt, rawResponse: feeJson,
+      });
+      return failResponse(out.reason, out.message);
     }
 
+    const fee = feeJson.data?.total ?? 0;
+    const etaMin = 2;
+    const etaMax = 4;
+    void writeLog({
+      provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
+      ok: true, fee, etaMin, etaMax, serviceId: service.service_id,
+      latencyMs: Date.now() - startedAt,
+    });
+
     return new Response(
-      JSON.stringify({
-        ok: true,
-        fee: feeJson.data?.total ?? 0,
-        etaDays: { min: 2, max: 4 },
-        serviceId: service.service_id,
-      }),
+      JSON.stringify({ ok: true, fee, etaDays: { min: etaMin, max: etaMax }, serviceId: service.service_id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("ghn-quote error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";
-    return fail("ghn_error", message);
+    if (parsedBody) {
+      void writeLog({
+        provinceName: parsedBody.provinceName,
+        districtName: parsedBody.districtName,
+        wardName: parsedBody.wardName,
+        weightGrams: parsedBody.weightGrams,
+        subtotal: parsedBody.subtotal,
+        orderCode: parsedBody.orderCode,
+        ok: false,
+        reason: "ghn_error",
+        message,
+        latencyMs: Date.now() - startedAt,
+      });
+    }
+    return failResponse("ghn_error", message);
   }
 });

@@ -41,12 +41,27 @@ function writeCache(key: string, v: CachedQuote): void {
   }
 }
 
+interface InvokeResp {
+  data:
+    | { ok: true; fee: number; etaDays: { min: number; max: number }; serviceId: number }
+    | { ok: false; reason: string; message: string }
+    | null;
+  error: { message?: string } | null;
+}
+
+/**
+ * GHN shipping adapter. Implements `ShippingService` over a Supabase edge
+ * function. Includes:
+ *   - 30-minute localStorage cache keyed on (province, district, ward, weight)
+ *   - In-flight request deduplication (rapid address typing collapses to 1 call)
+ *   - 8-second client-side timeout via AbortController → throws "timeout"
+ */
 export class GhnShippingAdapter implements ShippingService {
-  // Reuse local adapter for getConfig/saveConfig (zone rules + freeship thresholds).
   private readonly local = new LocalShippingAdapter();
+  private readonly inflight = new Map<string, Promise<ShippingQuote>>();
 
   constructor(_storeSettings?: StoreSettingsService) {
-    // storeSettings reserved for future use (e.g. dynamic from-warehouse).
+    /* reserved for future dynamic from-warehouse config */
   }
 
   getConfig(): Promise<ShippingConfig> {
@@ -70,7 +85,6 @@ export class GhnShippingAdapter implements ShippingService {
     const weight = weightGrams ?? 500;
     const key = cacheKey(provinceName, districtName, wardName, weight);
 
-    // Resolve freeship threshold from local zone config.
     const cfg = await this.local.getConfig();
     const freeshipThreshold = pickFreeshipThreshold(cfg, address.provinceCode);
     const freeShip = freeshipThreshold !== undefined && subtotal >= freeshipThreshold;
@@ -86,28 +100,43 @@ export class GhnShippingAdapter implements ShippingService {
       };
     }
 
-    // Invoke edge function with timeout
+    // Dedupe concurrent in-flight calls with the same key.
+    const existing = this.inflight.get(key);
+    if (existing) return existing;
+
+    const promise = this.fetchAndCache(key, provinceName, districtName, wardName, weight, subtotal, freeShip)
+      .finally(() => this.inflight.delete(key));
+    this.inflight.set(key, promise);
+    return promise;
+  }
+
+  private async fetchAndCache(
+    key: string,
+    provinceName: string,
+    districtName: string,
+    wardName: string,
+    weight: number,
+    subtotal: number,
+    freeShip: boolean,
+  ): Promise<ShippingQuote> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
-    let res;
+    let res: InvokeResp;
     try {
-      res = await supabase.functions.invoke("ghn-quote", {
+      res = (await supabase.functions.invoke("ghn-quote", {
         body: { provinceName, districtName, wardName, weightGrams: weight, subtotal },
-      });
+      })) as InvokeResp;
+    } catch (err) {
+      if (ctrl.signal.aborted) throw new Error("timeout");
+      throw err instanceof Error ? err : new Error(String(err));
     } finally {
       clearTimeout(timer);
     }
 
-    if (res.error) {
-      throw new Error(res.error.message ?? "ghn_invoke_failed");
-    }
-    const data = res.data as
-      | { ok: true; fee: number; etaDays: { min: number; max: number }; serviceId: number }
-      | { ok: false; reason: string; message: string };
-
+    if (res.error) throw new Error(res.error.message ?? "ghn_invoke_failed");
+    const data = res.data;
     if (!data || data.ok !== true) {
-      const reason = (data as { reason?: string } | null)?.reason ?? "ghn_unknown";
-      throw new Error(reason);
+      throw new Error((data && "reason" in data ? data.reason : null) ?? "ghn_unknown");
     }
 
     writeCache(key, { at: Date.now(), fee: data.fee, etaDays: data.etaDays });

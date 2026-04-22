@@ -101,6 +101,7 @@ export default function CheckoutPage() {
 
   const [quote, setQuote] = useState<ShippingQuote>({ status: "incomplete" });
   const [quoting, setQuoting] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // Build canonical ShippingAddress (or null if incomplete) and quote on change.
   const shippingAddress: ShippingAddress | null = useMemo(() => {
@@ -138,7 +139,14 @@ export default function CheckoutPage() {
       cancel = true;
       clearTimeout(t);
     };
-  }, [shippingAddress, subtotal]);
+  }, [shippingAddress, subtotal, retryNonce]);
+
+  const handleRetryQuote = () => {
+    // Reset hybrid circuit-breaker so the carrier is tried again immediately.
+    const s = shipping as { resetBreaker?: () => void };
+    s.resetBreaker?.();
+    setRetryNonce((n) => n + 1);
+  };
 
   const baseShippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
 
@@ -202,11 +210,15 @@ export default function CheckoutPage() {
   const isOnline = payment !== "cash";
 
   const phoneOk = /^[\d+]{9,12}$/.test(phone.replace(/\s/g, ""));
+  // Block submit if GHN couldn't map the ward — the address is ambiguous and
+  // the local zone fallback may underprice it. User must pick a different ward.
+  const addressUnmapped = quote.usedFallback && quote.fallbackReason === "address_unmapped";
   const canSubmit =
     cartItems.length > 0 &&
     name.trim().length > 0 &&
     phoneOk &&
     quote.status === "quoted" &&
+    !addressUnmapped &&
     !submitting;
 
   const applyVoucher = async () => {
@@ -390,7 +402,7 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              <ShippingBlock quote={quote} loading={quoting} />
+              <ShippingBlock quote={quote} loading={quoting} onRetry={handleRetryQuote} />
             </section>
 
             {/* Payment */}
@@ -591,7 +603,15 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function ShippingBlock({ quote, loading }: { quote: ShippingQuote; loading: boolean }) {
+function ShippingBlock({
+  quote,
+  loading,
+  onRetry,
+}: {
+  quote: ShippingQuote;
+  loading: boolean;
+  onRetry: () => void;
+}) {
   if (loading) {
     return (
       <div className="mt-4 p-3 rounded-xl bg-muted/50 text-xs flex items-center gap-2 text-muted-foreground">
@@ -617,6 +637,53 @@ function ShippingBlock({ quote, loading }: { quote: ShippingQuote; loading: bool
   }
   if (quote.status === "quoted") {
     const eta = quote.etaDays;
+
+    // Address unmapped → block the user before submit.
+    if (quote.usedFallback && quote.fallbackReason === "address_unmapped") {
+      return (
+        <div className="mt-4 p-3 rounded-xl bg-danger-soft text-xs text-danger space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              Hệ thống không nhận diện được phường/xã này trên GHN. Vui lòng chọn lại phường/xã từ danh sách
+              hoặc thử một phường lân cận để báo phí chính xác.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="ml-5 inline-flex items-center gap-1.5 px-3 h-7 rounded-full border border-danger/40 text-danger text-[11px] font-semibold hover:bg-danger/5"
+          >
+            <Loader2 className="h-3 w-3" /> Thử báo giá lại
+          </button>
+        </div>
+      );
+    }
+
+    // Carrier failed but local fallback succeeded → warn & offer retry.
+    if (quote.usedFallback) {
+      return (
+        <div className="mt-4 p-3 rounded-xl bg-warning-soft text-xs text-warning space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              Không kết nối được dịch vụ GHN — đang dùng phí ước tính theo khu vực.
+              Phí thực tế có thể thay đổi khi giao hàng.
+              {eta ? <> Dự kiến <b>{eta.min}–{eta.max} ngày</b>. </> : null}
+              {quote.fee === 0 ? <b>Miễn phí.</b> : <>Phí ước tính: <b>{formatVND(quote.fee ?? 0)}</b>.</>}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="ml-5 inline-flex items-center gap-1.5 px-3 h-7 rounded-full border border-warning/40 text-warning text-[11px] font-semibold hover:bg-warning/5"
+          >
+            <Loader2 className="h-3 w-3" /> Thử báo giá lại
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="mt-4 p-3 rounded-xl bg-success-soft text-xs text-success flex items-start gap-2">
         <Truck className="h-3.5 w-3.5 shrink-0 mt-0.5" />
