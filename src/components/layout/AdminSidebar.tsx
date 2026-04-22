@@ -64,6 +64,7 @@ const navGroups = [
     items: [
       { path: "/admin/store-settings", icon: Settings, label: "Cài đặt cửa hàng" },
       { path: "/admin/shipping-settings", icon: MapPin, label: "Cài đặt giao hàng" },
+      { path: "/admin/ghn-quote-logs", icon: ClipboardCheck, label: "Nhật ký GHN" },
       { path: "/admin/users", icon: UserCog, label: "Người dùng" },
       { path: "/admin/security", icon: Shield, label: "Bảo mật" },
     ]
