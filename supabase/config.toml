@@ -1,1 +1,4 @@
 project_id = "jdzdjoqxhfxyyiguoasl"
+
+[functions.casso-webhook]
+verify_jwt = false

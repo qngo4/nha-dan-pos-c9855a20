@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { paymentEvents } from "@/services";
 import {
   LayoutDashboard, FolderTree, Package, Layers, FileInput, Receipt,
   ShoppingCart, Clock, Tags, Users, Truck, ClipboardCheck,
   BarChart3, TrendingUp, DollarSign, UserCog, Shield,
-  ChevronLeft, ChevronRight, Menu, X, Store, Settings, MapPin
+  ChevronLeft, ChevronRight, Menu, X, Store, Settings, MapPin,
+  AlertCircle,
 } from "lucide-react";
 
 const navGroups = [
@@ -29,6 +31,7 @@ const navGroups = [
       { path: "/admin/pos", icon: ShoppingCart, label: "POS / Tạo hóa đơn" },
       { path: "/admin/invoices", icon: Receipt, label: "Hóa đơn" },
       { path: "/admin/pending-orders", icon: Clock, label: "Đơn chờ thanh toán", badge: 2 },
+      { path: "/admin/unmatched-payments", icon: AlertCircle, label: "Giao dịch chưa khớp", badgeKey: "unmatched" as const },
       { path: "/admin/promotions", icon: Tags, label: "Khuyến mãi" },
       { path: "/admin/vouchers", icon: Tags, label: "Voucher" },
     ]
@@ -75,10 +78,37 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: AdminSidebarProps) {
   const location = useLocation();
+  const [unmatchedCount, setUnmatchedCount] = useState(0);
+
+  // Refresh the unmatched-payments badge periodically. Cheap (count-only query).
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const n = await paymentEvents.countUnmatched();
+        if (alive) setUnmatchedCount(n);
+      } catch {
+        /* unauthenticated or offline → just hide the badge */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void tick();
+    }, 30000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin';
     return location.pathname.startsWith(path);
+  };
+
+  const badgeFor = (item: any): number | undefined => {
+    if (item.badgeKey === "unmatched") return unmatchedCount > 0 ? unmatchedCount : undefined;
+    return item.badge;
   };
 
   const sidebarContent = (
@@ -99,7 +129,9 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
               </p>
             )}
             <div className="space-y-0.5">
-              {group.items.map((item) => (
+              {group.items.map((item) => {
+                const badgeValue = badgeFor(item);
+                return (
                 <Link
                   key={item.path}
                   to={item.path}
@@ -117,15 +149,16 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
                   {!collapsed && (
                     <>
                       <span className="truncate">{item.label}</span>
-                      {item.badge && (
+                      {badgeValue && (
                         <span className="ml-auto text-[10px] bg-danger text-danger-foreground rounded-full px-1.5 py-0.5 font-semibold">
-                          {item.badge}
+                          {badgeValue}
                         </span>
                       )}
                     </>
                   )}
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

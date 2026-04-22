@@ -4,6 +4,7 @@ import { formatVND, formatDateTime } from "@/lib/format";
 import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
 import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
+import { usePaymentEvents } from "@/hooks/usePaymentEvents";
 import type {
   PaymentMethod,
   PendingOrder,
@@ -109,6 +110,30 @@ export default function PendingPaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // === Auto-confirm via Casso webhook (Phase 1) ===
+  // Poll Cloud `payment_events`; when a sufficient transfer arrives, flip status.
+  const isResolved = order?.status === "confirmed" || order?.status === "cancelled";
+  const { matchedEvent, insufficientEvent } = usePaymentEvents({
+    orderCode: order?.code,
+    requiredAmount: order?.pricingBreakdownSnapshot.total,
+    enabled: !!order && !isResolved && order.paymentMethod !== "cash",
+  });
+
+  useEffect(() => {
+    if (!matchedEvent || !order || isResolved) return;
+    if (order.status === "confirmed") return;
+    (async () => {
+      try {
+        await pendingOrdersService.update(order.id, { status: "confirmed" });
+        const fresh = await pendingOrdersService.get(order.id);
+        if (fresh) setOrder(fresh);
+        toast.success("Đã nhận thanh toán tự động qua webhook ngân hàng");
+      } catch (e) {
+        console.error("Auto-confirm failed", e);
+      }
+    })();
+  }, [matchedEvent, order?.id, isResolved]);
+
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
   }
@@ -167,6 +192,7 @@ export default function PendingPaymentPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+
       <div className="text-center mb-6">
         {order.status === "pending_payment" && <Clock className="h-12 w-12 text-warning mx-auto mb-3" />}
         {order.status === "waiting_confirm" && <Clock className="h-12 w-12 text-warning mx-auto mb-3" />}
@@ -450,6 +476,14 @@ export default function PendingPaymentPage() {
 
       {order.status === "pending_payment" && order.paymentMethod !== "cash" && (
         <div className="mb-3 space-y-2">
+          {insufficientEvent && (
+            <div className="p-3 rounded-md border border-warning/40 bg-warning-soft text-xs text-warning flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                Hệ thống đã nhận giao dịch <strong>{formatVND(insufficientEvent.amount)}</strong> nhưng chưa đủ số tiền đơn hàng (<strong>{formatVND(breakdown.total)}</strong>). Vui lòng chuyển bù phần còn thiếu hoặc liên hệ cửa hàng.
+              </span>
+            </div>
+          )}
           {!paymentReady && (
             <div className="p-3 rounded-md border border-warning/40 bg-warning-soft text-xs text-warning flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />

@@ -288,6 +288,7 @@ export type PendingOrderStatus =
   | "pending_payment"
   | "waiting_confirm"
   | "confirmed"
+  | "paid_auto"
   | "cancelled";
 
 export interface PromotionSnapshot {

@@ -11,6 +11,7 @@ import type { PromotionEvaluationService } from "./promotions/PromotionEvaluatio
 import type { CustomerService } from "./customers/CustomerService";
 import type { VoucherService } from "./vouchers/VoucherService";
 import type { InvoiceService } from "./invoices/InvoiceService";
+import type { PaymentEventService } from "./paymentEvents/PaymentEventService";
 
 import { LocalStoreSettingsAdapter } from "./adapters/local/LocalStoreSettingsAdapter";
 import { LocalVietQrAdapter } from "./adapters/local/LocalVietQrAdapter";
@@ -21,6 +22,7 @@ import { LocalPromotionAdapter } from "./adapters/local/LocalPromotionAdapter";
 import { LocalCustomerAdapter } from "./adapters/local/LocalCustomerAdapter";
 import { LocalVoucherAdapter } from "./adapters/local/LocalVoucherAdapter";
 import { LocalInvoiceAdapter } from "./adapters/local/LocalInvoiceAdapter";
+import { CloudPaymentEventAdapter } from "./adapters/cloud/CloudPaymentEventAdapter";
 
 export const storeSettings: StoreSettingsService = new LocalStoreSettingsAdapter();
 export const vietQr: VietQrService = new LocalVietQrAdapter(storeSettings);
@@ -31,6 +33,7 @@ export const promotions: PromotionEvaluationService = new LocalPromotionAdapter(
 export const customers: CustomerService = new LocalCustomerAdapter();
 export const vouchers: VoucherService = new LocalVoucherAdapter();
 export const invoices: InvoiceService = new LocalInvoiceAdapter();
+export const paymentEvents: PaymentEventService = new CloudPaymentEventAdapter();
 
 // Re-export interface types for UI consumers that need to type service references.
 export type { StoreSettingsService } from "./storeSettings/StoreSettingsService";
@@ -42,3 +45,4 @@ export type { PromotionEvaluationService } from "./promotions/PromotionEvaluatio
 export type { CustomerService } from "./customers/CustomerService";
 export type { VoucherService } from "./vouchers/VoucherService";
 export type { InvoiceService, CreateInvoiceInput } from "./invoices/InvoiceService";
+export type { PaymentEventService, PaymentEvent } from "./paymentEvents/PaymentEventService";
