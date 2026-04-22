@@ -1,5 +1,6 @@
 import type { StoreSettingsService } from "@/services/storeSettings/StoreSettingsService";
 import type { StorePaymentSettings } from "@/services/types";
+import { normalizeVietQrBankId, sanitizeBankAccountNumber } from "@/lib/vietqr";
 import { readJson, writeJson } from "./storage";
 
 const KEY = "store_payment_settings:v1";
@@ -23,7 +24,12 @@ const DEFAULT_SETTINGS: StorePaymentSettings = {
 };
 
 function merge(stored: Partial<StorePaymentSettings> | null): StorePaymentSettings {
-  return { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+  const merged = { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+  return {
+    ...merged,
+    vietQrBankCode: normalizeVietQrBankId(merged.vietQrBankCode),
+    accountNumber: sanitizeBankAccountNumber(merged.accountNumber),
+  };
 }
 
 export class LocalStoreSettingsAdapter implements StoreSettingsService {

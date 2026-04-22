@@ -73,6 +73,8 @@ export default function PendingPaymentPage() {
       let detail = "Lỗi không xác định khi tạo mã QR.";
       if (/cấu hình|config/i.test(msg)) {
         detail = "Cửa hàng chưa cấu hình tài khoản nhận hoặc đã tắt VietQR. Liên hệ cửa hàng để bật lại.";
+      } else if (/tài khoản thụ hưởng không hợp lệ|account/i.test(msg)) {
+        detail = "Thông tin ngân hàng nhận đang sai định dạng (mã ngân hàng hoặc số tài khoản). Cửa hàng cần kiểm tra lại cấu hình VietQR.";
       } else if (/network|fetch|timeout/i.test(msg)) {
         detail = "Mất kết nối tới dịch vụ VietQR. Kiểm tra mạng rồi bấm Thử quét lại.";
       } else if (/amount|tiền|min/i.test(msg)) {

@@ -5,21 +5,13 @@ import { toast } from "sonner";
 import { Building2, Save, QrCode, Upload, X, Wallet, Check, AlertTriangle } from "lucide-react";
 import { resizeImageFile, approxDataUrlBytes } from "@/lib/image-resize";
 import { inspectQrImageFile } from "@/lib/qr-image-check";
-
-const VIETQR_BANKS: { code: string; name: string }[] = [
-  { code: "VCB", name: "Vietcombank" },
-  { code: "TCB", name: "Techcombank" },
-  { code: "ACB", name: "ACB" },
-  { code: "MB", name: "MB Bank" },
-  { code: "BIDV", name: "BIDV" },
-  { code: "VPB", name: "VPBank" },
-  { code: "TPB", name: "TPBank" },
-  { code: "STB", name: "Sacombank" },
-  { code: "SHB", name: "SHB" },
-  { code: "VIB", name: "VIB" },
-  { code: "AGRIBANK", name: "Agribank" },
-  { code: "OCB", name: "OCB" },
-];
+import {
+  isPlausibleBankAccountNumber,
+  normalizeVietQrBankId,
+  resolveVietQrBank,
+  sanitizeBankAccountNumber,
+  VIETQR_BANKS,
+} from "@/lib/vietqr";
 
 const TEMPLATES: { value: VietQrTemplate; label: string }[] = [
   { value: "compact2", label: "Compact 2 (khuyến nghị)" },
@@ -69,9 +61,15 @@ export default function StoreSettingsPage() {
 
   const handleBankSelect = (code: string) => {
     const bank = VIETQR_BANKS.find((b) => b.code === code);
-    setForm((f) => ({ ...f, vietQrBankCode: code, bankName: bank?.name ?? f.bankName }));
+    setForm((f) => ({
+      ...f,
+      vietQrBankCode: bank?.bin ?? normalizeVietQrBankId(code),
+      bankName: bank?.name ?? f.bankName,
+    }));
     setSavedAt(null);
   };
+
+  const selectedBank = resolveVietQrBank(form.vietQrBankCode);
 
   // Browsers usually allow ~5MB per origin in localStorage; the wallet QR
   // data URLs dwarf everything else, so we treat them as the budget proxy.
@@ -90,11 +88,20 @@ export default function StoreSettingsPage() {
     if (form.qrEnabled) {
       if (!form.vietQrBankCode) return toast.error("Vui lòng chọn ngân hàng");
       if (!form.accountNumber.trim()) return toast.error("Vui lòng nhập số tài khoản");
+      if (!isPlausibleBankAccountNumber(form.accountNumber)) {
+        return toast.error("Số tài khoản không hợp lệ");
+      }
       if (!form.accountName.trim()) return toast.error("Vui lòng nhập chủ tài khoản");
     }
     setSaving(true);
     try {
-      await storeSettings.savePaymentSettings(form);
+      const normalizedForm = {
+        ...form,
+        vietQrBankCode: normalizeVietQrBankId(form.vietQrBankCode),
+        accountNumber: sanitizeBankAccountNumber(form.accountNumber),
+      };
+      await storeSettings.savePaymentSettings(normalizedForm);
+      setForm(normalizedForm);
       setSavedAt(Date.now());
       toast.success("Đã lưu cấu hình thanh toán");
     } catch {
@@ -110,7 +117,7 @@ export default function StoreSettingsPage() {
 
   const qrPreview =
     form.qrEnabled && form.vietQrBankCode && form.accountNumber
-      ? `https://img.vietqr.io/image/${form.vietQrBankCode}-${form.accountNumber}-${form.qrTemplate ?? "compact2"}.png?amount=100000&addInfo=DEMO&accountName=${encodeURIComponent(form.accountName)}`
+      ? `https://img.vietqr.io/image/${normalizeVietQrBankId(form.vietQrBankCode)}-${sanitizeBankAccountNumber(form.accountNumber)}-${form.qrTemplate ?? "compact2"}.png?amount=100000&addInfo=DEMO&accountName=${encodeURIComponent(form.accountName)}`
       : null;
 
   return (
@@ -153,7 +160,7 @@ export default function StoreSettingsPage() {
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Ngân hàng">
             <select
-              value={form.vietQrBankCode}
+              value={selectedBank?.code ?? form.vietQrBankCode}
               onChange={(e) => handleBankSelect(e.target.value)}
               className="input-base"
               disabled={!form.qrEnabled}
@@ -175,7 +182,7 @@ export default function StoreSettingsPage() {
           <Field label="Số tài khoản">
             <input
               value={form.accountNumber}
-              onChange={(e) => update("accountNumber", e.target.value.replace(/\s/g, ""))}
+              onChange={(e) => update("accountNumber", sanitizeBankAccountNumber(e.target.value))}
               className="input-base"
               disabled={!form.qrEnabled}
             />
