@@ -14,7 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      payment_events: {
+        Row: {
+          amount: number
+          bank_account: string | null
+          bank_sub_acc: string | null
+          created_at: string
+          id: string
+          linked_at: string | null
+          linked_by: string | null
+          linked_order_code: string | null
+          matched_code: string | null
+          provider: string
+          provider_tx_id: string
+          raw_payload: Json | null
+          status: string
+          transfer_content: string
+          tx_time: string | null
+        }
+        Insert: {
+          amount: number
+          bank_account?: string | null
+          bank_sub_acc?: string | null
+          created_at?: string
+          id?: string
+          linked_at?: string | null
+          linked_by?: string | null
+          linked_order_code?: string | null
+          matched_code?: string | null
+          provider?: string
+          provider_tx_id: string
+          raw_payload?: Json | null
+          status?: string
+          transfer_content?: string
+          tx_time?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account?: string | null
+          bank_sub_acc?: string | null
+          created_at?: string
+          id?: string
+          linked_at?: string | null
+          linked_by?: string | null
+          linked_order_code?: string | null
+          matched_code?: string | null
+          provider?: string
+          provider_tx_id?: string
+          raw_payload?: Json | null
+          status?: string
+          transfer_content?: string
+          tx_time?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
