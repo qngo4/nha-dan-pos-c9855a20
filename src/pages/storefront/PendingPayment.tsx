@@ -71,7 +71,7 @@ export default function PendingPaymentPage() {
           const result = await vietQr.generate({
             amount: fromService.pricingBreakdownSnapshot.total,
             transferContent: fromService.paymentReference,
-            cacheKey: `${fromService.id}-${fromService.updatedAt}-${qrAttempt}`,
+            cacheKey: `${fromService.id}-${fromService.code}-${fromService.pricingBreakdownSnapshot.total}-${qrAttempt}`,
           });
           if (alive) setQr(result);
         } catch (e: any) {
