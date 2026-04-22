@@ -107,6 +107,30 @@ export class CloudPaymentEventAdapter implements PaymentEventService {
     return toEvent(data as Row);
   }
 
+  async unmarkIgnored(eventId: string): Promise<PaymentEvent> {
+    // Restore to "unmatched" so the row reappears in the admin worklist.
+    // We don't touch matched_code/linked_order_code so any extracted hint stays.
+    const { data, error } = await supabase
+      .from("payment_events")
+      .update({ status: "unmatched" })
+      .eq("id", eventId)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return toEvent(data as Row);
+  }
+
+  async listIgnored(limit = 100): Promise<PaymentEvent[]> {
+    const { data, error } = await supabase
+      .from("payment_events")
+      .select("*")
+      .eq("status", "ignored")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data as Row[] | null)?.map(toEvent) ?? [];
+  }
+
   async countUnmatched(): Promise<number> {
     const { count, error } = await supabase
       .from("payment_events")

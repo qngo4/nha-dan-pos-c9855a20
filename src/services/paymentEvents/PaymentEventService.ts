@@ -34,6 +34,10 @@ export interface PaymentEventService {
   ): Promise<PaymentEvent>;
   /** Mark an event as ignored (e.g. wrong-recipient transfer). */
   markIgnored(eventId: string): Promise<PaymentEvent>;
+  /** Restore an ignored event back to the unmatched worklist. */
+  unmarkIgnored(eventId: string): Promise<PaymentEvent>;
+  /** List events that admin previously marked as ignored. */
+  listIgnored(limit?: number): Promise<PaymentEvent[]>;
   /** Count of events still needing admin attention. */
   countUnmatched(): Promise<number>;
 }

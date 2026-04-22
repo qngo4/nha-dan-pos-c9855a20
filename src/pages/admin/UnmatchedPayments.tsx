@@ -1,10 +1,13 @@
-// Admin worklist of bank transactions that the Casso webhook could not
-// auto-link to a pending order. Admin links them manually to fire the
-// confirmation flow on the corresponding order.
-import { useEffect, useMemo, useState } from "react";
+// Admin worklist for bank transactions received via the Casso webhook.
+// - "Chưa khớp": rows with status='unmatched' (no order code extracted) → admin links manually
+// - "Đã khớp tự động": rows the trigger linked (status='matched' or 'linked')
+// - "Đã bỏ qua": rows admin marked as ignored → restorable
+// Uses Supabase Realtime so newly-arrived webhook rows appear instantly.
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { paymentEvents, pendingOrders } from "@/services";
 import type { PaymentEvent } from "@/services";
 import type { PendingOrder } from "@/services/types";
+import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -18,38 +21,90 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { RefreshCw, Link2, X, Inbox, Search } from "lucide-react";
+import {
+  RefreshCw, Link2, X, Inbox, Search, RotateCcw, CheckCircle2, AlertCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
+
+type TabId = "unmatched" | "matched" | "ignored";
+
+const TABS: { id: TabId; label: string; icon: typeof Inbox }[] = [
+  { id: "unmatched", label: "Chưa khớp", icon: AlertCircle },
+  { id: "matched", label: "Đã khớp tự động", icon: CheckCircle2 },
+  { id: "ignored", label: "Đã bỏ qua", icon: X },
+];
 
 export default function UnmatchedPaymentsPage() {
-  const [events, setEvents] = useState<PaymentEvent[]>([]);
+  const [tab, setTab] = useState<TabId>("unmatched");
+  const [unmatched, setUnmatched] = useState<PaymentEvent[]>([]);
+  const [matched, setMatched] = useState<PaymentEvent[]>([]);
+  const [ignored, setIgnored] = useState<PaymentEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState<PaymentEvent | null>(null);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await paymentEvents.listUnmatched(200);
-      setEvents(list);
+      const [u, recent, ig] = await Promise.all([
+        paymentEvents.listUnmatched(200),
+        paymentEvents.listRecent(100),
+        paymentEvents.listIgnored(100),
+      ]);
+      setUnmatched(u);
+      // "matched" tab = anything already linked to an order, excluding ignored
+      setMatched(
+        recent.filter(
+          (e) =>
+            (e.status === "matched" || e.status === "linked") &&
+            (e.linkedOrderCode || e.matchedCode),
+        ),
+      );
+      setIgnored(ig);
     } catch (e: any) {
       toast.error(e?.message ?? "Không tải được danh sách giao dịch");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // Realtime: any insert/update on payment_events refreshes the lists
+  // immediately — no need to wait for the 30s polling tick.
   useEffect(() => {
     void refresh();
-    const id = window.setInterval(() => {
+    const channel = supabase
+      .channel("payment_events_admin")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "payment_events" },
+        () => {
+          void refresh();
+        },
+      )
+      .subscribe();
+
+    const onVisible = () => {
       if (document.visibilityState === "visible") void refresh();
-    }, 30000);
-    return () => window.clearInterval(id);
-  }, []);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh]);
+
+  const rows = tab === "unmatched" ? unmatched : tab === "matched" ? matched : ignored;
+  const counts = {
+    unmatched: unmatched.length,
+    matched: matched.length,
+    ignored: ignored.length,
+  };
 
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Giao dịch chưa khớp"
-        description="Các giao dịch ngân hàng nhận từ webhook nhưng chưa gắn được vào đơn."
+        title="Đối soát giao dịch ngân hàng"
+        description="Các giao dịch nhận từ webhook Casso. Mã đơn được trích tự động từ nội dung CK; đơn nào không khớp bạn có thể gắn thủ công ở đây."
         actions={
           <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
@@ -58,12 +113,59 @@ export default function UnmatchedPaymentsPage() {
         }
       />
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b">
+        {TABS.map((t) => {
+          const active = tab === t.id;
+          const count = counts[t.id];
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                active
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <t.icon className="h-3.5 w-3.5" />
+              {t.label}
+              {count > 0 && (
+                <span
+                  className={cn(
+                    "ml-1 text-[10px] rounded-full px-1.5 py-0.5 font-semibold",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="bg-card border rounded-lg overflow-hidden">
-        {events.length === 0 && !loading ? (
+        {rows.length === 0 && !loading ? (
           <EmptyState
             icon={Inbox}
-            title="Không có giao dịch chờ xử lý"
-            description="Mọi giao dịch đến từ webhook đã được gắn vào đơn hoặc bị bỏ qua."
+            title={
+              tab === "unmatched"
+                ? "Không có giao dịch chờ xử lý"
+                : tab === "matched"
+                  ? "Chưa có giao dịch nào được khớp gần đây"
+                  : "Không có giao dịch nào bị bỏ qua"
+            }
+            description={
+              tab === "unmatched"
+                ? "Mọi giao dịch đến từ webhook đã được khớp với đơn hoặc bị bỏ qua."
+                : tab === "matched"
+                  ? "Giao dịch khớp tự động sẽ hiển thị tại đây."
+                  : undefined
+            }
           />
         ) : (
           <div className="overflow-x-auto">
@@ -73,63 +175,107 @@ export default function UnmatchedPaymentsPage() {
                   <th className="text-left px-3 py-2 font-medium">Thời gian</th>
                   <th className="text-right px-3 py-2 font-medium">Số tiền</th>
                   <th className="text-left px-3 py-2 font-medium">Nội dung</th>
-                  <th className="text-left px-3 py-2 font-medium">Mã đơn (gợi ý)</th>
+                  <th className="text-left px-3 py-2 font-medium">
+                    {tab === "matched" ? "Đơn đã khớp" : "Mã đơn (gợi ý)"}
+                  </th>
                   <th className="text-left px-3 py-2 font-medium">Tài khoản</th>
                   <th className="text-right px-3 py-2 font-medium">Hành động</th>
                 </tr>
               </thead>
               <tbody>
-                {events.map((e) => (
-                  <tr key={e.id} className="border-t">
-                    <td className="px-3 py-2 whitespace-nowrap text-xs">
-                      {formatDateTime(e.txTime ?? e.createdAt)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold">
-                      {formatVND(e.amount)}
-                    </td>
-                    <td className="px-3 py-2 max-w-[280px] truncate" title={e.transferContent}>
-                      {e.transferContent || <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {e.matchedCode ? (
-                        <span className="inline-block rounded bg-primary/10 text-primary text-xs px-2 py-0.5 font-mono">
-                          {e.matchedCode}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {e.bankSubAcc || e.bankAccount || "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setLinking(e)}
-                        className="text-primary"
+                {rows.map((e) => {
+                  const linkedCode = e.linkedOrderCode ?? e.matchedCode;
+                  return (
+                    <tr key={e.id} className="border-t">
+                      <td className="px-3 py-2 whitespace-nowrap text-xs">
+                        {formatDateTime(e.txTime ?? e.createdAt)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold">
+                        {formatVND(e.amount)}
+                      </td>
+                      <td
+                        className="px-3 py-2 max-w-[280px] truncate"
+                        title={e.transferContent}
                       >
-                        <Link2 className="h-3.5 w-3.5 mr-1" /> Gắn vào đơn
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            await paymentEvents.markIgnored(e.id);
-                            toast.success("Đã bỏ qua giao dịch");
-                            refresh();
-                          } catch (err: any) {
-                            toast.error(err?.message ?? "Không bỏ qua được");
-                          }
-                        }}
-                        className="text-muted-foreground"
-                      >
-                        <X className="h-3.5 w-3.5 mr-1" /> Bỏ qua
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                        {e.transferContent || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {linkedCode ? (
+                          tab === "matched" ? (
+                            <Link
+                              to={`/admin/pending-orders`}
+                              className="inline-block rounded bg-success/10 text-success text-xs px-2 py-0.5 font-mono hover:underline"
+                            >
+                              {linkedCode}
+                            </Link>
+                          ) : (
+                            <span className="inline-block rounded bg-primary/10 text-primary text-xs px-2 py-0.5 font-mono">
+                              {linkedCode}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {e.bankSubAcc || e.bankAccount || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        {tab === "unmatched" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setLinking(e)}
+                              className="text-primary"
+                            >
+                              <Link2 className="h-3.5 w-3.5 mr-1" /> Gắn vào đơn
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await paymentEvents.markIgnored(e.id);
+                                  toast.success("Đã bỏ qua giao dịch");
+                                } catch (err: any) {
+                                  toast.error(err?.message ?? "Không bỏ qua được");
+                                }
+                              }}
+                              className="text-muted-foreground"
+                            >
+                              <X className="h-3.5 w-3.5 mr-1" /> Bỏ qua
+                            </Button>
+                          </>
+                        )}
+                        {tab === "ignored" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await paymentEvents.unmarkIgnored(e.id);
+                                toast.success("Đã khôi phục giao dịch");
+                              } catch (err: any) {
+                                toast.error(err?.message ?? "Không khôi phục được");
+                              }
+                            }}
+                            className="text-primary"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 mr-1" /> Khôi phục
+                          </Button>
+                        )}
+                        {tab === "matched" && (
+                          <span className="inline-flex items-center gap-1 text-xs text-success">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Đã khớp
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -219,7 +365,9 @@ function LinkDialog({
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground shrink-0">Nội dung</span>
-                <span className="text-right break-all">{event.transferContent || "—"}</span>
+                <span className="text-right break-all">
+                  {event.transferContent || "—"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Thời gian</span>
@@ -255,14 +403,17 @@ function LinkDialog({
                       <div className="min-w-0">
                         <div className="font-mono font-medium">{o.code}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {o.customerName ?? "—"} · {o.customerPhone ?? "—"} · {o.status}
+                          {o.customerName ?? "—"} · {o.customerPhone ?? "—"} ·{" "}
+                          {o.status}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-semibold">
                           {formatVND(o.pricingBreakdownSnapshot.total)}
                         </div>
-                        <div className={`text-[11px] ${enough ? "text-success" : "text-warning"}`}>
+                        <div
+                          className={`text-[11px] ${enough ? "text-success" : "text-warning"}`}
+                        >
                           {enough ? "Đủ tiền — sẽ auto-confirm" : "Thiếu tiền"}
                         </div>
                       </div>
