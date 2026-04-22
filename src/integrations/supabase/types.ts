@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      ghn_quote_logs: {
+        Row: {
+          created_at: string
+          district_name: string | null
+          eta_max: number | null
+          eta_min: number | null
+          fee: number | null
+          id: string
+          latency_ms: number | null
+          message: string | null
+          ok: boolean
+          order_code: string | null
+          province_name: string | null
+          raw_response: Json | null
+          reason: string | null
+          service_id: number | null
+          subtotal: number | null
+          ward_name: string | null
+          weight_grams: number | null
+        }
+        Insert: {
+          created_at?: string
+          district_name?: string | null
+          eta_max?: number | null
+          eta_min?: number | null
+          fee?: number | null
+          id?: string
+          latency_ms?: number | null
+          message?: string | null
+          ok?: boolean
+          order_code?: string | null
+          province_name?: string | null
+          raw_response?: Json | null
+          reason?: string | null
+          service_id?: number | null
+          subtotal?: number | null
+          ward_name?: string | null
+          weight_grams?: number | null
+        }
+        Update: {
+          created_at?: string
+          district_name?: string | null
+          eta_max?: number | null
+          eta_min?: number | null
+          fee?: number | null
+          id?: string
+          latency_ms?: number | null
+          message?: string | null
+          ok?: boolean
+          order_code?: string | null
+          province_name?: string | null
+          raw_response?: Json | null
+          reason?: string | null
+          service_id?: number | null
+          subtotal?: number | null
+          ward_name?: string | null
+          weight_grams?: number | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           code: string | null
