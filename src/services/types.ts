@@ -61,10 +61,12 @@ export interface StorePaymentSettings {
 export interface VietQrRequest {
   amount: Money;
   transferContent: string;
+  cacheKey?: string;
 }
 
 export interface VietQrResult {
   imageUrl: string;
+  scanImageUrl: string;
   rawPayload: string;
   bankName: string;
   accountNumber: string;
