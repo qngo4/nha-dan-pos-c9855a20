@@ -146,6 +146,14 @@ export default function PendingPaymentPage() {
       ? Boolean(walletImageForMethod)
       : Boolean(bank?.qrEnabled && bank?.accountNumber);
 
+  // Most VN banks reject 24/7 transfers below 10.000đ with a "minimum amount"
+  // popup. Surface this clearly so customers don't blame the QR.
+  const BANK_MIN_TRANSFER = 10_000;
+  const showMinTransferWarning =
+    order.paymentMethod === "bank_transfer" &&
+    order.status === "pending_payment" &&
+    breakdown.total < BANK_MIN_TRANSFER;
+
   const onCustomerConfirm = async () => {
     if (!order || !paymentReady) return;
     setConfirming(true);
