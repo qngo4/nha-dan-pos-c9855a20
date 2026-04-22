@@ -105,8 +105,8 @@ export class GhnShippingAdapter implements ShippingService {
       | { ok: true; fee: number; etaDays: { min: number; max: number }; serviceId: number }
       | { ok: false; reason: string; message: string };
 
-    if (!data || (data as { ok: boolean }).ok !== true) {
-      const reason = (data as { reason?: string })?.reason ?? "ghn_unknown";
+    if (!data || data.ok !== true) {
+      const reason = (data as { reason?: string } | null)?.reason ?? "ghn_unknown";
       throw new Error(reason);
     }
 
