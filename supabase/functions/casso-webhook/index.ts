@@ -31,6 +31,7 @@ function sortObjectKeys(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(sortObjectKeys);
   }
+
   if (value && typeof value === "object") {
     return Object.keys(value as Record<string, unknown>)
       .sort((a, b) => a.localeCompare(b))
@@ -39,6 +40,7 @@ function sortObjectKeys(value: unknown): unknown {
         return acc;
       }, {});
   }
+
   return value;
 }
 
@@ -48,12 +50,13 @@ function parseSignatureHeader(signatureHeader: string | null): {
 } | null {
   if (!signatureHeader) return null;
 
-  const parts = signatureHeader.split(",").map((part) => part.trim());
-  const timestamp = parts.find((part) => part.startsWith("t="))?.slice(2);
-  const signature = parts.find((part) => part.startsWith("v1="))?.slice(3);
+  const match = signatureHeader.match(/t=(\d+),v1=([a-f0-9]+)/i);
+  if (!match) return null;
 
-  if (!timestamp || !signature) return null;
-  return { timestamp, signature };
+  return {
+    timestamp: match[1],
+    signature: match[2],
+  };
 }
 
 function hexToBytes(hex: string): Uint8Array | null {
@@ -89,12 +92,12 @@ async function signWithSha512(message: string, secret: string): Promise<Uint8Arr
   return new Uint8Array(signature);
 }
 
-async function verifyV2Signature(body: any, signatureHeader: string | null, secret: string): Promise<boolean> {
+async function verifyV2Signature(body: unknown, signatureHeader: string | null, secret: string): Promise<boolean> {
   const parsedSignature = parseSignatureHeader(signatureHeader);
   if (!parsedSignature) return false;
 
-  const sortedData = sortObjectKeys(body?.data ?? {});
-  const payloadToSign = `${parsedSignature.timestamp}.${JSON.stringify(sortedData)}`;
+  const sortedBody = sortObjectKeys(body);
+  const payloadToSign = `${parsedSignature.timestamp}.${JSON.stringify(sortedBody)}`;
   const expectedSignatureBytes = await signWithSha512(payloadToSign, secret);
   const providedSignatureBytes = hexToBytes(parsedSignature.signature);
 
@@ -188,8 +191,8 @@ Deno.serve(async (req) => {
     const amount = Math.max(0, Math.round(amountRaw));
     const matchedCode = extractOrderCode(description);
     const txTime = tx.when ?? tx.transactionDateTime ?? tx.tranDate ?? null;
-
     const parsedTxTime = txTime ? new Date(txTime) : null;
+
     const row = {
       provider: "casso",
       provider_tx_id: providerTxId,
