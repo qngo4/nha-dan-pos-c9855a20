@@ -106,7 +106,61 @@ export default function PendingPaymentPage() {
   }, [id]);
 
 
-  return (
+  if (loading) {
+    return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
+  }
+
+  if (!order) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <AlertTriangle className="h-10 w-10 text-warning mx-auto mb-3" />
+        <h1 className="text-lg font-bold">Không tìm thấy đơn chờ thanh toán</h1>
+        <Link to="/" className="mt-4 inline-flex items-center gap-2 text-primary text-sm font-medium">
+          <ArrowLeft className="h-4 w-4" /> Quay lại trang chủ
+        </Link>
+      </div>
+    );
+  }
+
+  const breakdown = order.pricingBreakdownSnapshot;
+  const items = order.lines;
+  const insufficientEvent = null as null | { amount: number };
+
+  const copy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success(`Đã sao chép ${label}`));
+  };
+
+  const showBankPanel = order.paymentMethod !== "cash" && order.status === "pending_payment";
+  const paymentLabelShort =
+    order.paymentMethod === "bank_transfer" ? "chuyển khoản" :
+    order.paymentMethod === "momo" ? "MoMo" :
+    order.paymentMethod === "zalopay" ? "ZaloPay" : "tiền mặt";
+
+  const isWalletMethod = order.paymentMethod === "momo" || order.paymentMethod === "zalopay";
+  const walletImageForMethod =
+    order.paymentMethod === "momo" ? bank?.momoQrImage :
+    order.paymentMethod === "zalopay" ? bank?.zalopayQrImage : "";
+  const paymentReady = order.paymentMethod === "cash"
+    ? true
+    : isWalletMethod
+      ? Boolean(walletImageForMethod)
+      : Boolean(bank?.qrEnabled && bank?.accountNumber);
+
+  const onCustomerConfirm = async () => {
+    if (!order || !paymentReady) return;
+    setConfirming(true);
+    try {
+      await pendingOrdersService.update(order.id, { status: "waiting_confirm" });
+      toast.success("Đã ghi nhận. Cửa hàng sẽ kiểm tra và xác nhận.");
+      const fresh = await pendingOrdersService.get(order.id);
+      if (fresh) setOrder(fresh);
+    } catch {
+      toast.error("Không gửi được xác nhận, vui lòng thử lại");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
     <div className="max-w-2xl mx-auto px-4 py-8">
 
       <div className="text-center mb-6">
