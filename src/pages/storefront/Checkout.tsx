@@ -191,7 +191,12 @@ export default function CheckoutPage() {
 
   const promoDiscount = bestPromo?.discountAmount ?? 0;
   const voucherDiscount = Math.min(voucherSnap?.discountAmount ?? 0, Math.max(0, subtotal - promoDiscount));
-  const shippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
+  const promoShippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
+  const voucherShippingDiscount = Math.min(
+    voucherSnap?.shippingDiscountAmount ?? 0,
+    Math.max(0, baseShippingFee - promoShippingDiscount),
+  );
+  const shippingDiscount = promoShippingDiscount + voucherShippingDiscount;
   const shippingFee = Math.max(0, baseShippingFee - shippingDiscount);
   const total = Math.max(0, subtotal - promoDiscount - voucherDiscount + shippingFee);
   const isOnline = payment !== "cash";
@@ -217,7 +222,11 @@ export default function CheckoutPage() {
       if (res.valid && res.snapshot) {
         setVoucherSnap(res.snapshot);
         setVoucherInput("");
-        toast.success(`Áp dụng ${res.snapshot.code} — giảm ${formatVND(res.snapshot.discountAmount)}`);
+        const snap = res.snapshot;
+        const msg = snap.shippingDiscountAmount
+          ? `Áp dụng ${snap.code} — miễn phí giao hàng`
+          : `Áp dụng ${snap.code} — giảm ${formatVND(snap.discountAmount)}`;
+        toast.success(msg);
       } else {
         setVoucherSnap(null);
         setVoucherError(res.reasonIfInvalid ?? "Mã không hợp lệ");

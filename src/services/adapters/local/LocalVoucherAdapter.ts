@@ -29,6 +29,20 @@ export class LocalVoucherAdapter implements VoucherService {
       };
     }
 
+    // Voucher freeship: không giảm subtotal — chỉ flag shippingDiscountAmount
+    // (cap). Checkout sẽ Math.min(cap, baseShippingFee) để tính số tiền giảm
+    // ship thực tế cho đơn.
+    if (def.freeShipping) {
+      const shippingCap = def.cap > 0 ? def.cap : 1_000_000;
+      const snapshot: VoucherSnapshot = {
+        code: def.code,
+        ruleSummary: def.ruleSummary,
+        discountAmount: 0,
+        shippingDiscountAmount: shippingCap,
+      };
+      return { valid: true, snapshot };
+    }
+
     let raw: Money = 0;
     if (def.percent > 0) {
       raw = computePercentOff(ctx.subtotal, def.percent, def.cap > 0 ? def.cap : undefined);

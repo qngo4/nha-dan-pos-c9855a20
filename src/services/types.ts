@@ -231,6 +231,8 @@ export interface VoucherSnapshot {
   code: string;
   ruleSummary: string;
   discountAmount: Money;
+  /** Giảm phí ship (cho voucher freeship). Mặc định 0. */
+  shippingDiscountAmount?: Money;
 }
 
 export interface PromotionAffectedLine {
