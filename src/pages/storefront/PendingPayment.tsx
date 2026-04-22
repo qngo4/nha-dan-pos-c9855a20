@@ -27,13 +27,62 @@ export default function PendingPaymentPage() {
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrErrorDetail, setQrErrorDetail] = useState<string | null>(null);
   const [qrAttempt, setQrAttempt] = useState(0);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrLastGeneratedAt, setQrLastGeneratedAt] = useState<number | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // Bumping this re-mounts the wallet <img> so a failed/missing static QR
   // can be re-attempted without leaving the page.
   const [walletQrAttempt, setWalletQrAttempt] = useState(0);
   const [walletImgFailed, setWalletImgFailed] = useState(false);
   const [changingMethod, setChangingMethod] = useState(false);
+  const autoRefreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Centralized QR (re)generator. Used by initial load, manual retry, and
+  // the 45s auto-refresh. Sets loading/error states so the UI can disable
+  // confirm/cancel buttons while a fresh payload is being built.
+  const regenerateQr = async (
+    o: PendingOrder,
+    settings: StorePaymentSettings | null,
+    nextAttempt: number,
+  ) => {
+    if (
+      o.paymentMethod !== "bank_transfer" ||
+      o.status !== "pending_payment" ||
+      !settings?.qrEnabled
+    ) {
+      return;
+    }
+    setQrLoading(true);
+    setQrError(null);
+    setQrErrorDetail(null);
+    try {
+      const result = await vietQr.generate({
+        amount: o.pricingBreakdownSnapshot.total,
+        transferContent: o.paymentReference,
+        cacheKey: `${o.id}-${o.code}-${o.pricingBreakdownSnapshot.total}-${nextAttempt}-${Date.now()}`,
+      });
+      setQr(result);
+      setQrLastGeneratedAt(Date.now());
+    } catch (e: any) {
+      const msg: string = e?.message ?? "Không thể tạo mã QR";
+      setQrError(msg);
+      // Map common upstream failures to actionable Vietnamese guidance.
+      let detail = "Lỗi không xác định khi tạo mã QR.";
+      if (/cấu hình|config/i.test(msg)) {
+        detail = "Cửa hàng chưa cấu hình tài khoản nhận hoặc đã tắt VietQR. Liên hệ cửa hàng để bật lại.";
+      } else if (/network|fetch|timeout/i.test(msg)) {
+        detail = "Mất kết nối tới dịch vụ VietQR. Kiểm tra mạng rồi bấm Thử quét lại.";
+      } else if (/amount|tiền|min/i.test(msg)) {
+        detail = "Số tiền không hợp lệ hoặc thấp hơn mức tối thiểu (10.000đ). Liên hệ cửa hàng để chuyển sang tiền mặt.";
+      }
+      setQrErrorDetail(detail);
+    } finally {
+      setQrLoading(false);
+    }
+  };
 
   // Reload the order whenever:
   //  - the route id changes
