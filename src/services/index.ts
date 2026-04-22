@@ -16,6 +16,8 @@ import type { PaymentEventService } from "./paymentEvents/PaymentEventService";
 import { LocalStoreSettingsAdapter } from "./adapters/local/LocalStoreSettingsAdapter";
 import { LocalVietQrAdapter } from "./adapters/local/LocalVietQrAdapter";
 import { LocalAddressAdapter } from "./adapters/local/LocalAddressAdapter";
+import { RemoteAddressAdapter } from "./adapters/remote/RemoteAddressAdapter";
+import { HybridAddressAdapter } from "./adapters/remote/HybridAddressAdapter";
 import { LocalShippingAdapter } from "./adapters/local/LocalShippingAdapter";
 import { CloudPendingOrderAdapter } from "./adapters/cloud/CloudPendingOrderAdapter";
 import { LocalPromotionAdapter } from "./adapters/local/LocalPromotionAdapter";
