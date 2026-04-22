@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { formatVND, formatDateTime } from "@/lib/format";
-import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
+import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode, RefreshCw, Bug, Loader2 } from "lucide-react";
 import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,13 +27,62 @@ export default function PendingPaymentPage() {
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrErrorDetail, setQrErrorDetail] = useState<string | null>(null);
   const [qrAttempt, setQrAttempt] = useState(0);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrLastGeneratedAt, setQrLastGeneratedAt] = useState<number | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // Bumping this re-mounts the wallet <img> so a failed/missing static QR
   // can be re-attempted without leaving the page.
   const [walletQrAttempt, setWalletQrAttempt] = useState(0);
   const [walletImgFailed, setWalletImgFailed] = useState(false);
   const [changingMethod, setChangingMethod] = useState(false);
+  const autoRefreshTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Centralized QR (re)generator. Used by initial load, manual retry, and
+  // the 45s auto-refresh. Sets loading/error states so the UI can disable
+  // confirm/cancel buttons while a fresh payload is being built.
+  const regenerateQr = async (
+    o: PendingOrder,
+    settings: StorePaymentSettings | null,
+    nextAttempt: number,
+  ) => {
+    if (
+      o.paymentMethod !== "bank_transfer" ||
+      o.status !== "pending_payment" ||
+      !settings?.qrEnabled
+    ) {
+      return;
+    }
+    setQrLoading(true);
+    setQrError(null);
+    setQrErrorDetail(null);
+    try {
+      const result = await vietQr.generate({
+        amount: o.pricingBreakdownSnapshot.total,
+        transferContent: o.paymentReference,
+        cacheKey: `${o.id}-${o.code}-${o.pricingBreakdownSnapshot.total}-${nextAttempt}-${Date.now()}`,
+      });
+      setQr(result);
+      setQrLastGeneratedAt(Date.now());
+    } catch (e: any) {
+      const msg: string = e?.message ?? "Không thể tạo mã QR";
+      setQrError(msg);
+      // Map common upstream failures to actionable Vietnamese guidance.
+      let detail = "Lỗi không xác định khi tạo mã QR.";
+      if (/cấu hình|config/i.test(msg)) {
+        detail = "Cửa hàng chưa cấu hình tài khoản nhận hoặc đã tắt VietQR. Liên hệ cửa hàng để bật lại.";
+      } else if (/network|fetch|timeout/i.test(msg)) {
+        detail = "Mất kết nối tới dịch vụ VietQR. Kiểm tra mạng rồi bấm Thử quét lại.";
+      } else if (/amount|tiền|min/i.test(msg)) {
+        detail = "Số tiền không hợp lệ hoặc thấp hơn mức tối thiểu (10.000đ). Liên hệ cửa hàng để chuyển sang tiền mặt.";
+      }
+      setQrErrorDetail(detail);
+    } finally {
+      setQrLoading(false);
+    }
+  };
 
   // Reload the order whenever:
   //  - the route id changes
@@ -65,18 +114,10 @@ export default function PendingPaymentPage() {
         fromService.paymentMethod === "bank_transfer" &&
         fromService.status === "pending_payment" &&
         settings?.qrEnabled &&
-        !qr
+        !qr &&
+        !qrLoading
       ) {
-        try {
-          const result = await vietQr.generate({
-            amount: fromService.pricingBreakdownSnapshot.total,
-            transferContent: fromService.paymentReference,
-            cacheKey: `${fromService.id}-${fromService.code}-${fromService.pricingBreakdownSnapshot.total}-${qrAttempt}`,
-          });
-          if (alive) setQr(result);
-        } catch (e: any) {
-          if (alive) setQrError(e?.message ?? "Không thể tạo mã QR");
-        }
+        await regenerateQr(fromService, settings, qrAttempt);
       }
     };
 
@@ -107,6 +148,36 @@ export default function PendingPaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, qrAttempt]);
 
+  // Auto-refresh VietQR every 45s while still in pending_payment so banking
+  // apps that cache an "expired" payload always have a fresh code to scan.
+  useEffect(() => {
+    if (autoRefreshTimer.current) {
+      clearInterval(autoRefreshTimer.current);
+      autoRefreshTimer.current = null;
+    }
+    if (
+      !order ||
+      order.paymentMethod !== "bank_transfer" ||
+      order.status !== "pending_payment" ||
+      !bank?.qrEnabled
+    ) {
+      return;
+    }
+    autoRefreshTimer.current = setInterval(() => {
+      setQrAttempt((n) => {
+        const next = n + 1;
+        void regenerateQr(order, bank, next);
+        return next;
+      });
+    }, 45_000);
+    return () => {
+      if (autoRefreshTimer.current) {
+        clearInterval(autoRefreshTimer.current);
+        autoRefreshTimer.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id, order?.status, order?.paymentMethod, bank?.qrEnabled]);
 
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
@@ -294,55 +365,83 @@ export default function PendingPaymentPage() {
             ) : (
               <div className="grid sm:grid-cols-[244px_1fr] gap-4">
                 <div className="flex flex-col items-center gap-2">
-                  {qr ? (
+                  {qrLoading && !qr ? (
+                    <div className="h-60 w-60 rounded-md border bg-muted animate-pulse flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Đang tạo mã QR...</span>
+                    </div>
+                  ) : qr ? (
                     <>
-                      <img
-                        key={`bank-qr-${qrAttempt}`}
-                        src={qr.scanImageUrl}
-                        alt="VietQR"
-                        className="h-60 w-60 object-contain border rounded-md bg-white p-2"
-                      />
+                      <div className="relative">
+                        <img
+                          key={`bank-qr-${qrAttempt}`}
+                          src={qr.scanImageUrl}
+                          alt="VietQR"
+                          className="h-60 w-60 object-contain border rounded-md bg-white p-2"
+                        />
+                        {qrLoading && (
+                          <div className="absolute inset-0 bg-background/70 rounded-md flex items-center justify-center">
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                          </div>
+                        )}
+                      </div>
                       <button
+                        type="button"
+                        disabled={qrLoading}
                         onClick={() => {
                           setQr(null);
-                          setQrError(null);
-                          setQrAttempt((n) => n + 1);
+                          setQrAttempt((n) => {
+                            const next = n + 1;
+                            void regenerateQr(order, bank, next);
+                            return next;
+                          });
                         }}
-                        className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/40 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 transition disabled:opacity-50"
                       >
-                        Tải lại mã QR
+                        <RefreshCw className={`h-3.5 w-3.5 ${qrLoading ? "animate-spin" : ""}`} />
+                        Thử quét lại (tạo QR mới)
                       </button>
+                      {qrLastGeneratedAt && (
+                        <p className="text-[10px] text-muted-foreground">
+                          QR mới {Math.max(0, Math.floor((Date.now() - qrLastGeneratedAt) / 1000))}s trước · tự làm mới mỗi 45s
+                        </p>
+                      )}
                     </>
                   ) : qrError ? (
-                    <div className="h-60 w-60 border rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
+                    <div className="h-60 w-60 border border-danger/40 rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
                       <AlertTriangle className="h-5 w-5" />
-                      <span>{qrError}</span>
+                      <span className="font-medium">Không tìm thấy dữ liệu</span>
+                      <span className="text-[10.5px] text-muted-foreground leading-snug">
+                        {qrErrorDetail ?? qrError}
+                      </span>
                       <button
-                        onClick={async () => {
-                          if (!order) return;
+                        type="button"
+                        disabled={qrLoading}
+                        onClick={() => {
                           setQr(null);
-                          setQrError(null);
-                          try {
-                            const result = await vietQr.generate({
-                              amount: order.pricingBreakdownSnapshot.total,
-                              transferContent: order.paymentReference,
-                              cacheKey: `${order.id}-${Date.now()}-${qrAttempt + 1}`,
-                            });
-                            setQr(result);
-                            setQrAttempt((n) => n + 1);
-                          } catch (e: any) {
-                            setQrError(e?.message ?? "Không thể tạo mã QR");
-                          }
+                          setQrAttempt((n) => {
+                            const next = n + 1;
+                            void regenerateQr(order, bank, next);
+                            return next;
+                          });
                         }}
-                        className="px-2.5 py-1 rounded border border-danger/50 text-danger text-[11px] hover:bg-danger/5"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-danger/50 text-danger text-[11px] hover:bg-danger/5 disabled:opacity-50"
                       >
-                        Thử lại
+                        <RefreshCw className={`h-3 w-3 ${qrLoading ? "animate-spin" : ""}`} />
+                        Thử quét lại
                       </button>
                     </div>
                   ) : (
-                    // Real skeleton instead of plain text while VietQR is generating.
                     <div className="h-60 w-60 rounded-md border bg-muted animate-pulse" />
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDebug((v) => !v)}
+                    className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                  >
+                    <Bug className="h-3 w-3" />
+                    {showDebug ? "Ẩn" : "Hiện"} thông tin debug
+                  </button>
                 </div>
                 <div className="space-y-1.5 text-sm">
                   {[
@@ -362,6 +461,20 @@ export default function PendingPaymentPage() {
                       </div>
                     </div>
                   ))}
+                  {showDebug && (
+                    <div className="mt-2 p-2 rounded-md border border-dashed bg-muted/40 text-[10.5px] font-mono text-muted-foreground space-y-1 break-all">
+                      <div><span className="text-foreground font-semibold">attempt:</span> {qrAttempt}</div>
+                      <div><span className="text-foreground font-semibold">orderId:</span> {order.id}</div>
+                      <div><span className="text-foreground font-semibold">code:</span> {order.code}</div>
+                      <div><span className="text-foreground font-semibold">amount:</span> {breakdown.total}</div>
+                      <div><span className="text-foreground font-semibold">addInfo:</span> {qr?.transferContent ?? order.paymentReference}</div>
+                      <div><span className="text-foreground font-semibold">accountName:</span> {qr?.accountName ?? bank?.accountName}</div>
+                      <div><span className="text-foreground font-semibold">template:</span> {qr?.template ?? "-"}</div>
+                      <div><span className="text-foreground font-semibold">imageUrl:</span> {qr?.imageUrl ?? "-"}</div>
+                      <div><span className="text-foreground font-semibold">scanUrl:</span> {qr?.scanImageUrl ?? "-"}</div>
+                      {qrError && <div className="text-danger"><span className="font-semibold">error:</span> {qrError}</div>}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -507,12 +620,18 @@ export default function PendingPaymentPage() {
               </span>
             </div>
           )}
+          {qrLoading && order.paymentMethod === "bank_transfer" && (
+            <div className="p-3 rounded-md border border-primary/40 bg-primary/5 text-xs text-primary flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+              <span>Đang tạo mã QR mới — vui lòng chờ vài giây trước khi quét hoặc xác nhận.</span>
+            </div>
+          )}
           <button
             onClick={onCustomerConfirm}
-            disabled={!paymentReady || confirming}
+            disabled={!paymentReady || confirming || qrLoading}
             className="w-full py-2.5 rounded-md bg-success text-success-foreground text-sm font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {confirming ? "Đang gửi..." : "Tôi đã thanh toán — gửi xác nhận"}
+            {confirming ? "Đang gửi..." : qrLoading ? "Đang tạo QR..." : "Tôi đã thanh toán — gửi xác nhận"}
           </button>
         </div>
       )}
