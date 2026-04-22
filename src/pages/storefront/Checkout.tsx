@@ -628,10 +628,12 @@ function ShippingBlock({
   quote,
   loading,
   onRetry,
+  retryCooldown,
 }: {
   quote: ShippingQuote;
   loading: boolean;
   onRetry: () => void;
+  retryCooldown: number;
 }) {
   if (loading) {
     return (
@@ -658,8 +660,12 @@ function ShippingBlock({
   }
   if (quote.status === "quoted") {
     const eta = quote.etaDays;
+    const attemptedTime = quote.attemptedAt
+      ? new Date(quote.attemptedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+      : null;
+    const cooldownLabel = retryCooldown > 0 ? `Thử lại sau ${retryCooldown}s` : "Thử báo giá lại";
+    const retryDisabled = retryCooldown > 0 || loading;
 
-    // Address unmapped → block the user before submit.
     if (quote.usedFallback && quote.fallbackReason === "address_unmapped") {
       return (
         <div className="mt-4 p-3 rounded-xl bg-danger-soft text-xs text-danger space-y-2">
@@ -673,15 +679,15 @@ function ShippingBlock({
           <button
             type="button"
             onClick={onRetry}
-            className="ml-5 inline-flex items-center gap-1.5 px-3 h-7 rounded-full border border-danger/40 text-danger text-[11px] font-semibold hover:bg-danger/5"
+            disabled={retryDisabled}
+            className="ml-5 inline-flex items-center gap-1.5 px-3 h-7 rounded-full border border-danger/40 text-danger text-[11px] font-semibold hover:bg-danger/5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Loader2 className="h-3 w-3" /> Thử báo giá lại
+            <Loader2 className={cn("h-3 w-3", loading && "animate-spin")} /> {cooldownLabel}
           </button>
         </div>
       );
     }
 
-    // Carrier failed but local fallback succeeded → warn & offer retry.
     if (quote.usedFallback) {
       return (
         <div className="mt-4 p-3 rounded-xl bg-warning-soft text-xs text-warning space-y-2">
@@ -692,14 +698,16 @@ function ShippingBlock({
               Phí thực tế có thể thay đổi khi giao hàng.
               {eta ? <> Dự kiến <b>{eta.min}–{eta.max} ngày</b>. </> : null}
               {quote.fee === 0 ? <b>Miễn phí.</b> : <>Phí ước tính: <b>{formatVND(quote.fee ?? 0)}</b>.</>}
+              {attemptedTime ? <span className="block mt-1 text-warning/70">Thử lúc {attemptedTime}.</span> : null}
             </span>
           </div>
           <button
             type="button"
             onClick={onRetry}
-            className="ml-5 inline-flex items-center gap-1.5 px-3 h-7 rounded-full border border-warning/40 text-warning text-[11px] font-semibold hover:bg-warning/5"
+            disabled={retryDisabled}
+            className="ml-5 inline-flex items-center gap-1.5 px-3 h-7 rounded-full border border-warning/40 text-warning text-[11px] font-semibold hover:bg-warning/5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Loader2 className="h-3 w-3" /> Thử báo giá lại
+            <Loader2 className={cn("h-3 w-3", loading && "animate-spin")} /> {cooldownLabel}
           </button>
         </div>
       );
