@@ -620,12 +620,18 @@ export default function PendingPaymentPage() {
               </span>
             </div>
           )}
+          {qrLoading && order.paymentMethod === "bank_transfer" && (
+            <div className="p-3 rounded-md border border-primary/40 bg-primary/5 text-xs text-primary flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+              <span>Đang tạo mã QR mới — vui lòng chờ vài giây trước khi quét hoặc xác nhận.</span>
+            </div>
+          )}
           <button
             onClick={onCustomerConfirm}
-            disabled={!paymentReady || confirming}
+            disabled={!paymentReady || confirming || qrLoading}
             className="w-full py-2.5 rounded-md bg-success text-success-foreground text-sm font-semibold hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {confirming ? "Đang gửi..." : "Tôi đã thanh toán — gửi xác nhận"}
+            {confirming ? "Đang gửi..." : qrLoading ? "Đang tạo QR..." : "Tôi đã thanh toán — gửi xác nhận"}
           </button>
         </div>
       )}
