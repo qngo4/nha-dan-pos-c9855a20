@@ -26,6 +26,7 @@ import AdminCombos from "@/pages/admin/Combos";
 import AdminPOS from "@/pages/admin/POS";
 import AdminInvoices from "@/pages/admin/Invoices";
 import AdminPendingOrders from "@/pages/admin/PendingOrders";
+import AdminUnmatchedPayments from "@/pages/admin/UnmatchedPayments";
 import AdminPromotions from "@/pages/admin/Promotions";
 import AdminVouchers from "@/pages/admin/Vouchers";
 import AdminCustomers from "@/pages/admin/Customers";
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="pos" element={<AdminPOS />} />
             <Route path="invoices" element={<AdminInvoices />} />
             <Route path="pending-orders" element={<AdminPendingOrders />} />
+            <Route path="unmatched-payments" element={<AdminUnmatchedPayments />} />
             <Route path="promotions" element={<AdminPromotions />} />
             <Route path="vouchers" element={<AdminVouchers />} />
             <Route path="goods-receipts" element={<AdminGoodsReceipts />} />
