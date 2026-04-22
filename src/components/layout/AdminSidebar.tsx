@@ -159,28 +159,6 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
                 </Link>
                 );
               })}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
-                    collapsed && "justify-center px-2",
-                    isActive(item.path)
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  )}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="truncate">{item.label}</span>
-                      {item.badge && (
-                        <span className="ml-auto text-[10px] bg-danger text-danger-foreground rounded-full px-1.5 py-0.5 font-semibold">
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </Link>
-              ))}
             </div>
           </div>
         ))}
