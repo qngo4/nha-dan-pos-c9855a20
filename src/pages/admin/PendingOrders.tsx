@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
 import { pendingOrders as pendingOrdersService, invoices as invoiceService } from "@/services";
+import { supabase } from "@/integrations/supabase/client";
 import type { PendingOrder, PendingOrderStatus, PaymentMethod } from "@/services/types";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -66,24 +67,28 @@ export default function AdminPendingOrders() {
     setLoading(false);
   }, []);
 
-  // Live refresh: re-poll every 5s, on tab focus, and on cross-tab storage events,
-  // so admin sees a new "Hóa đơn chờ xử lý" the instant a customer submits.
+  // Live refresh: Supabase Realtime pushes any INSERT/UPDATE/DELETE on
+  // pending_orders. Fallback: re-fetch when tab regains focus.
   const lastSeenIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     void reload();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key.includes("pending_orders")) void reload();
-    };
     const onVisible = () => {
       if (document.visibilityState === "visible") void reload();
     };
-    window.addEventListener("storage", onStorage);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = window.setInterval(() => void reload(), 5000);
+
+    const channel = supabase
+      .channel("admin_pending_orders")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pending_orders" },
+        () => { void reload(); }
+      )
+      .subscribe();
+
     return () => {
-      window.removeEventListener("storage", onStorage);
       document.removeEventListener("visibilitychange", onVisible);
-      window.clearInterval(poll);
+      supabase.removeChannel(channel);
     };
   }, [reload]);
 

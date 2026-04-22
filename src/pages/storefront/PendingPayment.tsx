@@ -4,7 +4,7 @@ import { formatVND, formatDateTime } from "@/lib/format";
 import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
 import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
-import { usePaymentEvents } from "@/hooks/usePaymentEvents";
+import { supabase } from "@/integrations/supabase/client";
 import type {
   PaymentMethod,
   PendingOrder,
@@ -36,9 +36,8 @@ export default function PendingPaymentPage() {
 
   // Reload the order whenever:
   //  - the route id changes
-  //  - another tab writes to localStorage (admin confirms in /admin/pending-orders)
   //  - the user returns to this tab (visibilitychange)
-  //  - a 5s poll fires while the order is still pending
+  //  - Supabase Realtime pushes an UPDATE on this row (payment matched by webhook trigger)
   useEffect(() => {
     if (!id) return;
     let alive = true;
@@ -53,16 +52,13 @@ export default function PendingPaymentPage() {
       setLoading(false);
 
       if (fromService && prevStatus && prevStatus !== fromService.status) {
-        if (fromService.status === "confirmed") {
-          toast.success("Thanh toán đã được xác nhận!");
+        if (fromService.status === "confirmed" || fromService.status === "paid_auto") {
+          toast.success("Đã nhận thanh toán tự động qua webhook ngân hàng");
         } else if (fromService.status === "cancelled") {
           toast.error("Đơn hàng đã bị hủy");
         }
       }
 
-      // For bank_transfer: generate dynamic VietQR (amount + content embedded).
-      // For momo/zalopay: use the static QR image admin uploaded in Store Settings;
-      // skip the VietQR API entirely so each method shows its own wallet QR.
       if (
         fromService &&
         fromService.paymentMethod === "bank_transfer" &&
@@ -84,55 +80,31 @@ export default function PendingPaymentPage() {
 
     void fetchAll();
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key && e.key.includes("pending_orders")) void fetchAll();
-    };
     const onVisible = () => {
       if (document.visibilityState === "visible") void fetchAll();
     };
-    window.addEventListener("storage", onStorage);
     document.addEventListener("visibilitychange", onVisible);
-    const poll = window.setInterval(() => {
-      // Stop polling once the order has resolved.
-      setOrder((cur) => {
-        if (cur && (cur.status === "confirmed" || cur.status === "cancelled")) return cur;
-        void fetchAll();
-        return cur;
-      });
-    }, 5000);
+
+    // Supabase Realtime: trigger apply_payment_event() updates this row's
+    // status/paid_amount the moment Casso webhook posts a matching transfer.
+    const filter = /^[0-9a-f]{8}-/i.test(id) ? `id=eq.${id}` : `code=eq.${id}`;
+    const channel = supabase
+      .channel(`pending_order_${id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pending_orders", filter },
+        () => { void fetchAll(); }
+      )
+      .subscribe();
 
     return () => {
       alive = false;
-      window.removeEventListener("storage", onStorage);
       document.removeEventListener("visibilitychange", onVisible);
-      window.clearInterval(poll);
+      supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // === Auto-confirm via Casso webhook (Phase 1) ===
-  // Poll Cloud `payment_events`; when a sufficient transfer arrives, flip status.
-  const isResolved = order?.status === "confirmed" || order?.status === "cancelled";
-  const { matchedEvent, insufficientEvent } = usePaymentEvents({
-    orderCode: order?.code,
-    requiredAmount: order?.pricingBreakdownSnapshot.total,
-    enabled: !!order && !isResolved && order.paymentMethod !== "cash",
-  });
-
-  useEffect(() => {
-    if (!matchedEvent || !order || isResolved) return;
-    if (order.status === "confirmed") return;
-    (async () => {
-      try {
-        await pendingOrdersService.update(order.id, { status: "confirmed" });
-        const fresh = await pendingOrdersService.get(order.id);
-        if (fresh) setOrder(fresh);
-        toast.success("Đã nhận thanh toán tự động qua webhook ngân hàng");
-      } catch (e) {
-        console.error("Auto-confirm failed", e);
-      }
-    })();
-  }, [matchedEvent, order?.id, isResolved]);
 
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
@@ -152,6 +124,7 @@ export default function PendingPaymentPage() {
 
   const breakdown = order.pricingBreakdownSnapshot;
   const items = order.lines;
+  const insufficientEvent = null as null | { amount: number };
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success(`Đã sao chép ${label}`));
@@ -163,8 +136,6 @@ export default function PendingPaymentPage() {
     order.paymentMethod === "momo" ? "MoMo" :
     order.paymentMethod === "zalopay" ? "ZaloPay" : "tiền mặt";
 
-  // Per-method QR readiness: locks the "Tôi đã thanh toán" button if admin
-  // hasn't configured the static wallet QR (MoMo/ZaloPay) or VietQR (bank_transfer).
   const isWalletMethod = order.paymentMethod === "momo" || order.paymentMethod === "zalopay";
   const walletImageForMethod =
     order.paymentMethod === "momo" ? bank?.momoQrImage :
@@ -174,6 +145,7 @@ export default function PendingPaymentPage() {
     : isWalletMethod
       ? Boolean(walletImageForMethod)
       : Boolean(bank?.qrEnabled && bank?.accountNumber);
+
   const onCustomerConfirm = async () => {
     if (!order || !paymentReady) return;
     setConfirming(true);
@@ -189,8 +161,6 @@ export default function PendingPaymentPage() {
     }
   };
 
-
-  return (
     <div className="max-w-2xl mx-auto px-4 py-8">
 
       <div className="text-center mb-6">
