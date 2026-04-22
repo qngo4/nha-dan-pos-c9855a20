@@ -146,6 +146,14 @@ export default function PendingPaymentPage() {
       ? Boolean(walletImageForMethod)
       : Boolean(bank?.qrEnabled && bank?.accountNumber);
 
+  // Most VN banks reject 24/7 transfers below 10.000đ with a "minimum amount"
+  // popup. Surface this clearly so customers don't blame the QR.
+  const BANK_MIN_TRANSFER = 10_000;
+  const showMinTransferWarning =
+    order.paymentMethod === "bank_transfer" &&
+    order.status === "pending_payment" &&
+    breakdown.total < BANK_MIN_TRANSFER;
+
   const onCustomerConfirm = async () => {
     if (!order || !paymentReady) return;
     setConfirming(true);
@@ -208,6 +216,17 @@ export default function PendingPaymentPage() {
             <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
               <QrCode className="h-4 w-4 text-primary" /> Thông tin thanh toán ({paymentLabelShort})
             </h2>
+
+            {showMinTransferWarning && (
+              <div className="mb-3 p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  Số tiền <strong>{formatVND(breakdown.total)}</strong> thấp hơn mức tối thiểu (10.000đ)
+                  mà nhiều ngân hàng cho phép chuyển khoản 24/7. Nếu app báo "số tiền giao dịch tối thiểu",
+                  vui lòng đổi sang <strong>tiền mặt</strong> hoặc liên hệ cửa hàng.
+                </span>
+              </div>
+            )}
 
             {!configured ? (
               <div className="p-3 bg-warning-soft rounded-md text-xs text-warning flex items-start gap-2">
