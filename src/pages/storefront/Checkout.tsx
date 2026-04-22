@@ -191,7 +191,12 @@ export default function CheckoutPage() {
 
   const promoDiscount = bestPromo?.discountAmount ?? 0;
   const voucherDiscount = Math.min(voucherSnap?.discountAmount ?? 0, Math.max(0, subtotal - promoDiscount));
-  const shippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
+  const promoShippingDiscount = Math.min(bestPromo?.shippingDiscountAmount ?? 0, baseShippingFee);
+  const voucherShippingDiscount = Math.min(
+    voucherSnap?.shippingDiscountAmount ?? 0,
+    Math.max(0, baseShippingFee - promoShippingDiscount),
+  );
+  const shippingDiscount = promoShippingDiscount + voucherShippingDiscount;
   const shippingFee = Math.max(0, baseShippingFee - shippingDiscount);
   const total = Math.max(0, subtotal - promoDiscount - voucherDiscount + shippingFee);
   const isOnline = payment !== "cash";
