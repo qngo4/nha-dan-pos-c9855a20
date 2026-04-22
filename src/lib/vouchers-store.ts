@@ -17,6 +17,8 @@ export interface VoucherDef {
   cap: Money;
   /** Fixed amount for non-percent vouchers (used when percent === 0). */
   fixedAmount: Money;
+  /** Khi true: voucher miễn phí ship (giới hạn bởi `cap` nếu > 0). */
+  freeShipping?: boolean;
   active: boolean;
   /** Optional ISO date (yyyy-mm-dd or full ISO). When set, voucher is invalid before this. */
   startAt?: string;
@@ -24,12 +26,13 @@ export interface VoucherDef {
   endAt?: string;
 }
 
-const STORAGE_KEY = "nhadan.vouchers.v2";
+const STORAGE_KEY = "nhadan.vouchers.v3";
 
 const defaults: VoucherDef[] = [
   { id: "v-nhadan10", code: "NHADAN10", ruleSummary: "Giảm 10% đơn hàng (tối đa 50.000đ)", minSubtotal: 0, percent: 10, cap: 50_000, fixedAmount: 0, active: true },
   { id: "v-nhadan20", code: "NHADAN20", ruleSummary: "Giảm 20% cho đơn từ 200.000đ (tối đa 100.000đ)", minSubtotal: 200_000, percent: 20, cap: 100_000, fixedAmount: 0, active: true },
   { id: "v-giam50k", code: "GIAM50K", ruleSummary: "Giảm 50.000đ cho đơn từ 300.000đ", minSubtotal: 300_000, percent: 0, cap: 0, fixedAmount: 50_000, active: true },
+  { id: "v-freeship", code: "FREESHIP", ruleSummary: "Miễn phí giao hàng (tối đa 50.000đ)", minSubtotal: 0, percent: 0, cap: 50_000, fixedAmount: 0, freeShipping: true, active: true },
 ];
 
 /** Returns true when the voucher's date window includes `now`. */
