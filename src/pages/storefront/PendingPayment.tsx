@@ -110,6 +110,30 @@ export default function PendingPaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // === Auto-confirm via Casso webhook (Phase 1) ===
+  // Poll Cloud `payment_events`; when a sufficient transfer arrives, flip status.
+  const isResolved = order?.status === "confirmed" || order?.status === "cancelled";
+  const { matchedEvent, insufficientEvent } = usePaymentEvents({
+    orderCode: order?.code,
+    requiredAmount: order?.pricingBreakdownSnapshot.total,
+    enabled: !!order && !isResolved && order.paymentMethod !== "cash",
+  });
+
+  useEffect(() => {
+    if (!matchedEvent || !order || isResolved) return;
+    if (order.status === "confirmed") return;
+    (async () => {
+      try {
+        await pendingOrdersService.update(order.id, { status: "confirmed" });
+        const fresh = await pendingOrdersService.get(order.id);
+        if (fresh) setOrder(fresh);
+        toast.success("Đã nhận thanh toán tự động qua webhook ngân hàng");
+      } catch (e) {
+        console.error("Auto-confirm failed", e);
+      }
+    })();
+  }, [matchedEvent, order?.id, isResolved]);
+
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
   }
