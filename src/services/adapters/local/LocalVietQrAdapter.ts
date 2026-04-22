@@ -1,6 +1,7 @@
 import type { StoreSettingsService } from "@/services/storeSettings/StoreSettingsService";
 import type { VietQrService } from "@/services/vietQr/VietQrService";
 import type { VietQrRequest, VietQrResult, VietQrTemplate } from "@/services/types";
+import { isPlausibleBankAccountNumber, normalizeVietQrBankId, sanitizeBankAccountNumber } from "@/lib/vietqr";
 
 /**
  * NAPAS / VietQR field 59 (account name) requires plain ASCII, uppercase,
@@ -34,6 +35,11 @@ export class LocalVietQrAdapter implements VietQrService {
     if (!s || !s.qrEnabled || !s.vietQrBankCode || !s.accountNumber) {
       throw new Error("VietQR chưa được cấu hình. Vào 'Cài đặt cửa hàng' để thiết lập.");
     }
+    const bankId = normalizeVietQrBankId(s.vietQrBankCode);
+    const accountNumber = sanitizeBankAccountNumber(s.accountNumber);
+    if (!bankId || !isPlausibleBankAccountNumber(accountNumber)) {
+      throw new Error("Tài khoản thụ hưởng không hợp lệ. Cửa hàng cần kiểm tra lại ngân hàng và số tài khoản nhận tiền.");
+    }
     const template: VietQrTemplate = s.qrTemplate ?? "compact2";
     // Sanitize for NAPAS spec: ASCII uppercase, no diacritics, length-bounded.
     const safeAccountName = sanitizeAscii(s.accountName ?? "", 25);
@@ -47,18 +53,18 @@ export class LocalVietQrAdapter implements VietQrService {
       params.set("_v", request.cacheKey);
     }
     const imageUrl = `https://img.vietqr.io/image/${encodeURIComponent(
-      s.vietQrBankCode
-    )}-${encodeURIComponent(s.accountNumber)}-${template}.png?${params.toString()}`;
+      bankId
+    )}-${encodeURIComponent(accountNumber)}-${template}.png?${params.toString()}`;
     const scanImageUrl = `https://img.vietqr.io/image/${encodeURIComponent(
-      s.vietQrBankCode
-    )}-${encodeURIComponent(s.accountNumber)}-qr_only.png?${params.toString()}`;
+      bankId
+    )}-${encodeURIComponent(accountNumber)}-qr_only.png?${params.toString()}`;
 
     return {
       imageUrl,
       scanImageUrl,
       rawPayload: imageUrl,
       bankName: s.bankName,
-      accountNumber: s.accountNumber,
+      accountNumber,
       accountName: s.accountName,
       amount: request.amount,
       transferContent: safeAddInfo,
