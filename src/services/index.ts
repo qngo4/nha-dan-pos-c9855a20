@@ -19,6 +19,8 @@ import { LocalAddressAdapter } from "./adapters/local/LocalAddressAdapter";
 import { RemoteAddressAdapter } from "./adapters/remote/RemoteAddressAdapter";
 import { HybridAddressAdapter } from "./adapters/remote/HybridAddressAdapter";
 import { LocalShippingAdapter } from "./adapters/local/LocalShippingAdapter";
+import { GhnShippingAdapter } from "./adapters/remote/GhnShippingAdapter";
+import { HybridShippingAdapter } from "./adapters/remote/HybridShippingAdapter";
 import { CloudPendingOrderAdapter } from "./adapters/cloud/CloudPendingOrderAdapter";
 import { LocalPromotionAdapter } from "./adapters/local/LocalPromotionAdapter";
 import { LocalCustomerAdapter } from "./adapters/local/LocalCustomerAdapter";
@@ -32,7 +34,10 @@ export const addresses: AddressService = new HybridAddressAdapter(
   new RemoteAddressAdapter(),
   new LocalAddressAdapter(),
 );
-export const shipping: ShippingService = new LocalShippingAdapter();
+export const shipping: ShippingService = new HybridShippingAdapter(
+  new GhnShippingAdapter(storeSettings),
+  new LocalShippingAdapter(),
+);
 export const pendingOrders: PendingOrderService = new CloudPendingOrderAdapter();
 export const promotions: PromotionEvaluationService = new LocalPromotionAdapter();
 export const customers: CustomerService = new LocalCustomerAdapter();
