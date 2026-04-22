@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ShippingQuoteInput } from "@/services/types";
 
 // ---- Mock supabase client BEFORE importing adapters that use it ----
-const invokeMock = vi.fn();
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     functions: { invoke: invokeMock },
