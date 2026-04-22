@@ -43,12 +43,19 @@ export class LocalVietQrAdapter implements VietQrService {
       addInfo: safeAddInfo,
       accountName: safeAccountName,
     });
+    if (request.cacheKey) {
+      params.set("_v", request.cacheKey);
+    }
     const imageUrl = `https://img.vietqr.io/image/${encodeURIComponent(
       s.vietQrBankCode
     )}-${encodeURIComponent(s.accountNumber)}-${template}.png?${params.toString()}`;
+    const scanImageUrl = `https://img.vietqr.io/image/${encodeURIComponent(
+      s.vietQrBankCode
+    )}-${encodeURIComponent(s.accountNumber)}-qr_only.png?${params.toString()}`;
 
     return {
       imageUrl,
+      scanImageUrl,
       rawPayload: imageUrl,
       bankName: s.bankName,
       accountNumber: s.accountNumber,
