@@ -4,6 +4,7 @@ import { formatVND, formatDateTime } from "@/lib/format";
 import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Package, Copy, QrCode } from "lucide-react";
 import { pendingOrders as pendingOrdersService, storeSettings, vietQr } from "@/services";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
+import { usePaymentEvents } from "@/hooks/usePaymentEvents";
 import type {
   PaymentMethod,
   PendingOrder,
