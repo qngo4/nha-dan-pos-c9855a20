@@ -17,7 +17,7 @@ import { LocalStoreSettingsAdapter } from "./adapters/local/LocalStoreSettingsAd
 import { LocalVietQrAdapter } from "./adapters/local/LocalVietQrAdapter";
 import { LocalAddressAdapter } from "./adapters/local/LocalAddressAdapter";
 import { LocalShippingAdapter } from "./adapters/local/LocalShippingAdapter";
-import { LocalPendingOrderAdapter } from "./adapters/local/LocalPendingOrderAdapter";
+import { CloudPendingOrderAdapter } from "./adapters/cloud/CloudPendingOrderAdapter";
 import { LocalPromotionAdapter } from "./adapters/local/LocalPromotionAdapter";
 import { LocalCustomerAdapter } from "./adapters/local/LocalCustomerAdapter";
 import { LocalVoucherAdapter } from "./adapters/local/LocalVoucherAdapter";
@@ -28,7 +28,7 @@ export const storeSettings: StoreSettingsService = new LocalStoreSettingsAdapter
 export const vietQr: VietQrService = new LocalVietQrAdapter(storeSettings);
 export const addresses: AddressService = new LocalAddressAdapter();
 export const shipping: ShippingService = new LocalShippingAdapter();
-export const pendingOrders: PendingOrderService = new LocalPendingOrderAdapter();
+export const pendingOrders: PendingOrderService = new CloudPendingOrderAdapter();
 export const promotions: PromotionEvaluationService = new LocalPromotionAdapter();
 export const customers: CustomerService = new LocalCustomerAdapter();
 export const vouchers: VoucherService = new LocalVoucherAdapter();
