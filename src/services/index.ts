@@ -16,6 +16,8 @@ import type { PaymentEventService } from "./paymentEvents/PaymentEventService";
 import { LocalStoreSettingsAdapter } from "./adapters/local/LocalStoreSettingsAdapter";
 import { LocalVietQrAdapter } from "./adapters/local/LocalVietQrAdapter";
 import { LocalAddressAdapter } from "./adapters/local/LocalAddressAdapter";
+import { RemoteAddressAdapter } from "./adapters/remote/RemoteAddressAdapter";
+import { HybridAddressAdapter } from "./adapters/remote/HybridAddressAdapter";
 import { LocalShippingAdapter } from "./adapters/local/LocalShippingAdapter";
 import { CloudPendingOrderAdapter } from "./adapters/cloud/CloudPendingOrderAdapter";
 import { LocalPromotionAdapter } from "./adapters/local/LocalPromotionAdapter";
@@ -26,7 +28,10 @@ import { CloudPaymentEventAdapter } from "./adapters/cloud/CloudPaymentEventAdap
 
 export const storeSettings: StoreSettingsService = new LocalStoreSettingsAdapter();
 export const vietQr: VietQrService = new LocalVietQrAdapter(storeSettings);
-export const addresses: AddressService = new LocalAddressAdapter();
+export const addresses: AddressService = new HybridAddressAdapter(
+  new RemoteAddressAdapter(),
+  new LocalAddressAdapter(),
+);
 export const shipping: ShippingService = new LocalShippingAdapter();
 export const pendingOrders: PendingOrderService = new CloudPendingOrderAdapter();
 export const promotions: PromotionEvaluationService = new LocalPromotionAdapter();

@@ -18,6 +18,9 @@ src/services/
     Local*.ts
     storage.ts                      ← internal helper, NOT for UI
     data/vn-address.json            ← bundled VN dataset, NOT for UI
+  adapters/remote/                  ← public HTTP API-backed implementations
+    RemoteAddressAdapter.ts         ← provinces.open-api.vn (cached 7d)
+    HybridAddressAdapter.ts         ← remote-first, local fallback
   utils/
     money.ts ids.ts date.ts         ← service-layer helpers only
 ```
