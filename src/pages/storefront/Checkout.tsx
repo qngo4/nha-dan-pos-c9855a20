@@ -101,6 +101,7 @@ export default function CheckoutPage() {
 
   const [quote, setQuote] = useState<ShippingQuote>({ status: "incomplete" });
   const [quoting, setQuoting] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // Build canonical ShippingAddress (or null if incomplete) and quote on change.
   const shippingAddress: ShippingAddress | null = useMemo(() => {
@@ -138,7 +139,14 @@ export default function CheckoutPage() {
       cancel = true;
       clearTimeout(t);
     };
-  }, [shippingAddress, subtotal]);
+  }, [shippingAddress, subtotal, retryNonce]);
+
+  const handleRetryQuote = () => {
+    // Reset hybrid circuit-breaker so the carrier is tried again immediately.
+    const s = shipping as { resetBreaker?: () => void };
+    s.resetBreaker?.();
+    setRetryNonce((n) => n + 1);
+  };
 
   const baseShippingFee = quote.status === "quoted" ? quote.fee ?? 0 : 0;
 
