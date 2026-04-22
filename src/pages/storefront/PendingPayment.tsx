@@ -27,6 +27,7 @@ export default function PendingPaymentPage() {
   const [bank, setBank] = useState<StorePaymentSettings | null>(null);
   const [qr, setQr] = useState<VietQrResult | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrAttempt, setQrAttempt] = useState(0);
   const [confirming, setConfirming] = useState(false);
   // Bumping this re-mounts the wallet <img> so a failed/missing static QR
   // can be re-attempted without leaving the page.
@@ -70,6 +71,7 @@ export default function PendingPaymentPage() {
           const result = await vietQr.generate({
             amount: fromService.pricingBreakdownSnapshot.total,
             transferContent: fromService.paymentReference,
+            cacheKey: `${fromService.id}-${fromService.updatedAt}-${qrAttempt}`,
           });
           if (alive) setQr(result);
         } catch (e: any) {
@@ -103,7 +105,7 @@ export default function PendingPaymentPage() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, qrAttempt]);
 
 
   if (loading) {
@@ -293,7 +295,24 @@ export default function PendingPaymentPage() {
               <div className="grid sm:grid-cols-[244px_1fr] gap-4">
                 <div className="flex flex-col items-center gap-2">
                   {qr ? (
-                    <img src={qr.imageUrl} alt="VietQR" className="h-60 w-60 object-contain border rounded-md bg-white p-2" />
+                    <>
+                      <img
+                        key={`bank-qr-${qrAttempt}`}
+                        src={qr.scanImageUrl}
+                        alt="VietQR"
+                        className="h-60 w-60 object-contain border rounded-md bg-white p-2"
+                      />
+                      <button
+                        onClick={() => {
+                          setQr(null);
+                          setQrError(null);
+                          setQrAttempt((n) => n + 1);
+                        }}
+                        className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                      >
+                        Tải lại mã QR
+                      </button>
+                    </>
                   ) : qrError ? (
                     <div className="h-60 w-60 border rounded-md flex flex-col items-center justify-center gap-2 text-xs text-danger text-center px-3">
                       <AlertTriangle className="h-5 w-5" />
@@ -301,13 +320,16 @@ export default function PendingPaymentPage() {
                       <button
                         onClick={async () => {
                           if (!order) return;
+                          setQr(null);
                           setQrError(null);
                           try {
                             const result = await vietQr.generate({
                               amount: order.pricingBreakdownSnapshot.total,
                               transferContent: order.paymentReference,
+                              cacheKey: `${order.id}-${Date.now()}-${qrAttempt + 1}`,
                             });
                             setQr(result);
+                            setQrAttempt((n) => n + 1);
                           } catch (e: any) {
                             setQrError(e?.message ?? "Không thể tạo mã QR");
                           }
@@ -359,6 +381,7 @@ export default function PendingPaymentPage() {
                   if (fresh) setOrder(fresh);
                   setQr(null);
                   setQrError(null);
+                  setQrAttempt(0);
                   setWalletImgFailed(false);
                   toast.success(`Đã chuyển sang ${PAYMENT_LABEL[next]}`);
                 } catch {
