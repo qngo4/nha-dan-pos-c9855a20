@@ -6,6 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { StorefrontLayout } from "@/components/layout/StorefrontLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { AdminAuthGuard } from "@/components/layout/AdminAuthGuard";
+import { AdminAuthProvider } from "@/lib/admin-auth";
+import AdminLoginPage from "@/pages/admin/AdminLogin";
 
 import StorefrontHome from "@/pages/storefront/Home";
 import StorefrontProducts from "@/pages/storefront/Products";
@@ -54,55 +57,67 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          {/* Storefront */}
-          <Route element={<StorefrontLayout />}>
-            <Route path="/" element={<StorefrontHome />} />
-            <Route path="/products" element={<StorefrontProducts />} />
-            <Route path="/products/:id" element={<StorefrontProductDetail />} />
-            <Route path="/combos" element={<StorefrontCombos />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/pending-payment" element={<PendingPaymentPage />} />
-            <Route path="/pending-payment/:id" element={<PendingPaymentPage />} />
-            <Route path="/account" element={<AccountPage />} />
-          </Route>
+        <AdminAuthProvider>
+          <Routes>
+            {/* Storefront */}
+            <Route element={<StorefrontLayout />}>
+              <Route path="/" element={<StorefrontHome />} />
+              <Route path="/products" element={<StorefrontProducts />} />
+              <Route path="/products/:id" element={<StorefrontProductDetail />} />
+              <Route path="/combos" element={<StorefrontCombos />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/pending-payment" element={<PendingPaymentPage />} />
+              <Route path="/pending-payment/:id" element={<PendingPaymentPage />} />
+              <Route path="/account" element={<AccountPage />} />
+            </Route>
 
-          {/* Auth (no layout) */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+            {/* Auth (no layout) */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
 
-          {/* Admin */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="categories" element={<AdminCategories />} />
-            <Route path="products" element={<AdminProducts />} />
-            <Route path="products/new" element={<AdminProductDetail />} />
-            <Route path="products/:id" element={<AdminProductDetail />} />
-            <Route path="combos" element={<AdminCombos />} />
-            <Route path="pos" element={<AdminPOS />} />
-            <Route path="invoices" element={<AdminInvoices />} />
-            <Route path="pending-orders" element={<AdminPendingOrders />} />
-            <Route path="unmatched-payments" element={<AdminUnmatchedPayments />} />
-            <Route path="promotions" element={<AdminPromotions />} />
-            <Route path="vouchers" element={<AdminVouchers />} />
-            <Route path="goods-receipts" element={<AdminGoodsReceipts />} />
-            <Route path="goods-receipts/create" element={<AdminGoodsReceiptCreate />} />
-            <Route path="stock-adjustments" element={<AdminStockAdjustments />} />
-            <Route path="stock-adjustments/create" element={<AdminStockAdjustmentCreate />} />
-            <Route path="inventory-report" element={<AdminInventoryReport />} />
-            <Route path="revenue" element={<AdminRevenueReport />} />
-            <Route path="profit" element={<AdminProfitReport />} />
-            <Route path="customers" element={<AdminCustomers />} />
-            <Route path="suppliers" element={<AdminSuppliers />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="security" element={<AdminSecurity />} />
-            <Route path="store-settings" element={<AdminStoreSettings />} />
-            <Route path="shipping-settings" element={<AdminShippingSettings />} />
-          </Route>
+            {/* Admin login (Supabase auth) */}
+            <Route path="/admin/login" element={<AdminLoginPage />} />
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Admin (guarded) */}
+            <Route
+              path="/admin"
+              element={
+                <AdminAuthGuard>
+                  <AdminLayout />
+                </AdminAuthGuard>
+              }
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="categories" element={<AdminCategories />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="products/new" element={<AdminProductDetail />} />
+              <Route path="products/:id" element={<AdminProductDetail />} />
+              <Route path="combos" element={<AdminCombos />} />
+              <Route path="pos" element={<AdminPOS />} />
+              <Route path="invoices" element={<AdminInvoices />} />
+              <Route path="pending-orders" element={<AdminPendingOrders />} />
+              <Route path="unmatched-payments" element={<AdminUnmatchedPayments />} />
+              <Route path="promotions" element={<AdminPromotions />} />
+              <Route path="vouchers" element={<AdminVouchers />} />
+              <Route path="goods-receipts" element={<AdminGoodsReceipts />} />
+              <Route path="goods-receipts/create" element={<AdminGoodsReceiptCreate />} />
+              <Route path="stock-adjustments" element={<AdminStockAdjustments />} />
+              <Route path="stock-adjustments/create" element={<AdminStockAdjustmentCreate />} />
+              <Route path="inventory-report" element={<AdminInventoryReport />} />
+              <Route path="revenue" element={<AdminRevenueReport />} />
+              <Route path="profit" element={<AdminProfitReport />} />
+              <Route path="customers" element={<AdminCustomers />} />
+              <Route path="suppliers" element={<AdminSuppliers />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="security" element={<AdminSecurity />} />
+              <Route path="store-settings" element={<AdminStoreSettings />} />
+              <Route path="shipping-settings" element={<AdminShippingSettings />} />
+            </Route>
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AdminAuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
