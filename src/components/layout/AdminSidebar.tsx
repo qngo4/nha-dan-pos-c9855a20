@@ -78,10 +78,37 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: AdminSidebarProps) {
   const location = useLocation();
+  const [unmatchedCount, setUnmatchedCount] = useState(0);
+
+  // Refresh the unmatched-payments badge periodically. Cheap (count-only query).
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const n = await paymentEvents.countUnmatched();
+        if (alive) setUnmatchedCount(n);
+      } catch {
+        /* unauthenticated or offline → just hide the badge */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void tick();
+    }, 30000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin';
     return location.pathname.startsWith(path);
+  };
+
+  const badgeFor = (item: any): number | undefined => {
+    if (item.badgeKey === "unmatched") return unmatchedCount > 0 ? unmatchedCount : undefined;
+    return item.badge;
   };
 
   const sidebarContent = (
@@ -102,11 +129,36 @@ export function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }:
               </p>
             )}
             <div className="space-y-0.5">
-              {group.items.map((item) => (
+              {group.items.map((item) => {
+                const badgeValue = badgeFor(item);
+                return (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={onMobileClose}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                    collapsed && "justify-center px-2",
+                    isActive(item.path)
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="truncate">{item.label}</span>
+                      {badgeValue && (
+                        <span className="ml-auto text-[10px] bg-danger text-danger-foreground rounded-full px-1.5 py-0.5 font-semibold">
+                          {badgeValue}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Link>
+                );
+              })}
                   className={cn(
                     "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     collapsed && "justify-center px-2",
