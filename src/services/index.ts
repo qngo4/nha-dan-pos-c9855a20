@@ -28,7 +28,10 @@ import { CloudPaymentEventAdapter } from "./adapters/cloud/CloudPaymentEventAdap
 
 export const storeSettings: StoreSettingsService = new LocalStoreSettingsAdapter();
 export const vietQr: VietQrService = new LocalVietQrAdapter(storeSettings);
-export const addresses: AddressService = new LocalAddressAdapter();
+export const addresses: AddressService = new HybridAddressAdapter(
+  new RemoteAddressAdapter(),
+  new LocalAddressAdapter(),
+);
 export const shipping: ShippingService = new LocalShippingAdapter();
 export const pendingOrders: PendingOrderService = new CloudPendingOrderAdapter();
 export const promotions: PromotionEvaluationService = new LocalPromotionAdapter();
