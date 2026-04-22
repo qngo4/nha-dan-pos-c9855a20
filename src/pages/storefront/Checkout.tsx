@@ -423,7 +423,7 @@ export default function CheckoutPage() {
                 />
               </div>
 
-              <ShippingBlock quote={quote} loading={quoting} onRetry={handleRetryQuote} />
+              <ShippingBlock quote={quote} loading={quoting} onRetry={handleRetryQuote} retryCooldown={retryCooldown} />
             </section>
 
             {/* Payment */}
