@@ -83,8 +83,8 @@ export default function GhnQuoteLogsPage() {
     <div className="space-y-4">
       <PageHeader
         title="Nhật ký báo giá GHN"
-        subtitle="Mỗi lần Checkout hỏi phí GHN sẽ được ghi lại đây để debug và đối soát"
-        action={
+        description="Mỗi lần Checkout hỏi phí GHN sẽ được ghi lại đây để debug và đối soát"
+        actions={
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Làm mới
