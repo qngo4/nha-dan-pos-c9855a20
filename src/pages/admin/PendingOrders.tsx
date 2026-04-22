@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { OrderTimeline } from "@/components/shared/OrderTimeline";
 import { pendingOrders as pendingOrdersService, invoices as invoiceService } from "@/services";
+import { supabase } from "@/integrations/supabase/client";
 import type { PendingOrder, PendingOrderStatus, PaymentMethod } from "@/services/types";
 import { formatVND, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
