@@ -148,6 +148,36 @@ export default function PendingPaymentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, qrAttempt]);
 
+  // Auto-refresh VietQR every 45s while still in pending_payment so banking
+  // apps that cache an "expired" payload always have a fresh code to scan.
+  useEffect(() => {
+    if (autoRefreshTimer.current) {
+      clearInterval(autoRefreshTimer.current);
+      autoRefreshTimer.current = null;
+    }
+    if (
+      !order ||
+      order.paymentMethod !== "bank_transfer" ||
+      order.status !== "pending_payment" ||
+      !bank?.qrEnabled
+    ) {
+      return;
+    }
+    autoRefreshTimer.current = setInterval(() => {
+      setQrAttempt((n) => {
+        const next = n + 1;
+        void regenerateQr(order, bank, next);
+        return next;
+      });
+    }, 45_000);
+    return () => {
+      if (autoRefreshTimer.current) {
+        clearInterval(autoRefreshTimer.current);
+        autoRefreshTimer.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id, order?.status, order?.paymentMethod, bank?.qrEnabled]);
 
   if (loading) {
     return <div className="max-w-xl mx-auto px-4 py-16 text-center text-sm text-muted-foreground">Đang tải...</div>;
