@@ -110,6 +110,10 @@ export interface ShippingQuote {
   usedFallback?: boolean;
   /** Machine-readable reason set when usedFallback=true (e.g. "no_config", "address_unmapped", "ghn_error", "timeout"). */
   fallbackReason?: string;
+  /** Latency in ms of the most recent carrier attempt (success or failure). */
+  latencyMs?: number;
+  /** ISO timestamp of the most recent carrier attempt. */
+  attemptedAt?: ISODateString;
 }
 
 export interface ShippingZoneRule {
@@ -133,6 +137,8 @@ export interface ShippingQuoteInput {
   > & Partial<ShippingAddress>;
   subtotal: Money;
   weightGrams?: number;
+  /** Optional draft order code so admin log rows can be traced to an order. */
+  orderCode?: string;
 }
 
 /* ========================= PRODUCT / VARIANT ========================= */
