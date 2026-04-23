@@ -79,7 +79,7 @@ export class GhnShippingAdapter implements ShippingService {
   }
 
   async quote(input: ShippingQuoteInput): Promise<ShippingQuote> {
-    const { address, subtotal, weightGrams, orderCode } = input;
+    const { address, subtotal, weightGrams, orderCode, parcel, declaredValue } = input;
     const provinceName = address.provinceName?.trim();
     const districtName = address.districtName?.trim();
     const wardName = address.wardName?.trim();
@@ -88,10 +88,25 @@ export class GhnShippingAdapter implements ShippingService {
       throw new Error("address_incomplete");
     }
 
-    const weight = weightGrams ?? 500;
-    const key = cacheKey(provinceName, districtName, wardName, weight);
-
     const cfg = await this.local.getConfig();
+    const pd = cfg.parcelDefaults;
+    const weight = weightGrams ?? pd?.weightGrams ?? 500;
+    const length = parcel?.length ?? pd?.length ?? 10;
+    const width = parcel?.width ?? pd?.width ?? 10;
+    const height = parcel?.height ?? pd?.height ?? 10;
+
+    let insuranceValue = 0;
+    if (declaredValue !== undefined) {
+      insuranceValue = declaredValue;
+    } else if (pd?.declaredValueMode === "subtotal") {
+      insuranceValue = Math.min(subtotal, 5_000_000);
+    } else if (pd?.declaredValueMode === "fixed") {
+      insuranceValue = Math.min(pd.declaredValueFixed ?? 0, 5_000_000);
+    }
+
+    const key = cacheKey(provinceName, districtName, wardName, weight) +
+      `|${length}x${width}x${height}|${insuranceValue}`;
+
     const freeshipThreshold = pickFreeshipThreshold(cfg, address.provinceCode);
     const freeShip = freeshipThreshold !== undefined && subtotal >= freeshipThreshold;
 
@@ -111,7 +126,7 @@ export class GhnShippingAdapter implements ShippingService {
     const existing = this.inflight.get(key);
     if (existing) return existing;
 
-    const promise = this.fetchAndCache(key, provinceName, districtName, wardName, weight, subtotal, freeShip, orderCode)
+    const promise = this.fetchAndCache(key, provinceName, districtName, wardName, weight, length, width, height, insuranceValue, subtotal, freeShip, orderCode)
       .finally(() => this.inflight.delete(key));
     this.inflight.set(key, promise);
     return promise;
