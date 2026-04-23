@@ -118,6 +118,64 @@ export default function AdminShippingSettings() {
         </span>
       </div>
 
+      <div className="bg-card rounded-lg border p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">Mặc định gói hàng (gửi cho GHN)</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Các giá trị này được gửi tới GHN để tính phí. Kích thước nhỏ hơn → phí thấp hơn (GHN dùng <code>D×R×C/5000</code> để tính khối lượng quy đổi).
+        </p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Dài (cm)</label>
+            <input type="number" min={1} max={200} className={inputCls}
+              value={parcel.length}
+              onChange={(e) => updateParcel({ length: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Rộng (cm)</label>
+            <input type="number" min={1} max={200} className={inputCls}
+              value={parcel.width}
+              onChange={(e) => updateParcel({ width: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Cao (cm)</label>
+            <input type="number" min={1} max={200} className={inputCls}
+              value={parcel.height}
+              onChange={(e) => updateParcel({ height: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Khối lượng mặc định (g)</label>
+            <input type="number" min={1} max={30000} step={100} className={inputCls}
+              value={parcel.weightGrams}
+              onChange={(e) => updateParcel({ weightGrams: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Khai giá / Bảo hiểm</label>
+            <select className={inputCls}
+              value={parcel.declaredValueMode}
+              onChange={(e) => updateParcel({ declaredValueMode: e.target.value as DeclaredValueMode })}>
+              <option value="none">Không khai giá (phí thấp nhất)</option>
+              <option value="subtotal">Theo giá trị đơn hàng</option>
+              <option value="fixed">Số cố định</option>
+            </select>
+          </div>
+          {parcel.declaredValueMode === "fixed" && (
+            <div className="lg:col-span-5">
+              <label className="text-[11px] font-semibold text-muted-foreground">Giá trị khai cố định (đ, tối đa 5.000.000)</label>
+              <input type="number" min={0} max={5_000_000} step={10000} className={inputCls}
+                value={parcel.declaredValueFixed ?? 0}
+                onChange={(e) => updateParcel({ declaredValueFixed: Number(e.target.value) || 0 })} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">{formatVND(parcel.declaredValueFixed ?? 0)}</p>
+            </div>
+          )}
+        </div>
+        <div className="text-[11px] text-muted-foreground bg-muted/40 rounded p-2">
+          💡 Mẹo: để khớp với form ước tính phí trên trang GHN (giaohangnhanh.vn), dùng <b>10×10×10 cm</b> + <b>Không khai giá</b>.
+        </div>
+      </div>
+
       <div className="space-y-3">
         {zones.map((z, idx) => (
           <div
