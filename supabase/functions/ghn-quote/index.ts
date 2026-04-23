@@ -19,6 +19,10 @@ const BodySchema = z.object({
   weightGrams: z.number().int().min(1).max(30000).optional(),
   subtotal: z.number().min(0),
   orderCode: z.string().optional(),
+  length: z.number().int().min(1).max(200).optional(),
+  width: z.number().int().min(1).max(200).optional(),
+  height: z.number().int().min(1).max(200).optional(),
+  insuranceValue: z.number().min(0).max(5_000_000).optional(),
 });
 
 type Province = { ProvinceID: number; ProvinceName: string; NameExtension?: string[] };
