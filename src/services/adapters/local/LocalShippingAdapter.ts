@@ -36,6 +36,13 @@ const DEFAULT_CONFIG: ShippingConfig = {
       provinceCodes: ["*"],
     },
   ],
+  parcelDefaults: {
+    length: 10,
+    width: 10,
+    height: 10,
+    weightGrams: 500,
+    declaredValueMode: "none",
+  },
 };
 
 export class LocalShippingAdapter implements ShippingService {
