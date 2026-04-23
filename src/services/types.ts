@@ -126,8 +126,26 @@ export interface ShippingZoneRule {
   provinceCodes: string[];
 }
 
+export type DeclaredValueMode = "none" | "subtotal" | "fixed";
+
+export interface ShippingParcelDefaults {
+  /** cm */
+  length: number;
+  /** cm */
+  width: number;
+  /** cm */
+  height: number;
+  /** g — fallback weight when cart total weight unknown */
+  weightGrams: number;
+  /** how to compute insurance_value sent to carrier */
+  declaredValueMode: DeclaredValueMode;
+  /** Used when declaredValueMode === "fixed" */
+  declaredValueFixed?: Money;
+}
+
 export interface ShippingConfig {
   zoneRules: ShippingZoneRule[];
+  parcelDefaults?: ShippingParcelDefaults;
 }
 
 export interface ShippingQuoteInput {
@@ -139,6 +157,10 @@ export interface ShippingQuoteInput {
   weightGrams?: number;
   /** Optional draft order code so admin log rows can be traced to an order. */
   orderCode?: string;
+  /** Optional parcel size override (cm). Falls back to ShippingConfig.parcelDefaults. */
+  parcel?: Partial<Pick<ShippingParcelDefaults, "length" | "width" | "height">>;
+  /** Override declared/insurance value sent to carrier. If omitted, derived from config. */
+  declaredValue?: Money;
 }
 
 /* ========================= PRODUCT / VARIANT ========================= */
