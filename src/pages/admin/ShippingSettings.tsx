@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { shipping } from "@/services";
-import type { ShippingConfig, ShippingZoneRule } from "@/services/types";
+import type { ShippingConfig, ShippingParcelDefaults, ShippingZoneRule, DeclaredValueMode } from "@/services/types";
 import { formatVND } from "@/lib/format";
-import { Truck, Plus, Trash2, Save, Loader2, MapPin } from "lucide-react";
+import { Truck, Plus, Trash2, Save, Loader2, MapPin, Package } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
