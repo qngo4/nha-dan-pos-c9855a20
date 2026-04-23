@@ -138,6 +138,10 @@ export class GhnShippingAdapter implements ShippingService {
     districtName: string,
     wardName: string,
     weight: number,
+    length: number,
+    width: number,
+    height: number,
+    insuranceValue: number,
     subtotal: number,
     freeShip: boolean,
     orderCode?: string,
@@ -148,7 +152,7 @@ export class GhnShippingAdapter implements ShippingService {
     let res: InvokeResp;
     try {
       res = (await supabase.functions.invoke("ghn-quote", {
-        body: { provinceName, districtName, wardName, weightGrams: weight, subtotal, orderCode },
+        body: { provinceName, districtName, wardName, weightGrams: weight, subtotal, orderCode, length, width, height, insuranceValue },
       })) as InvokeResp;
     } catch (err) {
       const latencyMs = Date.now() - startedAt;
