@@ -32,6 +32,7 @@ import type {
 } from "@/services/types";
 import { useCart, cartActions } from "@/lib/cart";
 import { AddressSelect, type AddressSelectValue } from "@/components/shared/AddressSelect";
+import { AddressAutocomplete, type GoongResolvedAddress } from "@/components/shared/AddressAutocomplete";
 import { currentCustomerActions, useCurrentCustomer } from "@/lib/current-customer";
 
 const paymentMethods = [
@@ -407,6 +408,32 @@ export default function CheckoutPage() {
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <Field label="Họ và tên *" value={name} onChange={setName} placeholder="Nguyễn Văn A" />
                 <Field label="Số điện thoại *" value={phone} onChange={setPhone} placeholder="0901234567" />
+              </div>
+              <div className="mt-3.5">
+                <AddressAutocomplete
+                  onResolved={(r: GoongResolvedAddress) => {
+                    // Only auto-fill admin fields if Goong gave us at least a province
+                    // and the user hasn't already picked something different manually.
+                    if (r.provinceCode) {
+                      setAddr((prev) => {
+                        const userHasManual = prev.provinceCode || prev.districtCode || prev.wardCode;
+                        if (userHasManual && prev.provinceCode && prev.provinceCode !== r.provinceCode) {
+                          // Preserve manual selection
+                          return prev;
+                        }
+                        return {
+                          provinceCode: r.provinceCode ?? prev.provinceCode,
+                          provinceName: r.provinceName ?? prev.provinceName,
+                          districtCode: r.districtCode ?? prev.districtCode,
+                          districtName: r.districtName ?? prev.districtName,
+                          wardCode: r.wardCode ?? prev.wardCode,
+                          wardName: r.wardName ?? prev.wardName,
+                        };
+                      });
+                    }
+                    if (r.street && !street.trim()) setStreet(r.street);
+                  }}
+                />
               </div>
               <AddressSelect value={addr} onChange={setAddr} className="mt-3.5" />
               <div className="mt-3.5">
