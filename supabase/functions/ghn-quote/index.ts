@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
       );
     }
     parsedBody = parsed.data;
-    const { provinceName, districtName, wardName, weightGrams, subtotal, orderCode } = parsed.data;
+    const { provinceName, districtName, wardName, weightGrams, subtotal, orderCode, length, width, height, insuranceValue } = parsed.data;
 
     const TOKEN = Deno.env.get("GHN_TOKEN");
     const SHOP_ID = Deno.env.get("GHN_SHOP_ID");
