@@ -255,10 +255,10 @@ Deno.serve(async (req) => {
       to_district_id: district.DistrictID,
       to_ward_code: ward.WardCode,
       weight,
-      length: 20,
-      width: 15,
-      height: 10,
-      insurance_value: Math.min(subtotal, 5_000_000),
+      length: length ?? 10,
+      width: width ?? 10,
+      height: height ?? 10,
+      insurance_value: insuranceValue ?? 0,
     };
     if (serviceId) feeBody.service_id = serviceId;
     if (fromDistrictId) feeBody.from_district_id = fromDistrictId;
