@@ -178,23 +178,25 @@ Deno.serve(async (req) => {
 
     const TOKEN = Deno.env.get("GHN_TOKEN");
     const SHOP_ID = Deno.env.get("GHN_SHOP_ID");
+    // GHN_FROM_DISTRICT_ID is optional now. If not set, GHN derives the pickup
+    // district from the shop configured in dashboard (via ShopId header).
     const FROM_DISTRICT = Deno.env.get("GHN_FROM_DISTRICT_ID");
 
-    if (!TOKEN || !SHOP_ID || !FROM_DISTRICT) {
-      const out = { reason: "no_config", message: "GHN secrets not configured" };
+    if (!TOKEN || !SHOP_ID) {
+      const out = { reason: "no_config", message: "GHN_TOKEN / GHN_SHOP_ID not configured" };
       void writeLog({
         provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
         ok: false, ...out, latencyMs: Date.now() - startedAt,
       });
       return failResponse(out.reason, out.message);
     }
-    const fromDistrictId = Number(FROM_DISTRICT);
     const shopId = Number(SHOP_ID);
-    if (!fromDistrictId || !shopId) {
-      const out = { reason: "no_config", message: "GHN_SHOP_ID / GHN_FROM_DISTRICT_ID must be numeric" };
+    if (!shopId) {
+      const out = { reason: "no_config", message: "GHN_SHOP_ID must be numeric" };
       void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
       return failResponse(out.reason, out.message);
     }
+    const fromDistrictId = FROM_DISTRICT ? Number(FROM_DISTRICT) || null : null;
 
     const provinces = await getProvinces(TOKEN);
     const province = matchByName(provinces, provinceName, (p) => p.ProvinceName);
