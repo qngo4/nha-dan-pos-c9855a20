@@ -36,6 +36,13 @@ const DEFAULT_CONFIG: ShippingConfig = {
       provinceCodes: ["*"],
     },
   ],
+  parcelDefaults: {
+    length: 10,
+    width: 10,
+    height: 10,
+    weightGrams: 500,
+    declaredValueMode: "none",
+  },
 };
 
 export class LocalShippingAdapter implements ShippingService {
@@ -73,7 +80,7 @@ export class LocalShippingAdapter implements ShippingService {
       };
     }
 
-    const weight = weightGrams ?? 1000;
+    const weight = weightGrams ?? cfg.parcelDefaults?.weightGrams ?? 1000;
     const surcharge = Math.max(0, Math.ceil((weight - 1000) / 500)) * 3000;
     let fee = rule.baseFee + surcharge;
     const freeShip = rule.freeShipThreshold !== undefined && subtotal >= rule.freeShipThreshold;

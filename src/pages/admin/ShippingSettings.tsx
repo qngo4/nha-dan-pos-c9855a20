@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { shipping } from "@/services";
-import type { ShippingConfig, ShippingZoneRule } from "@/services/types";
+import type { ShippingConfig, ShippingParcelDefaults, ShippingZoneRule, DeclaredValueMode } from "@/services/types";
 import { formatVND } from "@/lib/format";
-import { Truck, Plus, Trash2, Save, Loader2, MapPin } from "lucide-react";
+import { Truck, Plus, Trash2, Save, Loader2, MapPin, Package } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -19,20 +19,34 @@ const emptyZone = (): ShippingZoneRule => ({
   provinceCodes: ["*"],
 });
 
+const DEFAULT_PARCEL: ShippingParcelDefaults = {
+  length: 10,
+  width: 10,
+  height: 10,
+  weightGrams: 500,
+  declaredValueMode: "none",
+};
+
 export default function AdminShippingSettings() {
   const [zones, setZones] = useState<ShippingZoneRule[]>([]);
+  const [parcel, setParcel] = useState<ShippingParcelDefaults>(DEFAULT_PARCEL);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     shipping.getConfig().then((cfg) => {
       setZones(cfg.zoneRules);
+      setParcel(cfg.parcelDefaults ?? DEFAULT_PARCEL);
       setLoading(false);
     });
   }, []);
 
   const updateZone = (idx: number, patch: Partial<ShippingZoneRule>) => {
     setZones((prev) => prev.map((z, i) => (i === idx ? { ...z, ...patch } : z)));
+  };
+
+  const updateParcel = (patch: Partial<ShippingParcelDefaults>) => {
+    setParcel((p) => ({ ...p, ...patch }));
   };
 
   const updateProvinceCodes = (idx: number, raw: string) => {
@@ -58,9 +72,13 @@ export default function AdminShippingSettings() {
         return;
       }
     }
+    if (parcel.length < 1 || parcel.width < 1 || parcel.height < 1 || parcel.weightGrams < 1) {
+      toast.error("Kích thước & khối lượng gói hàng phải > 0");
+      return;
+    }
     setSaving(true);
     try {
-      const cfg: ShippingConfig = { zoneRules: zones };
+      const cfg: ShippingConfig = { zoneRules: zones, parcelDefaults: parcel };
       await shipping.saveConfig(cfg);
       toast.success("Đã lưu cấu hình giao hàng");
     } finally {
@@ -98,6 +116,64 @@ export default function AdminShippingSettings() {
         <span>
           <b>provinceCodes</b> là danh sách mã tỉnh (VD: <code>01,79,74</code>) ngăn cách bằng dấu phẩy. Dùng <code>*</code> làm zone mặc định cho mọi tỉnh chưa được gán.
         </span>
+      </div>
+
+      <div className="bg-card rounded-lg border p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">Mặc định gói hàng (gửi cho GHN)</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Các giá trị này được gửi tới GHN để tính phí. Kích thước nhỏ hơn → phí thấp hơn (GHN dùng <code>D×R×C/5000</code> để tính khối lượng quy đổi).
+        </p>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Dài (cm)</label>
+            <input type="number" min={1} max={200} className={inputCls}
+              value={parcel.length}
+              onChange={(e) => updateParcel({ length: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Rộng (cm)</label>
+            <input type="number" min={1} max={200} className={inputCls}
+              value={parcel.width}
+              onChange={(e) => updateParcel({ width: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Cao (cm)</label>
+            <input type="number" min={1} max={200} className={inputCls}
+              value={parcel.height}
+              onChange={(e) => updateParcel({ height: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Khối lượng mặc định (g)</label>
+            <input type="number" min={1} max={30000} step={100} className={inputCls}
+              value={parcel.weightGrams}
+              onChange={(e) => updateParcel({ weightGrams: Number(e.target.value) || 1 })} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold text-muted-foreground">Khai giá / Bảo hiểm</label>
+            <select className={inputCls}
+              value={parcel.declaredValueMode}
+              onChange={(e) => updateParcel({ declaredValueMode: e.target.value as DeclaredValueMode })}>
+              <option value="none">Không khai giá (phí thấp nhất)</option>
+              <option value="subtotal">Theo giá trị đơn hàng</option>
+              <option value="fixed">Số cố định</option>
+            </select>
+          </div>
+          {parcel.declaredValueMode === "fixed" && (
+            <div className="lg:col-span-5">
+              <label className="text-[11px] font-semibold text-muted-foreground">Giá trị khai cố định (đ, tối đa 5.000.000)</label>
+              <input type="number" min={0} max={5_000_000} step={10000} className={inputCls}
+                value={parcel.declaredValueFixed ?? 0}
+                onChange={(e) => updateParcel({ declaredValueFixed: Number(e.target.value) || 0 })} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">{formatVND(parcel.declaredValueFixed ?? 0)}</p>
+            </div>
+          )}
+        </div>
+        <div className="text-[11px] text-muted-foreground bg-muted/40 rounded p-2">
+          💡 Mẹo: để khớp với form ước tính phí trên trang GHN (giaohangnhanh.vn), dùng <b>10×10×10 cm</b> + <b>Không khai giá</b>.
+        </div>
       </div>
 
       <div className="space-y-3">

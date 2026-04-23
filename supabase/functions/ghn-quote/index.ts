@@ -19,6 +19,10 @@ const BodySchema = z.object({
   weightGrams: z.number().int().min(1).max(30000).optional(),
   subtotal: z.number().min(0),
   orderCode: z.string().optional(),
+  length: z.number().int().min(1).max(200).optional(),
+  width: z.number().int().min(1).max(200).optional(),
+  height: z.number().int().min(1).max(200).optional(),
+  insuranceValue: z.number().min(0).max(5_000_000).optional(),
 });
 
 type Province = { ProvinceID: number; ProvinceName: string; NameExtension?: string[] };
@@ -174,7 +178,7 @@ Deno.serve(async (req) => {
       );
     }
     parsedBody = parsed.data;
-    const { provinceName, districtName, wardName, weightGrams, subtotal, orderCode } = parsed.data;
+    const { provinceName, districtName, wardName, weightGrams, subtotal, orderCode, length, width, height, insuranceValue } = parsed.data;
 
     const TOKEN = Deno.env.get("GHN_TOKEN");
     const SHOP_ID = Deno.env.get("GHN_SHOP_ID");
@@ -251,10 +255,10 @@ Deno.serve(async (req) => {
       to_district_id: district.DistrictID,
       to_ward_code: ward.WardCode,
       weight,
-      length: 20,
-      width: 15,
-      height: 10,
-      insurance_value: Math.min(subtotal, 5_000_000),
+      length: length ?? 10,
+      width: width ?? 10,
+      height: height ?? 10,
+      insurance_value: insuranceValue ?? 0,
     };
     if (serviceId) feeBody.service_id = serviceId;
     if (fromDistrictId) feeBody.from_district_id = fromDistrictId;
