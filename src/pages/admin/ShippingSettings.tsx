@@ -19,20 +19,34 @@ const emptyZone = (): ShippingZoneRule => ({
   provinceCodes: ["*"],
 });
 
+const DEFAULT_PARCEL: ShippingParcelDefaults = {
+  length: 10,
+  width: 10,
+  height: 10,
+  weightGrams: 500,
+  declaredValueMode: "none",
+};
+
 export default function AdminShippingSettings() {
   const [zones, setZones] = useState<ShippingZoneRule[]>([]);
+  const [parcel, setParcel] = useState<ShippingParcelDefaults>(DEFAULT_PARCEL);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     shipping.getConfig().then((cfg) => {
       setZones(cfg.zoneRules);
+      setParcel(cfg.parcelDefaults ?? DEFAULT_PARCEL);
       setLoading(false);
     });
   }, []);
 
   const updateZone = (idx: number, patch: Partial<ShippingZoneRule>) => {
     setZones((prev) => prev.map((z, i) => (i === idx ? { ...z, ...patch } : z)));
+  };
+
+  const updateParcel = (patch: Partial<ShippingParcelDefaults>) => {
+    setParcel((p) => ({ ...p, ...patch }));
   };
 
   const updateProvinceCodes = (idx: number, raw: string) => {
@@ -58,9 +72,13 @@ export default function AdminShippingSettings() {
         return;
       }
     }
+    if (parcel.length < 1 || parcel.width < 1 || parcel.height < 1 || parcel.weightGrams < 1) {
+      toast.error("Kích thước & khối lượng gói hàng phải > 0");
+      return;
+    }
     setSaving(true);
     try {
-      const cfg: ShippingConfig = { zoneRules: zones };
+      const cfg: ShippingConfig = { zoneRules: zones, parcelDefaults: parcel };
       await shipping.saveConfig(cfg);
       toast.success("Đã lưu cấu hình giao hàng");
     } finally {
