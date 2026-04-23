@@ -280,12 +280,12 @@ Deno.serve(async (req) => {
     const etaMax = 4;
     void writeLog({
       provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
-      ok: true, fee, etaMin, etaMax, serviceId: service.service_id,
+      ok: true, fee, etaMin, etaMax, serviceId: serviceId ?? undefined,
       latencyMs: Date.now() - startedAt,
     });
 
     return new Response(
-      JSON.stringify({ ok: true, fee, etaDays: { min: etaMin, max: etaMax }, serviceId: service.service_id }),
+      JSON.stringify({ ok: true, fee, etaDays: { min: etaMin, max: etaMax }, serviceId: serviceId ?? 0 }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
