@@ -178,23 +178,25 @@ Deno.serve(async (req) => {
 
     const TOKEN = Deno.env.get("GHN_TOKEN");
     const SHOP_ID = Deno.env.get("GHN_SHOP_ID");
+    // GHN_FROM_DISTRICT_ID is optional now. If not set, GHN derives the pickup
+    // district from the shop configured in dashboard (via ShopId header).
     const FROM_DISTRICT = Deno.env.get("GHN_FROM_DISTRICT_ID");
 
-    if (!TOKEN || !SHOP_ID || !FROM_DISTRICT) {
-      const out = { reason: "no_config", message: "GHN secrets not configured" };
+    if (!TOKEN || !SHOP_ID) {
+      const out = { reason: "no_config", message: "GHN_TOKEN / GHN_SHOP_ID not configured" };
       void writeLog({
         provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
         ok: false, ...out, latencyMs: Date.now() - startedAt,
       });
       return failResponse(out.reason, out.message);
     }
-    const fromDistrictId = Number(FROM_DISTRICT);
     const shopId = Number(SHOP_ID);
-    if (!fromDistrictId || !shopId) {
-      const out = { reason: "no_config", message: "GHN_SHOP_ID / GHN_FROM_DISTRICT_ID must be numeric" };
+    if (!shopId) {
+      const out = { reason: "no_config", message: "GHN_SHOP_ID must be numeric" };
       void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
       return failResponse(out.reason, out.message);
     }
+    const fromDistrictId = FROM_DISTRICT ? Number(FROM_DISTRICT) || null : null;
 
     const provinces = await getProvinces(TOKEN);
     const province = matchByName(provinces, provinceName, (p) => p.ProvinceName);
@@ -222,34 +224,45 @@ Deno.serve(async (req) => {
 
     const weight = weightGrams ?? 500;
 
-    const services = await ghnFetch<Array<{ service_id: number; service_type_id: number }>>(
-      "/v2/shipping-order/available-services",
-      TOKEN,
-      { shop_id: shopId, from_district: fromDistrictId, to_district: district.DistrictID },
-      "POST",
-    );
-    if (!services?.length) {
-      const out = { reason: "no_service", message: "No GHN service available for this route" };
-      void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
-      return failResponse(out.reason, out.message);
+    // Determine service. If we have a from-district, query available services
+    // for the route. Otherwise default to service_type_id=2 (Hàng nhẹ chuẩn);
+    // GHN will derive the pickup district from the shop config.
+    let serviceId: number | null = null;
+    let serviceTypeId = 2;
+    if (fromDistrictId) {
+      const services = await ghnFetch<Array<{ service_id: number; service_type_id: number }>>(
+        "/v2/shipping-order/available-services",
+        TOKEN,
+        { shop_id: shopId, from_district: fromDistrictId, to_district: district.DistrictID },
+        "POST",
+      );
+      if (!services?.length) {
+        const out = { reason: "no_service", message: "No GHN service available for this route" };
+        void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
+        return failResponse(out.reason, out.message);
+      }
+      const svc = services.find((s) => s.service_type_id === 2) ?? services[0];
+      serviceId = svc.service_id;
+      serviceTypeId = svc.service_type_id;
     }
-    const service = services.find((s) => s.service_type_id === 2) ?? services[0];
+
+    const feeBody: Record<string, unknown> = {
+      service_type_id: serviceTypeId,
+      to_district_id: district.DistrictID,
+      to_ward_code: ward.WardCode,
+      weight,
+      length: 20,
+      width: 15,
+      height: 10,
+      insurance_value: Math.min(subtotal, 5_000_000),
+    };
+    if (serviceId) feeBody.service_id = serviceId;
+    if (fromDistrictId) feeBody.from_district_id = fromDistrictId;
 
     const feeRes = await fetch(`${GHN_BASE}/v2/shipping-order/fee`, {
       method: "POST",
       headers: { Token: TOKEN, ShopId: String(shopId), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        service_id: service.service_id,
-        service_type_id: service.service_type_id,
-        from_district_id: fromDistrictId,
-        to_district_id: district.DistrictID,
-        to_ward_code: ward.WardCode,
-        weight,
-        length: 20,
-        width: 15,
-        height: 10,
-        insurance_value: Math.min(subtotal, 5_000_000),
-      }),
+      body: JSON.stringify(feeBody),
     });
     const feeJson = await feeRes.json();
     if (!feeRes.ok || feeJson.code !== 200) {
@@ -267,12 +280,12 @@ Deno.serve(async (req) => {
     const etaMax = 4;
     void writeLog({
       provinceName, districtName, wardName, weightGrams, subtotal, orderCode,
-      ok: true, fee, etaMin, etaMax, serviceId: service.service_id,
+      ok: true, fee, etaMin, etaMax, serviceId: serviceId ?? undefined,
       latencyMs: Date.now() - startedAt,
     });
 
     return new Response(
-      JSON.stringify({ ok: true, fee, etaDays: { min: etaMin, max: etaMax }, serviceId: service.service_id }),
+      JSON.stringify({ ok: true, fee, etaDays: { min: etaMin, max: etaMax }, serviceId: serviceId ?? 0 }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
