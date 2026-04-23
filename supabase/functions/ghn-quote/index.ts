@@ -190,13 +190,13 @@ Deno.serve(async (req) => {
       });
       return failResponse(out.reason, out.message);
     }
-    const shopId = Number(SHOP_ID);
+    const shopId = Number((SHOP_ID ?? "").replace(/\D/g, ""));
     if (!shopId) {
-      const out = { reason: "no_config", message: "GHN_SHOP_ID must be numeric" };
+      const out = { reason: "no_config", message: `GHN_SHOP_ID must be numeric (got "${SHOP_ID}")` };
       void writeLog({ provinceName, districtName, wardName, weightGrams, subtotal, orderCode, ok: false, ...out, latencyMs: Date.now() - startedAt });
       return failResponse(out.reason, out.message);
     }
-    const fromDistrictId = FROM_DISTRICT ? Number(FROM_DISTRICT) || null : null;
+    const fromDistrictId = FROM_DISTRICT ? Number(FROM_DISTRICT.replace(/\D/g, "")) || null : null;
 
     const provinces = await getProvinces(TOKEN);
     const province = matchByName(provinces, provinceName, (p) => p.ProvinceName);
